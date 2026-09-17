@@ -64,17 +64,22 @@
   }
 }
 .chip {
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: 10.5px;
-  font-weight: 650;
+  padding: 2px 0;
+  font-size: 11.5px;
+  font-weight: 500;
   white-space: nowrap;
-  background: var(--ok-soft);
-  color: #0c5533; /* 8.3:1 on #e8f6ef */
+  color: var(--muted);
+}
+.chip + .chip {
+  padding-left: 10px;
+  border-left: 1px solid var(--line);
 }
 .chip[data-state="warn"] {
+  padding: 2px 8px;
+  border-radius: 6px;
   background: var(--warn-soft);
   color: #6f4a0d;
+  font-weight: 650;
 }
 
 .toolbar {
@@ -397,11 +402,9 @@
   background: #ffffff;
 }
 .stats dt {
-  font-size: 10px;
-  font-weight: 650;
+  font-size: 11px;
+  font-weight: 500;
   color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
 }
 .stats dd {
   font-size: 12.5px;

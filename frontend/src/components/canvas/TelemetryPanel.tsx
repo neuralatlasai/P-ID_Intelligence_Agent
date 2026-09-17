@@ -119,14 +119,14 @@ export function TelemetryPanel({
           data-state={data.quality === "Good" ? "ok" : "warn"}
           title="OPC UA status code of the latest value"
         >
-          Quality: {data.quality.replace("_", " · ")}
+          Quality {data.quality.replace("_", " · ")}
         </span>
         <span
           className={styles.chip}
           data-state={data.health === "Good" ? "ok" : "warn"}
           title="NAMUR NE 107 device status"
         >
-          NE 107: {data.health}
+          NE 107 {data.health}
         </span>
       </header>
 

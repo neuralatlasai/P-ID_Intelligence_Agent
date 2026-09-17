@@ -25,7 +25,7 @@ test.describe("loading a drawing", () => {
     await openCanvas(page);
 
     await expect(page.getByRole("heading", { name: "0.png" })).toBeVisible();
-    await expect(page.getByText("Drawing parsed and indexed")).toBeVisible();
+    await expect(page.getByText("Parsed and indexed")).toBeVisible();
     // The counts are the backend's, restated. A placeholder would not agree with them.
     await expect(page.getByText(/\d+ objects · \d+ connections/).first()).toBeVisible();
     await expect(page.getByRole("img", { name: /P&ID source drawing/ })).toBeVisible();
@@ -227,7 +227,7 @@ test.describe("digital twin", () => {
     await expect(page.getByText(/Shell outlet .* is above its normal band/)).toBeVisible();
 
     await page.getByRole("button", { name: "Show on drawing" }).click();
-    await expect(page.getByText("Drawing parsed and indexed")).toBeVisible();
+    await expect(page.getByText("Parsed and indexed")).toBeVisible();
 
     const results = await new AxeBuilder({ page }).include("main").analyze();
     expect(results.violations).toEqual([]);

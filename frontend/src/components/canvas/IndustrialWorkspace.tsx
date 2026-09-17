@@ -596,7 +596,7 @@ export function IndustrialWorkspace({
             placeholder="Search by class, name or source id…"
           />
         </label>
-        <span className={styles.badge}>
+        <span className={styles.sourceMode}>
           {sourceMode === "backend" ? "Backend corpus" : "Offline demonstration"}
         </span>
       </header>
@@ -748,50 +748,25 @@ export function IndustrialWorkspace({
         <section className={styles.center} aria-label={`${view} workspace`}>
           <div className={styles.documentBar}>
             <DocumentIcon />
+            {/* The sheet's facts are stated here once; nothing below repeats them. */}
             <div>
               <h1>{sheet}</h1>
-              <p>{folder}</p>
-            </div>
-            <span className={`${styles.badge} ${styles.indexed}`}>
-              Indexed · {equipment.length} equipment
-            </span>
-            <button onClick={onReconnect}>Refresh source</button>
-          </div>
-
-          <div className={styles.ready} hidden={view === "Twin"}>
-            <CheckIcon size={22} />
-            <div>
-              <strong>
-                {sourceMode === "backend"
-                  ? "Drawing parsed and indexed"
-                  : "Offline source fixture"}
-              </strong>
               <p>
-                {drawing.nodes.length} objects · {drawing.edges.length} connections.{" "}
-                {namedCount > 0
-                  ? `Objects classified, connectivity reconstructed, and ${namedCount} plant tags read from the drawing.`
-                  : "Objects classified and connectivity reconstructed. Read the printed tags to name them."}
+                {folder} · {drawing.nodes.length} objects · {drawing.edges.length}{" "}
+                connections · {drawing.directed ? "directed" : "undirected"} graph
               </p>
             </div>
-            {namedCount === 0 && (
+            <span className={styles.sourceState} data-offline={sourceMode !== "backend" || undefined}>
+              <i aria-hidden="true" />
+              {sourceMode === "backend" ? "Parsed and indexed" : "Offline fixture"}
+              {namedCount > 0 ? ` · ${namedCount} tags read` : ""}
+            </span>
+            {namedCount === 0 && view !== "Twin" && (
               <button className={styles.primary} onClick={readTags}>
-                Read tags from drawing
+                Read tags
               </button>
             )}
-            <dl className={styles.readyStats}>
-              <div>
-                <dt>Objects</dt>
-                <dd>{drawing.nodes.length}</dd>
-              </div>
-              <div>
-                <dt>Equipment</dt>
-                <dd>{equipment.length}</dd>
-              </div>
-              <div>
-                <dt>Connections</dt>
-                <dd>{drawing.edges.length}</dd>
-              </div>
-            </dl>
+            <button onClick={onReconnect}>Refresh source</button>
           </div>
 
           {view === "Canvas" && (
@@ -1116,52 +1091,20 @@ export function IndustrialWorkspace({
           </div>
 
           <div hidden={agentTab !== "Overview"} className={styles.overview}>
-            <h3>Inputs received</h3>
-            <div className={styles.stats}>
-              <button onClick={() => setView("Files")} title="Open the source library">
-                <DocumentIcon />
-                <strong>1</strong>
-                <small>Drawing</small>
-              </button>
-              <button
-                title="List the equipment and instruments"
-                onClick={() => {
-                  setClassFilter(null);
-                  setQuery("");
-                  setView("Canvas");
-                }}
-              >
-                <GraphIcon />
-                <strong>{equipment.length}</strong>
-                <small>Equipment</small>
-              </button>
-              <button
-                aria-pressed={connections}
-                title="Show the connections on the drawing"
-                onClick={() => {
-                  setConnections((value) => !value);
-                  setView("Canvas");
-                }}
-              >
-                <GraphIcon />
-                <strong>{drawing.edges.length}</strong>
-                <small>Connections</small>
-              </button>
-            </div>
-
-            <h3>Contextualisation</h3>
+            <h3>Processing</h3>
             <ol className={styles.steps}>
               <Step done n={1} title="Load drawing raster">
                 {drawing.width} × {drawing.height} px from{" "}
                 {sourceMode === "backend" ? "the corpus" : "the bundled fixture"}
               </Step>
               <Step done n={2} title="Reconstruct topology">
-                {drawing.nodes.length} objects · {drawing.edges.length} connections ·{" "}
-                {drawing.directed ? "directed" : "undirected"}
+                From {drawing.source.split("/").at(-1)}
+                {drawing.unpositioned
+                  ? ` · ${drawing.unpositioned} objects without a position`
+                  : " · every object positioned"}
               </Step>
               <Step done n={3} title="Classify symbols">
-                {equipment.length} equipment and instruments across {classCounts.length}{" "}
-                classes
+                {classCounts.length} drawing classes mapped to ISA-5.1 functions
               </Step>
               <Step
                 n={4}
@@ -1187,19 +1130,6 @@ export function IndustrialWorkspace({
                 <dt>Topology file</dt>
                 <dd className={`${styles.plain} ${styles.mono}`}>
                   {drawing.source.split("/").at(-1)}
-                </dd>
-              </div>
-              <div>
-                <dt>Graph direction</dt>
-                <dd className={styles.plain}>
-                  {drawing.directed ? "Directed" : "Undirected"}
-                </dd>
-              </div>
-              <div>
-                <dt>Positioned objects</dt>
-                <dd className={styles.plain}>
-                  {drawing.nodes.length - (drawing.unpositioned ?? 0)} of{" "}
-                  {drawing.nodes.length}
                 </dd>
               </div>
             </dl>
@@ -1384,9 +1314,12 @@ function Step({
 }) {
   return (
     <li className={done ? styles.stepDone : styles.stepPending}>
-      <span aria-hidden="true">{done ? "✓" : n}</span>
+      <span aria-hidden="true">{n}</span>
       <div>
-        <strong>{title}</strong>
+        <strong>
+          {title}
+          <em>{done ? "Done" : "Pending"}</em>
+        </strong>
         <p>
           <span className="srOnly">{done ? "Complete. " : "Not run. "}</span>
           {children}

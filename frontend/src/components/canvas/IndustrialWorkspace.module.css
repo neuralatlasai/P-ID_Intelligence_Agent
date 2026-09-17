@@ -72,12 +72,12 @@
   letter-spacing: -0.004em;
   color: var(--ink);
 }
+/* Section labels are sentence case. Tracked capitals on every label read as decoration. */
 .workspace h3 {
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.085em;
-  text-transform: uppercase;
-  color: var(--faint);
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0;
+  color: var(--muted);
   margin: 20px 0 10px;
 }
 .workspace small {
@@ -368,16 +368,9 @@
 .search input::placeholder {
   color: var(--faint);
 }
-.badge {
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.055em;
-  text-transform: uppercase;
-  background: #eef1f6;
-  color: #4a5668; /* 7.4:1 */
-  padding: 5px 10px;
-  border-radius: 999px;
-  border: 1px solid #e0e5ec;
+.sourceMode {
+  font-size: 11.5px;
+  color: var(--muted);
   white-space: nowrap;
 }
 
@@ -458,11 +451,10 @@
   margin: 2px 2px 7px;
 }
 .sectionHeading h2 {
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.085em;
-  text-transform: uppercase;
-  color: var(--faint);
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0;
+  color: var(--muted);
 }
 .workspace .clearFilter {
   font-size: 10.5px;
@@ -474,12 +466,10 @@
   color: var(--accent-deep);
 }
 .sectionHeading span {
-  font-size: 10.5px;
-  font-weight: 650;
+  font-size: 11.5px;
+  font-weight: 500;
   color: var(--muted);
-  background: #f1f4f9;
-  border-radius: 999px;
-  padding: 2px 8px;
+  font-variant-numeric: tabular-nums;
 }
 
 .workspace .inputCard {
@@ -773,90 +763,62 @@
   gap: 12px;
   padding: 11px 15px;
   border-bottom: 1px solid var(--line-soft);
-  background: linear-gradient(180deg, #ffffff, #fcfdfe);
+  background: #ffffff;
 }
 .documentBar > svg {
   flex-shrink: 0;
-  color: var(--accent);
-  background: var(--accent-soft);
-  border: 1px solid var(--accent-line);
-  border-radius: 9px;
-  padding: 8px;
-  box-sizing: content-box;
-  width: 17px;
-  height: 17px;
+  color: var(--muted);
+  width: 18px;
+  height: 18px;
 }
 .documentBar > div {
   min-width: 0;
 }
 .documentBar p {
-  color: var(--faint);
-  font-size: 11px;
-  margin-top: 3px;
-  font-family: ui-monospace, "SFMono-Regular", "Cascadia Mono", Menlo, monospace;
+  color: var(--muted);
+  font-size: 11.5px;
+  margin-top: 2px;
+  font-variant-numeric: tabular-nums;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .documentBar button {
-  margin-left: auto;
   flex-shrink: 0;
   font-size: 11.5px;
 }
-.documentBar .badge {
+/* Source state: a dot and a word, in the bar's own type, pushing the actions right. */
+.sourceState {
   margin-left: auto;
-}
-
-/* Source-connected banner. Icon + wording carry the state; the tint reinforces it. */
-.ready {
-  flex: none;
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 12px;
-  background: linear-gradient(90deg, var(--ok-soft), rgba(232, 246, 239, 0.35));
-  border: 1px solid var(--ok-line);
-  border-radius: var(--radius-sm);
+  gap: 6px;
+  font-size: 11.5px;
   color: var(--body);
-  margin: 12px 13px 0;
-  padding: 10px 13px;
+  white-space: nowrap;
 }
-.ready > svg {
-  flex-shrink: 0;
-  color: #ffffff;
-  background: var(--ok);
+.sourceState i {
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-  padding: 5px;
-  box-sizing: content-box;
-  width: 12px;
-  height: 12px;
+  background: var(--ok);
 }
-.ready strong {
-  font-size: 12px;
-  color: #0c5533; /* 8.3:1 on #e8f6ef */
+.sourceState[data-offline] i {
+  background: var(--faint);
 }
-.ready p {
-  font-size: 11px;
-  margin-top: 2px;
-  color: #3a4a5f; /* 8.0:1 on #e8f6ef */
-}
-.ready > span {
-  margin-left: auto;
-  padding-left: 14px;
-  border-left: 1px solid var(--ok-line);
-  font-weight: 700;
-  font-size: 19px;
-  color: var(--ok);
-  text-align: center;
-  line-height: 1.1;
-}
-.ready small {
-  display: block;
-  margin-top: 2px;
-  font-weight: 650;
-  font-size: 9.5px;
-  letter-spacing: 0.075em;
-  text-transform: uppercase;
-  color: #3a4a5f;
+/* Narrow: the state keeps its word and drops to its own line under the sheet name. */
+@container (max-width: 640px) {
+  .documentBar {
+    flex-wrap: wrap;
+  }
+  .documentBar > div {
+    flex: 1 1 60%;
+  }
+  .sourceState {
+    order: 3;
+    flex-basis: 100%;
+    margin-left: 0;
+  }
 }
 
 /* ------------------------------------------------------- the drawing stage */
@@ -1417,7 +1379,8 @@
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 13px;
-  align-items: start;
+  /* Cards in a row share a height, so the row reads as one band rather than a skyline. */
+  align-items: stretch;
 }
 .panel {
   padding-bottom: 13px;
@@ -1432,11 +1395,10 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.085em;
-  text-transform: uppercase;
-  color: var(--faint);
+  font-size: 12.5px;
+  font-weight: 650;
+  letter-spacing: 0;
+  color: var(--ink);
 }
 .panel .panelHeader svg {
   color: var(--accent);
@@ -2056,54 +2018,7 @@
   background: color-mix(in srgb, var(--swatch) 16%, transparent);
 }
 
-/* The parsed-source banner carries the counts on its right, like a readiness strip. */
-.ready {
-  flex-wrap: wrap;
-}
-.ready > div {
-  flex: 1 1 260px;
-  min-width: 0;
-}
-.readyStats {
-  display: flex;
-  gap: 20px;
-  margin-left: auto;
-  padding-left: 18px;
-  border-left: 1px solid var(--ok-line);
-  text-align: right;
-}
-@container (max-width: 640px) {
-  .readyStats {
-    margin-left: 0;
-    padding-left: 0;
-    border-left: 0;
-    text-align: left;
-    flex-basis: 100%;
-  }
-}
-.readyStats dt {
-  font-size: 9.5px;
-  font-weight: 700;
-  letter-spacing: 0.075em;
-  text-transform: uppercase;
-  color: #3a4a5f; /* 8.0:1 on #e8f6ef */
-}
-.readyStats dd {
-  font-size: 19px;
-  font-weight: 680;
-  letter-spacing: -0.02em;
-  font-variant-numeric: tabular-nums;
-  color: var(--ok);
-  line-height: 1.15;
-}
-.workspace .indexed {
-  margin-left: auto;
-  background: var(--ok-soft);
-  border-color: var(--ok-line);
-  color: #0c5533; /* 8.3:1 on #e8f6ef */
-}
-
-/* Contextualisation pipeline. A tick or a number, plus a word — never a colour alone. */
+/* Processing pipeline. A number and a state word — never a colour alone. */
 .steps {
   margin: 10px 0 4px;
 }
@@ -2134,17 +2049,33 @@
   z-index: 1;
 }
 .stepDone > span {
-  background: var(--ok-soft);
-  color: var(--ok);
-  box-shadow: inset 0 0 0 1px var(--ok-line);
-}
-.stepPending > span {
-  background: #f1f3f7;
-  color: var(--faint);
+  background: #ffffff;
+  color: var(--muted);
   box-shadow: inset 0 0 0 1px var(--line);
 }
+.stepPending > span {
+  background: #fdf5e4;
+  color: #6f4a0d; /* 6.9:1 */
+  box-shadow: inset 0 0 0 1px #ecd8ac;
+}
+.steps li > div {
+  flex: 1;
+  min-width: 0;
+}
 .steps strong {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
   font-size: 11.5px;
+}
+.steps strong em {
+  font-style: normal;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.stepPending strong em {
+  color: #6f4a0d;
 }
 .stepPending strong {
   color: var(--muted);

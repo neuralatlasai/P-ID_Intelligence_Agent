@@ -6,19 +6,27 @@
 
 /* ── shared chips ─────────────────────────────────────────────────────────────────────── */
 
+/* Provenance, stated quietly: a hatched swatch and a word, not another pill. */
 .simulated {
   display: inline-flex;
   align-items: center;
-  padding: 2px 7px;
-  border-radius: 999px;
-  border: 1px solid #ecd8ac;
-  background: #fdf5e4;
+  gap: 5px;
   color: #6f4a0d; /* 6.9:1 */
-  font-size: 9.5px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-size: 11px;
+  font-weight: 500;
   white-space: nowrap;
+}
+.simulated::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  border: 1px solid #c9a35a;
+  background: repeating-linear-gradient(
+    135deg,
+    #e7c98f 0 1.5px,
+    transparent 1.5px 3px
+  );
 }
 
 .chip {
@@ -409,49 +417,23 @@
 }
 
 /* Per-row source: real corpus content or the simulated register. */
-.sourceTag {
+/* The same hatched swatch the panel header's "Simulated" label carries: a key, not a word. */
+.sourceTag,
+.panel .tree .sourceTag {
   flex: none;
   display: inline-block;
-  min-width: 42px;
-  margin-right: 7px;
-  padding: 1px 5px;
-  border-radius: 4px;
-  font-size: 9px;
-  font-weight: 700;
-  line-height: 14px;
-  letter-spacing: 0.04em;
-  text-align: center;
-  text-transform: uppercase;
-  vertical-align: 1px;
-}
-.sourceTag[data-source="corpus"] {
-  background: #e8f5ee;
-  color: #0c5533; /* 8.4:1 */
-}
-.sourceTag[data-source="simulated"] {
-  background: #fdf5e4;
-  color: #6f4a0d; /* 6.9:1 */
+  width: 8px;
+  height: 8px;
+  min-height: 0;
+  margin: 0 7px 0 0;
+  padding: 0;
+  float: none;
+  border-radius: 2px;
+  border: 1px solid #c9a35a;
+  background: repeating-linear-gradient(135deg, #e7c98f 0 1.5px, transparent 1.5px 3px);
+  vertical-align: 0;
 }
 /* The tree styles every span as a full-width row; a source tag stays an inline chip. */
-.panel .tree .sourceTag {
-  display: inline-block;
-  width: auto;
-  min-height: 0;
-  padding: 1px 5px;
-  border-radius: 4px;
-  font-size: 9px;
-  line-height: 14px;
-  vertical-align: middle;
-  margin-top: -2px;
-}
-.panel .tree .sourceTag[data-source="corpus"] {
-  background: #e8f5ee;
-  color: #0c5533;
-}
-.panel .tree .sourceTag[data-source="simulated"] {
-  background: #fdf5e4;
-  color: #6f4a0d;
-}
 .fileMeta {
   flex: none;
   display: inline-flex;
@@ -721,28 +703,24 @@
 .panel .summary button:hover {
   background: #f1f4fa;
 }
-.check {
-  flex: none;
-  width: 16px;
-  height: 16px;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  background: #0f6b41;
-  color: #ffffff;
-  font-size: 9px;
-  font-weight: 800;
-}
-.check[data-pending] {
-  background: #8a5a0f;
-}
 .summary button > strong {
   flex: none;
-  min-width: 40px;
+  min-width: 46px;
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 650;
   color: var(--ink);
   font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.summary button > strong[data-pending] {
+  color: #6f4a0d;
+}
+.summaryText span em {
+  margin-left: 8px;
+  font-style: normal;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #6f4a0d;
 }
 .summaryText {
   flex: 1;
