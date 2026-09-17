@@ -1,0 +1,1211 @@
+<?xml version='1.0' encoding='utf-8'?>
+<graphml xmlns="http://graphml.graphdrawing.org/xmlns" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://graphml.graphdrawing.org/xmlns http://graphml.graphdrawing.org/xmlns/1.0/graphml.xsd">
+  <key id="d9" for="edge" attr.name="edge_label" attr.type="string" />
+  <key id="d8" for="node" attr.name="ymax" attr.type="long" />
+  <key id="d7" for="node" attr.name="xmax" attr.type="long" />
+  <key id="d6" for="node" attr.name="ymin" attr.type="long" />
+  <key id="d5" for="node" attr.name="xmin" attr.type="long" />
+  <key id="d4" for="node" attr.name="ymax" attr.type="double" />
+  <key id="d3" for="node" attr.name="xmax" attr.type="double" />
+  <key id="d2" for="node" attr.name="ymin" attr.type="double" />
+  <key id="d1" for="node" attr.name="xmin" attr.type="double" />
+  <key id="d0" for="node" attr.name="label" attr.type="string" />
+  <graph edgedefault="undirected">
+    <node id="valve1">
+      <data key="d0">valve</data>
+      <data key="d1">6191.0</data>
+      <data key="d2">1271.0</data>
+      <data key="d3">6251.0</data>
+      <data key="d4">1371.0</data>
+    </node>
+    <node id="crossing2">
+      <data key="d0">crossing</data>
+      <data key="d5">6217</data>
+      <data key="d6">1438</data>
+      <data key="d7">6225</data>
+      <data key="d8">1446</data>
+    </node>
+    <node id="crossing3">
+      <data key="d0">crossing</data>
+      <data key="d5">6150</data>
+      <data key="d6">1438</data>
+      <data key="d7">6158</data>
+      <data key="d8">1446</data>
+    </node>
+    <node id="crossing4">
+      <data key="d0">crossing</data>
+      <data key="d5">6150</data>
+      <data key="d6">2707</data>
+      <data key="d7">6158</data>
+      <data key="d8">2715</data>
+    </node>
+    <node id="crossing5">
+      <data key="d0">crossing</data>
+      <data key="d5">6083</data>
+      <data key="d6">2707</data>
+      <data key="d7">6091</data>
+      <data key="d8">2715</data>
+    </node>
+    <node id="crossing6">
+      <data key="d0">crossing</data>
+      <data key="d5">6083</data>
+      <data key="d6">2888</data>
+      <data key="d7">6091</data>
+      <data key="d8">2896</data>
+    </node>
+    <node id="general7">
+      <data key="d0">general</data>
+      <data key="d1">6161.0</data>
+      <data key="d2">2796.0</data>
+      <data key="d3">6281.0</data>
+      <data key="d4">2988.0</data>
+    </node>
+    <node id="general8">
+      <data key="d0">general</data>
+      <data key="d1">1933.0</data>
+      <data key="d2">364.0</data>
+      <data key="d3">2043.0</data>
+      <data key="d4">466.0</data>
+    </node>
+    <node id="crossing9">
+      <data key="d0">crossing</data>
+      <data key="d5">1850</data>
+      <data key="d6">411</data>
+      <data key="d7">1858</data>
+      <data key="d8">419</data>
+    </node>
+    <node id="crossing10">
+      <data key="d0">crossing</data>
+      <data key="d5">1850</data>
+      <data key="d6">1921</data>
+      <data key="d7">1858</data>
+      <data key="d8">1929</data>
+    </node>
+    <node id="crossing11">
+      <data key="d0">crossing</data>
+      <data key="d5">1984</data>
+      <data key="d6">1921</data>
+      <data key="d7">1992</data>
+      <data key="d8">1929</data>
+    </node>
+    <node id="general12">
+      <data key="d0">general</data>
+      <data key="d1">1340.0</data>
+      <data key="d2">2823.0</data>
+      <data key="d3">1428.0</data>
+      <data key="d4">2960.0</data>
+    </node>
+    <node id="crossing13">
+      <data key="d0">crossing</data>
+      <data key="d5">1245</data>
+      <data key="d6">2888</data>
+      <data key="d7">1253</data>
+      <data key="d8">2896</data>
+    </node>
+    <node id="crossing14">
+      <data key="d0">crossing</data>
+      <data key="d5">1245</data>
+      <data key="d6">3069</data>
+      <data key="d7">1253</data>
+      <data key="d8">3077</data>
+    </node>
+    <node id="crossing15">
+      <data key="d0">crossing</data>
+      <data key="d5">1380</data>
+      <data key="d6">3069</data>
+      <data key="d7">1388</data>
+      <data key="d8">3077</data>
+    </node>
+    <node id="general16">
+      <data key="d0">general</data>
+      <data key="d1">1284.0</data>
+      <data key="d2">3159.0</data>
+      <data key="d3">1484.0</data>
+      <data key="d4">3229.0</data>
+    </node>
+    <node id="crossing17">
+      <data key="d0">crossing</data>
+      <data key="d5">4403</data>
+      <data key="d6">1921</data>
+      <data key="d7">4411</data>
+      <data key="d8">1929</data>
+    </node>
+    <node id="pump18">
+      <data key="d0">pump</data>
+      <data key="d1">1345.0</data>
+      <data key="d2">3751.0</data>
+      <data key="d3">1422.0</data>
+      <data key="d4">3846.0</data>
+    </node>
+    <node id="valve19">
+      <data key="d0">valve</data>
+      <data key="d1">1348.0</data>
+      <data key="d2">4033.0</data>
+      <data key="d3">1419.0</data>
+      <data key="d4">4168.0</data>
+    </node>
+    <node id="general20">
+      <data key="d0">general</data>
+      <data key="d1">5565.0</data>
+      <data key="d2">1489.0</data>
+      <data key="d3">5668.0</data>
+      <data key="d4">1757.0</data>
+    </node>
+    <node id="tank21">
+      <data key="d0">tank</data>
+      <data key="d1">5540.0</data>
+      <data key="d2">2456.0</data>
+      <data key="d3">5693.0</data>
+      <data key="d4">2724.0</data>
+    </node>
+    <node id="crossing22">
+      <data key="d0">crossing</data>
+      <data key="d5">5612</data>
+      <data key="d6">2767</data>
+      <data key="d7">5620</data>
+      <data key="d8">2775</data>
+    </node>
+    <node id="crossing23">
+      <data key="d0">crossing</data>
+      <data key="d5">2723</data>
+      <data key="d6">2767</data>
+      <data key="d7">2731</data>
+      <data key="d8">2775</data>
+    </node>
+    <node id="crossing24">
+      <data key="d0">crossing</data>
+      <data key="d5">2723</data>
+      <data key="d6">2586</data>
+      <data key="d7">2731</data>
+      <data key="d8">2594</data>
+    </node>
+    <node id="general25">
+      <data key="d0">general</data>
+      <data key="d1">2513.0</data>
+      <data key="d2">2494.0</data>
+      <data key="d3">2673.0</data>
+      <data key="d4">2686.0</data>
+    </node>
+    <node id="valve26">
+      <data key="d0">valve</data>
+      <data key="d1">5000.0</data>
+      <data key="d2">1901.0</data>
+      <data key="d3">5024.0</data>
+      <data key="d4">1950.0</data>
+    </node>
+    <node id="crossing27">
+      <data key="d0">crossing</data>
+      <data key="d5">5008</data>
+      <data key="d6">2042</data>
+      <data key="d7">5016</data>
+      <data key="d8">2050</data>
+    </node>
+    <node id="crossing28">
+      <data key="d0">crossing</data>
+      <data key="d5">4403</data>
+      <data key="d6">2042</data>
+      <data key="d7">4411</data>
+      <data key="d8">2050</data>
+    </node>
+    <node id="crossing29">
+      <data key="d0">crossing</data>
+      <data key="d5">4403</data>
+      <data key="d6">1317</data>
+      <data key="d7">4411</data>
+      <data key="d8">1325</data>
+    </node>
+    <node id="general30">
+      <data key="d0">general</data>
+      <data key="d1">4357.0</data>
+      <data key="d2">997.0</data>
+      <data key="d3">4457.0</data>
+      <data key="d4">1040.0</data>
+    </node>
+    <node id="general31">
+      <data key="d0">general</data>
+      <data key="d1">4954.0</data>
+      <data key="d2">1578.0</data>
+      <data key="d3">5070.0</data>
+      <data key="d4">1668.0</data>
+    </node>
+    <node id="general32">
+      <data key="d0">general</data>
+      <data key="d1">720.0</data>
+      <data key="d2">3091.0</data>
+      <data key="d3">837.0</data>
+      <data key="d4">3297.0</data>
+    </node>
+    <node id="crossing33">
+      <data key="d0">crossing</data>
+      <data key="d5">775</data>
+      <data key="d6">3371</data>
+      <data key="d7">783</data>
+      <data key="d8">3379</data>
+    </node>
+    <node id="crossing34">
+      <data key="d0">crossing</data>
+      <data key="d5">976</data>
+      <data key="d6">3371</data>
+      <data key="d7">984</data>
+      <data key="d8">3379</data>
+    </node>
+    <node id="crossing35">
+      <data key="d0">crossing</data>
+      <data key="d5">976</data>
+      <data key="d6">3311</data>
+      <data key="d7">984</data>
+      <data key="d8">3319</data>
+    </node>
+    <node id="crossing36">
+      <data key="d0">crossing</data>
+      <data key="d5">1380</data>
+      <data key="d6">3311</data>
+      <data key="d7">1388</data>
+      <data key="d8">3319</data>
+    </node>
+    <node id="crossing37">
+      <data key="d0">crossing</data>
+      <data key="d5">3530</data>
+      <data key="d6">1317</data>
+      <data key="d7">3538</data>
+      <data key="d8">1325</data>
+    </node>
+    <node id="crossing38">
+      <data key="d0">crossing</data>
+      <data key="d5">3530</data>
+      <data key="d6">1498</data>
+      <data key="d7">3538</data>
+      <data key="d8">1506</data>
+    </node>
+    <node id="crossing39">
+      <data key="d0">crossing</data>
+      <data key="d5">2589</data>
+      <data key="d6">1498</data>
+      <data key="d7">2597</data>
+      <data key="d8">1506</data>
+    </node>
+    <node id="general40">
+      <data key="d0">general</data>
+      <data key="d1">2478.0</data>
+      <data key="d2">1243.0</data>
+      <data key="d3">2708.0</data>
+      <data key="d4">1399.0</data>
+    </node>
+    <node id="general41">
+      <data key="d0">general</data>
+      <data key="d1">4349.0</data>
+      <data key="d2">2254.0</data>
+      <data key="d3">4465.0</data>
+      <data key="d4">2321.0</data>
+    </node>
+    <node id="crossing42">
+      <data key="d0">crossing</data>
+      <data key="d5">4403</data>
+      <data key="d6">2163</data>
+      <data key="d7">4411</data>
+      <data key="d8">2171</data>
+    </node>
+    <node id="crossing43">
+      <data key="d0">crossing</data>
+      <data key="d5">5142</data>
+      <data key="d6">2163</data>
+      <data key="d7">5150</data>
+      <data key="d8">2171</data>
+    </node>
+    <node id="crossing44">
+      <data key="d0">crossing</data>
+      <data key="d5">5142</data>
+      <data key="d6">1498</data>
+      <data key="d7">5150</data>
+      <data key="d8">1506</data>
+    </node>
+    <node id="crossing45">
+      <data key="d0">crossing</data>
+      <data key="d5">5008</data>
+      <data key="d6">1498</data>
+      <data key="d7">5016</data>
+      <data key="d8">1506</data>
+    </node>
+    <node id="crossing46">
+      <data key="d0">crossing</data>
+      <data key="d5">4873</data>
+      <data key="d6">1498</data>
+      <data key="d7">4881</data>
+      <data key="d8">1506</data>
+    </node>
+    <node id="crossing47">
+      <data key="d0">crossing</data>
+      <data key="d5">4873</data>
+      <data key="d6">1921</data>
+      <data key="d7">4881</data>
+      <data key="d8">1929</data>
+    </node>
+    <node id="crossing48">
+      <data key="d0">crossing</data>
+      <data key="d5">5344</data>
+      <data key="d6">1317</data>
+      <data key="d7">5352</data>
+      <data key="d8">1325</data>
+    </node>
+    <node id="crossing49">
+      <data key="d0">crossing</data>
+      <data key="d5">5344</data>
+      <data key="d6">1196</data>
+      <data key="d7">5352</data>
+      <data key="d8">1204</data>
+    </node>
+    <node id="crossing50">
+      <data key="d0">crossing</data>
+      <data key="d5">6217</data>
+      <data key="d6">1196</data>
+      <data key="d7">6225</data>
+      <data key="d8">1204</data>
+    </node>
+    <node id="crossing51">
+      <data key="d0">crossing</data>
+      <data key="d5">1984</data>
+      <data key="d6">3069</data>
+      <data key="d7">1992</data>
+      <data key="d8">3077</data>
+    </node>
+    <node id="crossing52">
+      <data key="d0">crossing</data>
+      <data key="d5">2052</data>
+      <data key="d6">3069</data>
+      <data key="d7">2060</data>
+      <data key="d8">3077</data>
+    </node>
+    <node id="crossing53">
+      <data key="d0">crossing</data>
+      <data key="d5">6351</data>
+      <data key="d6">3069</data>
+      <data key="d7">6359</data>
+      <data key="d8">3077</data>
+    </node>
+    <node id="crossing54">
+      <data key="d0">crossing</data>
+      <data key="d5">6351</data>
+      <data key="d6">2888</data>
+      <data key="d7">6359</data>
+      <data key="d8">2896</data>
+    </node>
+    <node id="valve55">
+      <data key="d0">valve</data>
+      <data key="d1">1979.0</data>
+      <data key="d2">3476.0</data>
+      <data key="d3">1998.0</data>
+      <data key="d4">3516.0</data>
+    </node>
+    <node id="crossing56">
+      <data key="d0">crossing</data>
+      <data key="d5">1984</data>
+      <data key="d6">3613</data>
+      <data key="d7">1992</data>
+      <data key="d8">3621</data>
+    </node>
+    <node id="crossing57">
+      <data key="d0">crossing</data>
+      <data key="d5">775</data>
+      <data key="d6">3613</data>
+      <data key="d7">783</data>
+      <data key="d8">3621</data>
+    </node>
+    <node id="pump58">
+      <data key="d0">pump</data>
+      <data key="d1">725.0</data>
+      <data key="d2">3453.0</data>
+      <data key="d3">833.0</data>
+      <data key="d4">3539.0</data>
+    </node>
+    <node id="pump59">
+      <data key="d0">pump</data>
+      <data key="d1">3155.0</data>
+      <data key="d2">676.0</data>
+      <data key="d3">3240.0</data>
+      <data key="d4">758.0</data>
+    </node>
+    <node id="crossing60">
+      <data key="d0">crossing</data>
+      <data key="d5">3059</data>
+      <data key="d6">713</data>
+      <data key="d7">3067</data>
+      <data key="d8">721</data>
+    </node>
+    <node id="crossing61">
+      <data key="d0">crossing</data>
+      <data key="d5">3059</data>
+      <data key="d6">894</data>
+      <data key="d7">3067</data>
+      <data key="d8">902</data>
+    </node>
+    <node id="crossing62">
+      <data key="d0">crossing</data>
+      <data key="d5">2992</data>
+      <data key="d6">894</data>
+      <data key="d7">3000</data>
+      <data key="d8">902</data>
+    </node>
+    <node id="crossing63">
+      <data key="d0">crossing</data>
+      <data key="d5">2992</data>
+      <data key="d6">1015</data>
+      <data key="d7">3000</data>
+      <data key="d8">1023</data>
+    </node>
+    <node id="general64">
+      <data key="d0">general</data>
+      <data key="d1">3080.0</data>
+      <data key="d2">983.0</data>
+      <data key="d3">3315.0</data>
+      <data key="d4">1054.0</data>
+    </node>
+    <node id="crossing65">
+      <data key="d0">crossing</data>
+      <data key="d5">5612</data>
+      <data key="d6">1438</data>
+      <data key="d7">5620</data>
+      <data key="d8">1446</data>
+    </node>
+    <node id="crossing66">
+      <data key="d0">crossing</data>
+      <data key="d5">5008</data>
+      <data key="d6">1438</data>
+      <data key="d7">5016</data>
+      <data key="d8">1446</data>
+    </node>
+    <node id="crossing67">
+      <data key="d0">crossing</data>
+      <data key="d5">1380</data>
+      <data key="d6">3674</data>
+      <data key="d7">1388</data>
+      <data key="d8">3682</data>
+    </node>
+    <node id="crossing68">
+      <data key="d0">crossing</data>
+      <data key="d5">1111</data>
+      <data key="d6">3674</data>
+      <data key="d7">1119</data>
+      <data key="d8">3682</data>
+    </node>
+    <node id="crossing69">
+      <data key="d0">crossing</data>
+      <data key="d5">1111</data>
+      <data key="d6">3794</data>
+      <data key="d7">1119</data>
+      <data key="d8">3802</data>
+    </node>
+    <node id="general70">
+      <data key="d0">general</data>
+      <data key="d1">711.0</data>
+      <data key="d2">3698.0</data>
+      <data key="d3">847.0</data>
+      <data key="d4">3899.0</data>
+    </node>
+    <node id="crossing71">
+      <data key="d0">crossing</data>
+      <data key="d5">3328</data>
+      <data key="d6">713</data>
+      <data key="d7">3336</data>
+      <data key="d8">721</data>
+    </node>
+    <node id="crossing72">
+      <data key="d0">crossing</data>
+      <data key="d5">3328</data>
+      <data key="d6">834</data>
+      <data key="d7">3336</data>
+      <data key="d8">842</data>
+    </node>
+    <node id="crossing73">
+      <data key="d0">crossing</data>
+      <data key="d5">3798</data>
+      <data key="d6">834</data>
+      <data key="d7">3806</data>
+      <data key="d8">842</data>
+    </node>
+    <node id="pump74">
+      <data key="d0">pump</data>
+      <data key="d1">3760.0</data>
+      <data key="d2">662.0</data>
+      <data key="d3">3844.0</data>
+      <data key="d4">771.0</data>
+    </node>
+    <node id="crossing75">
+      <data key="d0">crossing</data>
+      <data key="d5">641</data>
+      <data key="d6">3794</data>
+      <data key="d7">649</data>
+      <data key="d8">3802</data>
+    </node>
+    <node id="crossing76">
+      <data key="d0">crossing</data>
+      <data key="d5">641</data>
+      <data key="d6">3371</data>
+      <data key="d7">649</data>
+      <data key="d8">3379</data>
+    </node>
+    <node id="crossing77">
+      <data key="d0">crossing</data>
+      <data key="d5">2052</data>
+      <data key="d6">2888</data>
+      <data key="d7">2060</data>
+      <data key="d8">2896</data>
+    </node>
+    <node id="crossing78">
+      <data key="d0">crossing</data>
+      <data key="d5">2052</data>
+      <data key="d6">3371</data>
+      <data key="d7">2060</data>
+      <data key="d8">3379</data>
+    </node>
+    <node id="crossing79">
+      <data key="d0">crossing</data>
+      <data key="d5">1984</data>
+      <data key="d6">3371</data>
+      <data key="d7">1992</data>
+      <data key="d8">3379</data>
+    </node>
+    <node id="crossing80">
+      <data key="d0">crossing</data>
+      <data key="d5">4000</data>
+      <data key="d6">1015</data>
+      <data key="d7">4008</data>
+      <data key="d8">1023</data>
+    </node>
+    <node id="crossing81">
+      <data key="d0">crossing</data>
+      <data key="d5">4000</data>
+      <data key="d6">894</data>
+      <data key="d7">4008</data>
+      <data key="d8">902</data>
+    </node>
+    <node id="crossing82">
+      <data key="d0">crossing</data>
+      <data key="d5">4403</data>
+      <data key="d6">894</data>
+      <data key="d7">4411</data>
+      <data key="d8">902</data>
+    </node>
+    <node id="connector83">
+      <data key="d0">connector</data>
+      <data key="d5">6217</data>
+      <data key="d6">1367</data>
+      <data key="d7">6225</data>
+      <data key="d8">1375</data>
+    </node>
+    <node id="connector84">
+      <data key="d0">connector</data>
+      <data key="d5">6217</data>
+      <data key="d6">1267</data>
+      <data key="d7">6225</data>
+      <data key="d8">1275</data>
+    </node>
+    <node id="connector85">
+      <data key="d0">connector</data>
+      <data key="d5">6157</data>
+      <data key="d6">2888</data>
+      <data key="d7">6165</data>
+      <data key="d8">2896</data>
+    </node>
+    <node id="connector86">
+      <data key="d0">connector</data>
+      <data key="d5">6277</data>
+      <data key="d6">2888</data>
+      <data key="d7">6285</data>
+      <data key="d8">2896</data>
+    </node>
+    <node id="connector87">
+      <data key="d0">connector</data>
+      <data key="d5">1929</data>
+      <data key="d6">411</data>
+      <data key="d7">1937</data>
+      <data key="d8">419</data>
+    </node>
+    <node id="connector88">
+      <data key="d0">connector</data>
+      <data key="d5">1336</data>
+      <data key="d6">2888</data>
+      <data key="d7">1344</data>
+      <data key="d8">2896</data>
+    </node>
+    <node id="connector89">
+      <data key="d0">connector</data>
+      <data key="d5">1424</data>
+      <data key="d6">2888</data>
+      <data key="d7">1432</data>
+      <data key="d8">2896</data>
+    </node>
+    <node id="connector90">
+      <data key="d0">connector</data>
+      <data key="d5">1380</data>
+      <data key="d6">3155</data>
+      <data key="d7">1388</data>
+      <data key="d8">3163</data>
+    </node>
+    <node id="connector91">
+      <data key="d0">connector</data>
+      <data key="d5">1380</data>
+      <data key="d6">3225</data>
+      <data key="d7">1388</data>
+      <data key="d8">3233</data>
+    </node>
+    <node id="connector92">
+      <data key="d0">connector</data>
+      <data key="d5">1380</data>
+      <data key="d6">3842</data>
+      <data key="d7">1388</data>
+      <data key="d8">3850</data>
+    </node>
+    <node id="connector93">
+      <data key="d0">connector</data>
+      <data key="d5">1380</data>
+      <data key="d6">4029</data>
+      <data key="d7">1388</data>
+      <data key="d8">4037</data>
+    </node>
+    <node id="connector94">
+      <data key="d0">connector</data>
+      <data key="d5">1380</data>
+      <data key="d6">3747</data>
+      <data key="d7">1388</data>
+      <data key="d8">3755</data>
+    </node>
+    <node id="connector95">
+      <data key="d0">connector</data>
+      <data key="d5">5612</data>
+      <data key="d6">1753</data>
+      <data key="d7">5620</data>
+      <data key="d8">1761</data>
+    </node>
+    <node id="connector96">
+      <data key="d0">connector</data>
+      <data key="d5">5612</data>
+      <data key="d6">2452</data>
+      <data key="d7">5620</data>
+      <data key="d8">2460</data>
+    </node>
+    <node id="connector97">
+      <data key="d0">connector</data>
+      <data key="d5">5612</data>
+      <data key="d6">1485</data>
+      <data key="d7">5620</data>
+      <data key="d8">1493</data>
+    </node>
+    <node id="connector98">
+      <data key="d0">connector</data>
+      <data key="d5">5612</data>
+      <data key="d6">2720</data>
+      <data key="d7">5620</data>
+      <data key="d8">2728</data>
+    </node>
+    <node id="connector99">
+      <data key="d0">connector</data>
+      <data key="d5">2669</data>
+      <data key="d6">2586</data>
+      <data key="d7">2677</data>
+      <data key="d8">2594</data>
+    </node>
+    <node id="connector100">
+      <data key="d0">connector</data>
+      <data key="d5">5008</data>
+      <data key="d6">1946</data>
+      <data key="d7">5016</data>
+      <data key="d8">1954</data>
+    </node>
+    <node id="connector101">
+      <data key="d0">connector</data>
+      <data key="d5">5008</data>
+      <data key="d6">1897</data>
+      <data key="d7">5016</data>
+      <data key="d8">1905</data>
+    </node>
+    <node id="connector102">
+      <data key="d0">connector</data>
+      <data key="d5">5008</data>
+      <data key="d6">1664</data>
+      <data key="d7">5016</data>
+      <data key="d8">1672</data>
+    </node>
+    <node id="connector103">
+      <data key="d0">connector</data>
+      <data key="d5">4403</data>
+      <data key="d6">1036</data>
+      <data key="d7">4411</data>
+      <data key="d8">1044</data>
+    </node>
+    <node id="connector104">
+      <data key="d0">connector</data>
+      <data key="d5">4403</data>
+      <data key="d6">993</data>
+      <data key="d7">4411</data>
+      <data key="d8">1001</data>
+    </node>
+    <node id="connector105">
+      <data key="d0">connector</data>
+      <data key="d5">5008</data>
+      <data key="d6">1574</data>
+      <data key="d7">5016</data>
+      <data key="d8">1582</data>
+    </node>
+    <node id="connector106">
+      <data key="d0">connector</data>
+      <data key="d5">775</data>
+      <data key="d6">3293</data>
+      <data key="d7">783</data>
+      <data key="d8">3301</data>
+    </node>
+    <node id="connector107">
+      <data key="d0">connector</data>
+      <data key="d5">775</data>
+      <data key="d6">3449</data>
+      <data key="d7">783</data>
+      <data key="d8">3457</data>
+    </node>
+    <node id="connector108">
+      <data key="d0">connector</data>
+      <data key="d5">2589</data>
+      <data key="d6">1395</data>
+      <data key="d7">2597</data>
+      <data key="d8">1403</data>
+    </node>
+    <node id="connector109">
+      <data key="d0">connector</data>
+      <data key="d5">4403</data>
+      <data key="d6">2250</data>
+      <data key="d7">4411</data>
+      <data key="d8">2258</data>
+    </node>
+    <node id="connector110">
+      <data key="d0">connector</data>
+      <data key="d5">1984</data>
+      <data key="d6">3512</data>
+      <data key="d7">1992</data>
+      <data key="d8">3520</data>
+    </node>
+    <node id="connector111">
+      <data key="d0">connector</data>
+      <data key="d5">1984</data>
+      <data key="d6">3472</data>
+      <data key="d7">1992</data>
+      <data key="d8">3480</data>
+    </node>
+    <node id="connector112">
+      <data key="d0">connector</data>
+      <data key="d5">775</data>
+      <data key="d6">3535</data>
+      <data key="d7">783</data>
+      <data key="d8">3543</data>
+    </node>
+    <node id="connector113">
+      <data key="d0">connector</data>
+      <data key="d5">3151</data>
+      <data key="d6">713</data>
+      <data key="d7">3159</data>
+      <data key="d8">721</data>
+    </node>
+    <node id="connector114">
+      <data key="d0">connector</data>
+      <data key="d5">3236</data>
+      <data key="d6">713</data>
+      <data key="d7">3244</data>
+      <data key="d8">721</data>
+    </node>
+    <node id="connector115">
+      <data key="d0">connector</data>
+      <data key="d5">3076</data>
+      <data key="d6">1015</data>
+      <data key="d7">3084</data>
+      <data key="d8">1023</data>
+    </node>
+    <node id="connector116">
+      <data key="d0">connector</data>
+      <data key="d5">3311</data>
+      <data key="d6">1015</data>
+      <data key="d7">3319</data>
+      <data key="d8">1023</data>
+    </node>
+    <node id="connector117">
+      <data key="d0">connector</data>
+      <data key="d5">843</data>
+      <data key="d6">3794</data>
+      <data key="d7">851</data>
+      <data key="d8">3802</data>
+    </node>
+    <node id="connector118">
+      <data key="d0">connector</data>
+      <data key="d5">707</data>
+      <data key="d6">3794</data>
+      <data key="d7">715</data>
+      <data key="d8">3802</data>
+    </node>
+    <node id="connector119">
+      <data key="d0">connector</data>
+      <data key="d5">3798</data>
+      <data key="d6">767</data>
+      <data key="d7">3806</data>
+      <data key="d8">775</data>
+    </node>
+    <edge source="valve1" target="connector83">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="valve1" target="connector84">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing2" target="crossing3">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing2" target="connector83">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing3" target="crossing4">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing4" target="crossing5">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing5" target="crossing6">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing6" target="connector85">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="general7" target="connector85">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="general7" target="connector86">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="general8" target="connector87">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing9" target="crossing10">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing9" target="connector87">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing10" target="crossing11">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing11" target="crossing17">
+      <data key="d9">non-solid</data>
+    </edge>
+    <edge source="crossing11" target="crossing51">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="general12" target="connector88">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="general12" target="connector89">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing13" target="crossing14">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing13" target="connector88">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing14" target="crossing15">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing15" target="connector90">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="general16" target="connector90">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="general16" target="connector91">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing17" target="crossing28">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing17" target="crossing29">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing17" target="crossing47">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="pump18" target="connector92">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="pump18" target="connector94">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="valve19" target="connector93">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="general20" target="connector95">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="general20" target="connector97">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="tank21" target="connector96">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="tank21" target="connector98">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing22" target="crossing23">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing22" target="connector98">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing23" target="crossing24">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing24" target="connector99">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="general25" target="connector99">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="valve26" target="connector100">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="valve26" target="connector101">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing27" target="crossing28">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing27" target="connector100">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing29" target="crossing37">
+      <data key="d9">non-solid</data>
+    </edge>
+    <edge source="crossing29" target="crossing48">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing29" target="connector103">
+      <data key="d9">non-solid</data>
+    </edge>
+    <edge source="general30" target="connector103">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="general30" target="connector104">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="general31" target="connector102">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="general31" target="connector105">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="general32" target="connector106">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing33" target="crossing34">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing33" target="crossing76">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing33" target="connector106">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing33" target="connector107">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing34" target="crossing35">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing35" target="crossing36">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing36" target="connector91">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing37" target="crossing38">
+      <data key="d9">non-solid</data>
+    </edge>
+    <edge source="crossing38" target="crossing39">
+      <data key="d9">non-solid</data>
+    </edge>
+    <edge source="crossing39" target="connector108">
+      <data key="d9">non-solid</data>
+    </edge>
+    <edge source="general40" target="connector108">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="general41" target="connector109">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing42" target="crossing43">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing42" target="connector109">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing43" target="crossing44">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing44" target="crossing45">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing45" target="crossing66">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing45" target="crossing46">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing45" target="connector105">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing46" target="crossing47">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing48" target="crossing49">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing49" target="crossing50">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing50" target="connector84">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing51" target="crossing52">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing52" target="crossing53">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing52" target="crossing77">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing52" target="crossing78">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing53" target="crossing54">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing54" target="connector86">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="valve55" target="connector110">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="valve55" target="connector111">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing56" target="crossing57">
+      <data key="d9">non-solid</data>
+    </edge>
+    <edge source="crossing56" target="connector110">
+      <data key="d9">non-solid</data>
+    </edge>
+    <edge source="crossing57" target="connector112">
+      <data key="d9">non-solid</data>
+    </edge>
+    <edge source="pump58" target="connector107">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="pump58" target="connector112">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="pump59" target="connector113">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="pump59" target="connector114">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing60" target="crossing61">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing60" target="connector113">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing61" target="crossing62">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing62" target="crossing63">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing63" target="connector115">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="general64" target="connector115">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="general64" target="connector116">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing65" target="crossing66">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing65" target="connector97">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing67" target="crossing68">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing67" target="connector94">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing68" target="crossing69">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing69" target="connector117">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="general70" target="connector117">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="general70" target="connector118">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing71" target="crossing72">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing71" target="connector114">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing72" target="crossing73">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing73" target="connector119">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="pump74" target="connector119">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing75" target="crossing76">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing75" target="connector118">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing77" target="connector89">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing78" target="crossing79">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing79" target="connector111">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing80" target="crossing81">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing80" target="connector116">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing81" target="crossing82">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="crossing82" target="connector104">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="connector92" target="connector93">
+      <data key="d9">non-solid</data>
+    </edge>
+    <edge source="connector95" target="connector96">
+      <data key="d9">solid</data>
+    </edge>
+    <edge source="connector101" target="connector102">
+      <data key="d9">solid</data>
+    </edge>
+  </graph>
+</graphml>
