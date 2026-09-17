@@ -128,9 +128,23 @@ test.describe("live context panels", () => {
       await expect(advance).not.toHaveText(before ?? "");
     }
 
-    // A summary row is a way in, not a label.
-    await page.getByRole("button", { name: /Tagged components/ }).click();
-    await expect(page.getByRole("region", { name: "Assets workspace" })).toBeVisible();
+    // The sheet in the hierarchy opens the drawing itself, marked as corpus source.
+    const hierarchy = page.getByRole("region", { name: "Asset hierarchy" }).or(
+      page.locator("section", { has: page.getByRole("heading", { name: "Asset hierarchy" }) }),
+    );
+    await hierarchy.getByRole("button", { name: /\.png$/ }).first().click();
+    await expect(page.getByRole("dialog")).toContainText("Corpus source");
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+
+    // A summary row is a way in, not a label: "N tagged components" lands on a list of N.
+    const summaryRow = page.getByRole("button", { name: /Tagged components/ });
+    const count = (await summaryRow.locator("strong").first().innerText()).trim();
+    await summaryRow.click();
+    await expect(page.getByRole("region", { name: "Canvas workspace" })).toBeVisible();
+    await expect(page.getByLabel("Drawing objects").locator(":scope > div")).toHaveCount(
+      Number(count),
+    );
   });
 });
 

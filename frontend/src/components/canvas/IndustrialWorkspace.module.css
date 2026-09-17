@@ -562,6 +562,29 @@
   min-height: 160px;
   scrollbar-width: thin;
 }
+.objectList:focus {
+  outline: none;
+}
+/* Arriving from an "every tag" link: one soft outline pulse marks where the list is. */
+.objectList[data-pulse] {
+  animation: listArrive 1.1s ease-out 1;
+  border-radius: 8px;
+}
+@keyframes listArrive {
+  from {
+    box-shadow: inset 0 0 0 2px rgba(37, 99, 235, 0.55);
+    background: rgba(37, 99, 235, 0.05);
+  }
+  to {
+    box-shadow: inset 0 0 0 2px rgba(37, 99, 235, 0);
+    background: transparent;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .objectList[data-pulse] {
+    animation: none;
+  }
+}
 .workspace .objectList button {
   position: relative;
   width: 100%;

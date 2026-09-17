@@ -408,6 +408,63 @@
   color: #a4212b;
 }
 
+/* Per-row source: real corpus content or the simulated register. */
+.sourceTag {
+  flex: none;
+  display: inline-block;
+  min-width: 42px;
+  margin-right: 7px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 14px;
+  letter-spacing: 0.04em;
+  text-align: center;
+  text-transform: uppercase;
+  vertical-align: 1px;
+}
+.sourceTag[data-source="corpus"] {
+  background: #e8f5ee;
+  color: #0c5533; /* 8.4:1 */
+}
+.sourceTag[data-source="simulated"] {
+  background: #fdf5e4;
+  color: #6f4a0d; /* 6.9:1 */
+}
+/* The tree styles every span as a full-width row; a source tag stays an inline chip. */
+.panel .tree .sourceTag {
+  display: inline-block;
+  width: auto;
+  min-height: 0;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 9px;
+  line-height: 14px;
+  vertical-align: middle;
+  margin-top: -2px;
+}
+.panel .tree .sourceTag[data-source="corpus"] {
+  background: #e8f5ee;
+  color: #0c5533;
+}
+.panel .tree .sourceTag[data-source="simulated"] {
+  background: #fdf5e4;
+  color: #6f4a0d;
+}
+.fileMeta {
+  flex: none;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  font-size: 10.5px;
+  color: var(--muted);
+}
+.fileMeta .sourceTag {
+  margin-right: 0;
+}
+
 /* ── hierarchy ────────────────────────────────────────────────────────────────────────── */
 
 .tree {

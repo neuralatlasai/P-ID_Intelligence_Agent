@@ -214,6 +214,10 @@ export function IndustrialWorkspace({
   const [hidden, setHidden] = useState<ReadonlySet<string>>(new Set());
   /** The document open in the viewer, for the selected asset. */
   const [openDocument, setOpenDocument] = useState<AssetDocument>();
+  /** The object list, so a link to "every tag in this unit" can bring it into view. */
+  const objectListRef = useRef<HTMLDivElement>(null);
+  /** Bumped on each such link so the list briefly marks where the reader was taken. */
+  const [listPulse, setListPulse] = useState(0);
   const composer = useRef<ComposerHandle>(null);
   const ask = useRef<(text: string, extra?: readonly string[]) => void>(null);
 
@@ -433,6 +437,24 @@ export function IndustrialWorkspace({
     [drawing, selectedNode, tagsByNode, semanticContext],
   );
 
+  /**
+   * Show every tagged component of the unit: the unfiltered object list on the canvas, which
+   * is exactly the register the "82 tags" figures count. The Assets view is not the target —
+   * it lists only what the selected component is joined to.
+   */
+  const showRegister = (filter: string | null = null) => {
+    setQuery("");
+    setClassFilter(filter);
+    setView("Canvas");
+    setListPulse((value) => value + 1);
+    window.requestAnimationFrame(() => {
+      const list = objectListRef.current;
+      if (!list) return;
+      list.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      list.focus({ preventScroll: true });
+    });
+  };
+
   /** Read the tags around whatever is selected, and fold them into the workspace. */
   const readTags = () => {
     const region = regionAround(
@@ -647,7 +669,14 @@ export function IndustrialWorkspace({
               <span>{filtered.length}</span>
             )}
           </div>
-          <div className={styles.objectList} aria-label="Drawing objects">
+          <div
+            ref={objectListRef}
+            key={listPulse}
+            className={styles.objectList}
+            aria-label="Drawing objects"
+            tabIndex={-1}
+            data-pulse={listPulse > 0 || undefined}
+          >
             {filtered.map((node) => {
               const group = groupOf(node, plant);
               const asset = plant.assets.get(node.id);
@@ -1265,11 +1294,14 @@ export function IndustrialWorkspace({
             name={nameOf(selectedNode)}
             lineNumber={selectedLine?.number}
             onSite={() => setView("Files")}
-            onArea={() => {
-              setQuery("");
-              setClassFilter(null);
-              setView("Assets");
+            onSheet={() => {
+              const drawingDocument = selectedAsset?.documents.find(
+                (document) => !document.simulated && document.format === "PNG",
+              );
+              if (drawingDocument) setOpenDocument(drawingDocument);
+              else setView("Files");
             }}
+            onArea={() => showRegister()}
             onSystem={() => {
               setConnections(true);
               setView("Canvas");
@@ -1296,13 +1328,10 @@ export function IndustrialWorkspace({
             printedTags={namedCount}
             onOpen={(target) => {
               if (target === "components") {
-                setQuery("");
-                setClassFilter(null);
-                setView("Assets");
+                showRegister();
               } else if (target === "loops") {
-                setQuery("");
-                setClassFilter("control-valve");
-                setView("Assets");
+                // One final element per loop: the control valves are the loops' register.
+                showRegister("control-valve");
               } else if (target === "lines") {
                 setConnections(true);
                 setView("Canvas");
