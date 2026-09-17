@@ -67,14 +67,16 @@ test.describe("first load", () => {
     page,
   }) => {
     await page.goto(sessionUrl("empty"));
-    await expect(page.getByRole("heading", { name: "P&ID Intelligence" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "What would you like to analyse?" }),
+    ).toBeVisible();
 
-    const example = page.getByRole("button", { name: /List the equipment shown/ });
+    const example = page.getByRole("button", { name: /Explain one component/ });
     await example.click();
 
     // The example populates the composer. Submitting stays the user's decision.
     await expect(page.getByLabel(/Ask an engineering question/i)).toHaveValue(
-      /List the equipment shown/,
+      /Explain one component in plain language/,
     );
     await expect(page.getByText(/^Elapsed /)).toHaveCount(0);
   });

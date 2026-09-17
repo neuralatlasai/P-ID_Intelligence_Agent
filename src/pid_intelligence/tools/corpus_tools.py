@@ -286,9 +286,11 @@ def build_corpus_tools(
         A whole P&ID sheet loaded at once is downsampled far below the resolution an
         instrument bubble needs: the tag inside a ten-pixel circle becomes unreadable, and
         the correct outcome is then to decline to read it. Use this to lean in instead.
-        When you need the tags across a whole sheet, sweep it in a grid of overlapping
-        tiles of roughly 700x600 source pixels -- twelve tiles cover a 2600x1700 sheet --
-        and read each magnified tile as it arrives.
+        Aim each request at a place the evidence already points to -- a GraphML node's
+        bounding box, a symbol seen on the whole sheet, a region the user named -- and read
+        a handful of regions per question. Every magnified image stays in context for the
+        rest of the run, so sweeping a sheet tile by tile, or searching sheet after sheet
+        for a tag nothing else has located, exhausts the run before it can answer.
 
         Coordinates are in the source image's own pixels with the origin at its top-left
         corner -- the same space the drawing's GraphML records node positions in, so a node

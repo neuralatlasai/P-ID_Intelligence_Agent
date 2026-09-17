@@ -40,7 +40,8 @@ test("review all workspace surfaces for rendering and local clipping", async ({
   }
   for (const stage of ["pretraining", "sft", "rl", "distillation"]) {
     await page.goto(`/model-lab/${stage}`);
-    await expect(page.getByRole("note")).toContainText("Simulated run");
+    // Each stage states what its page simulates, in its own words.
+    await expect(page.getByRole("note")).toContainText(/Simulated/);
     await capture(stage);
   }
   await page.goto("/");

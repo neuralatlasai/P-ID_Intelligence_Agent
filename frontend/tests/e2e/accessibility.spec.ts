@@ -9,6 +9,13 @@ import { expect, test, type Page } from "@playwright/test";
  * they drive the whole product with no pointer at all.
  */
 
+/**
+ * These flows send a real question to the live agent, which reads the corpus before it
+ * answers: a single run takes tens of seconds and longer when the suite runs in parallel.
+ * The same budget as the workspace answer tests, so accessibility is not gated on latency.
+ */
+const ANSWER_TIMEOUT_MS = 180_000;
+
 function sessionUrl(label: string): string {
   return `/s/a11y-${label}-${Date.now().toString(36)}`;
 }
@@ -17,7 +24,7 @@ async function ask(page: Page, question: string): Promise<void> {
   const composer = page.getByLabel(/Ask an engineering question/i);
   await composer.fill(question);
   await composer.press("Enter");
-  await expect(page.getByText(/^Elapsed /).first()).toBeVisible({ timeout: 45_000 });
+  await expect(page.getByText(/^Elapsed /).first()).toBeVisible({ timeout: ANSWER_TIMEOUT_MS });
 }
 
 async function scan(page: Page): Promise<void> {
@@ -38,7 +45,9 @@ async function scan(page: Page): Promise<void> {
 test.describe("automated checks", () => {
   test("empty session has no violations", async ({ page }) => {
     await page.goto(sessionUrl("empty"));
-    await expect(page.getByRole("heading", { name: "P&ID Intelligence" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "What would you like to analyse?" }),
+    ).toBeVisible();
     await scan(page);
   });
 
@@ -79,7 +88,7 @@ test.describe("keyboard", () => {
     await composer.type("What is FCV-2201?");
     await composer.press("Enter");
 
-    await expect(page.getByText(/^Elapsed /).first()).toBeVisible({ timeout: 45_000 });
+    await expect(page.getByText(/^Elapsed /).first()).toBeVisible({ timeout: ANSWER_TIMEOUT_MS });
   });
 
   test("Shift+Enter inserts a newline instead of sending", async ({ page }) => {
@@ -124,7 +133,7 @@ test.describe("keyboard", () => {
 
     // The composer is locked during a run, so focus moves to the Stop control at most —
     // never into the streaming answer, which would fight the user on every token.
-    await expect(page.getByText(/^Elapsed /).first()).toBeVisible({ timeout: 45_000 });
+    await expect(page.getByText(/^Elapsed /).first()).toBeVisible({ timeout: ANSWER_TIMEOUT_MS });
     const focusedRole = await page.evaluate(() => document.activeElement?.tagName ?? "");
     expect(["BODY", "TEXTAREA", "BUTTON"]).toContain(focusedRole);
   });

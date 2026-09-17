@@ -194,26 +194,58 @@ export function useBackendHealth(intervalMs = 300_000): HealthState & {
     checkedAt: null,
   });
   const mountedRef = useRef(true);
+  const retryRef = useRef<{ timer: ReturnType<typeof setTimeout> | null; attempt: number }>(
+    { timer: null, attempt: 0 },
+  );
+  /** The latest `check`, for the retry timer to call without the callback naming itself. */
+  const checkRef = useRef<() => Promise<void>>(async () => {});
 
   const check = useCallback(async (): Promise<void> => {
+    let status: HealthStatus = "down";
     try {
       const response = await fetch("/api/health", { cache: "no-store" });
       const body: unknown = await response.json();
       if (!mountedRef.current) {
         return;
       }
-      const status = readStatus(body);
+      status = readStatus(body);
       setState({
         status,
         corpusFiles: readCorpusFiles(body),
         checkedAt: Date.now(),
       });
     } catch {
-      if (mountedRef.current) {
-        setState({ status: "down", corpusFiles: null, checkedAt: Date.now() });
+      if (!mountedRef.current) {
+        return;
       }
+      setState({ status: "down", corpusFiles: null, checkedAt: Date.now() });
     }
+
+    // A not-ready result locks the composer, so it must not stand for a whole poll
+    // interval: a single slow probe under load would block asking for five minutes. Recheck
+    // soon, backing off 5 s → 10 s → 20 s → 30 s, and return to the slow poll once ready.
+    const retry = retryRef.current;
+    if (retry.timer !== null) {
+      clearTimeout(retry.timer);
+      retry.timer = null;
+    }
+    if (status === "ready") {
+      retry.attempt = 0;
+      return;
+    }
+    const delay = Math.min(30_000, 5_000 * 2 ** retry.attempt);
+    retry.attempt += 1;
+    retry.timer = setTimeout(() => {
+      retry.timer = null;
+      if (typeof document === "undefined" || document.visibilityState === "visible") {
+        void checkRef.current();
+      }
+    }, delay);
   }, []);
+
+  useEffect(() => {
+    checkRef.current = check;
+  }, [check]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -237,9 +269,14 @@ export function useBackendHealth(intervalMs = 300_000): HealthState & {
     };
     document.addEventListener("visibilitychange", onVisible);
 
+    const retry = retryRef.current;
     return () => {
       mountedRef.current = false;
       clearInterval(timer);
+      if (retry.timer !== null) {
+        clearTimeout(retry.timer);
+        retry.timer = null;
+      }
       document.removeEventListener("visibilitychange", onVisible);
     };
   }, [check, intervalMs]);
