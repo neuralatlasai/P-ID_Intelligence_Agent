@@ -1,0 +1,115 @@
+/* Live metrics card. Colour tokens come from the model lab's .app scope. */
+
+.harness {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border: 1px solid var(--line, #e3e8f0);
+  border-radius: 999px;
+  background: var(--blue-soft, #eef4ff);
+  color: var(--blue-deep, #1e40af);
+  font-size: 10.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.note {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 2px 12px;
+  margin: -2px 0 0;
+  padding: 0 14px 6px;
+  font-size: 11px;
+  color: var(--body, #334155);
+  font-variant-numeric: tabular-nums;
+}
+
+.cadence {
+  color: var(--muted, #5b6b82);
+}
+
+.table td {
+  font-variant-numeric: tabular-nums;
+}
+
+.value {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: -1px -4px;
+  padding: 1px 4px;
+  border-radius: 4px;
+}
+
+.value[data-fresh] {
+  animation: landed 1.6s ease-out;
+}
+
+@keyframes landed {
+  0% {
+    background: #fde68a;
+  }
+  100% {
+    background: transparent;
+  }
+}
+
+.verdict {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--amber, #a15c07);
+  white-space: nowrap;
+}
+
+.verdict[data-meets] {
+  color: var(--green, #15803d);
+}
+
+.trend {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--amber, #a15c07);
+  vertical-align: middle;
+}
+
+.trend[data-good] {
+  color: var(--green, #15803d);
+}
+
+.spark {
+  display: block;
+  overflow: visible;
+}
+
+.arrow {
+  font-weight: 700;
+  line-height: 1;
+}
+
+.deltaCell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .value[data-fresh] {
+    animation: none;
+  }
+}

@@ -1,0 +1,273 @@
+/*
+ * Runtime configuration card. Sits in the ~330px right column, so every row is a compact
+ * label/value pair at 12px. Colours come from the .app tokens in ModelLab.module.css.
+ */
+
+.body {
+  display: grid;
+  gap: 8px;
+  padding: 0 14px 12px;
+  font-size: 12px;
+}
+
+.grid {
+  display: grid;
+  margin: 0;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: minmax(84px, 36%) minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+  border-top: 1px solid var(--line-soft, #eef2f7);
+}
+.row:first-child {
+  border-top: 0;
+}
+
+.label {
+  color: #475569; /* 7.6:1 */
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+.value {
+  min-width: 0;
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 6px;
+  color: var(--ink, #0f172a);
+  font-size: 12px;
+}
+
+.select {
+  width: 100%;
+  min-width: 0;
+  min-height: 26px;
+  padding: 2px 22px 2px 6px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background-color: #ffffff;
+  color: var(--ink, #0f172a);
+  font: inherit;
+  font-size: 12px;
+  text-overflow: ellipsis;
+}
+.select:hover {
+  border-color: #94a3b8;
+}
+.select:focus-visible {
+  outline: 2px solid var(--blue, #2563eb);
+  outline-offset: 1px;
+}
+
+.pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 4px;
+  width: 100%;
+}
+
+.hint,
+.sub {
+  color: var(--muted, #5b6b82);
+  font-size: 11px;
+}
+
+.figure {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.figure[data-fit="over"] {
+  color: var(--red, #b91c1c);
+}
+
+.tag {
+  padding: 0 5px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  line-height: 16px;
+}
+.tag[data-tag="live"] {
+  background: var(--green-soft, #dcfce7);
+  color: #166534; /* 6.5:1 on green-soft */
+}
+.tag[data-tag="estimate"] {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.estimateHead {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--line, #e3e8f0);
+}
+.estimateLabel {
+  color: var(--muted, #5b6b82);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.tipWrap {
+  position: relative;
+  display: inline-flex;
+}
+.tipButton {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+}
+.tipButton span {
+  display: grid;
+  place-items: center;
+  width: 15px;
+  height: 15px;
+  border: 1px solid #64748b;
+  border-radius: 50%;
+  color: #475569;
+  font-size: 10px;
+  font-style: italic;
+  font-weight: 700;
+  line-height: 1;
+}
+.tipButton:focus-visible {
+  outline: 2px solid var(--blue, #2563eb);
+  outline-offset: 0;
+}
+.tip {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 4px);
+  right: -60px;
+  width: min(260px, 80vw);
+  padding: 8px 10px;
+  border-radius: 7px;
+  background: #0f172a;
+  color: #f1f5f9;
+  font-size: 11.5px;
+  line-height: 1.45;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.18);
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 120ms ease;
+  pointer-events: none;
+}
+.tipWrap:hover .tip,
+.tipWrap:focus-within .tip {
+  visibility: visible;
+  opacity: 1;
+}
+
+.fitBar {
+  position: relative;
+  display: block;
+  flex-basis: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: #e2e8f0;
+  overflow: hidden;
+}
+.fitBar i {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--green, #15803d);
+  transition: width 200ms ease;
+}
+.fitBar[data-fit="tight"] i {
+  background: #d97706;
+}
+.fitBar[data-fit="over"] i {
+  background: var(--red, #b91c1c);
+}
+.fitWarning {
+  flex-basis: 100%;
+  color: var(--red, #b91c1c);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.pending {
+  display: grid;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1px solid #bfd3fb;
+  border-radius: 7px;
+  background: var(--blue-soft, #eef4ff);
+}
+.pendingText {
+  margin: 0;
+  color: var(--ink, #0f172a);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.apply,
+.discard {
+  min-height: 28px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.apply {
+  flex: 1 1 auto;
+  border: 1px solid var(--blue, #2563eb);
+  background: var(--blue, #2563eb);
+  color: #ffffff !important;
+}
+.apply:hover:not(:disabled) {
+  background: var(--blue-deep, #1e40af);
+}
+.apply:disabled {
+  border-color: #cbd5e1;
+  background: #e2e8f0;
+  color: #475569 !important;
+  cursor: not-allowed !important;
+}
+.discard {
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: var(--ink, #0f172a) !important;
+}
+.discard:hover {
+  background: #f8fafc;
+}
+.apply:focus-visible,
+.discard:focus-visible {
+  outline: 2px solid var(--blue, #2563eb);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tip,
+  .fitBar i {
+    transition: none;
+  }
+}

@@ -1,0 +1,142 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pid-intelligence"
+version = "0.1.0"
+description = "P&ID Intelligence Agent backend built on the OpenAI Agents SDK."
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.11"
+authors = [{ name = "P&ID Intelligence Agent maintainers" }]
+keywords = ["p&id", "engineering", "openai", "agents", "graphml"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Manufacturing",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Typing :: Typed",
+]
+dependencies = [
+    "openai-agents>=0.22.2",
+    "fastapi>=0.115",
+    "pydantic>=2.9",
+    "pydantic-settings>=2.5",
+    "pymupdf>=1.24",
+    "networkx>=3.2",
+]
+
+[project.optional-dependencies]
+server = ["uvicorn[standard]>=0.30"]
+dev = [
+    "httpx>=0.27",
+    "mypy>=1.11",
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "pytest-cov>=5.0",
+    "ruff>=0.6",
+    "uvicorn[standard]>=0.30",
+]
+
+[project.urls]
+Documentation = "https://github.com/neuralatlasai/pid-intelligence#readme"
+Source = "https://github.com/neuralatlasai/pid-intelligence"
+
+[project.scripts]
+pid-intelligence = "pid_intelligence.main:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pid_intelligence"]
+
+[tool.hatch.build.targets.sdist]
+include = ["/src", "/tests", "/docs", "/examples", "/scripts", "/README.md", "/LICENSE"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E", "W",      # pycodestyle
+    "F",           # pyflakes
+    "I",           # isort
+    "N",           # pep8-naming
+    "D",           # pydocstyle (PEP 257)
+    "UP",          # pyupgrade
+    "B",           # bugbear
+    "BLE",         # blind except
+    "T20",         # print calls
+    "A",           # builtins shadowing
+    "C4",          # comprehensions
+    "S",           # bandit security
+    "RET",         # return consistency
+    "SIM",         # simplify
+    "PTH",         # pathlib
+    "TID",         # tidy imports
+    "ARG",         # unused arguments
+    "PL",          # pylint
+    "RUF",
+]
+ignore = [
+    "D203",   # conflicts with D211
+    "D213",   # conflicts with D212
+    "PLR0913",  # argument count is bounded by explicit configuration surfaces
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = [
+    "S101",    # assertions are the point of a test
+    "S105",    # fixture credentials are obvious fakes asserted never to leak
+    "D100", "D101", "D102", "D103", "D104",  # test names state the behaviour under test
+    "PLR2004",  # expected values belong inline in an assertion
+    "ARG001", "ARG002",  # pytest injects fixtures a test may not reference directly
+    "PLC0415",  # narrow imports keep a test's dependencies next to the behaviour it probes
+]
+"tests/performance/**" = ["T201"]  # load characterisation reports its distributions
+"tests/evals/test_gold_set.py" = ["T201"]  # the evaluation harness prints its report
+"examples/**" = ["D", "S101", "T201"]
+"scripts/**" = ["D", "T201"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "parents"
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+files = ["src/pid_intelligence"]
+plugins = []
+warn_unreachable = true
+disallow_any_unimported = false
+show_error_codes = true
+
+untyped_calls_exclude = ["pymupdf"]
+
+[[tool.mypy.overrides]]
+module = ["networkx.*", "fitz", "pymupdf", "pymupdf.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = "-ra --strict-markers --strict-config -m 'not performance and not real_model'"
+markers = [
+    "real_model: requires a live OpenAI API key and performs billed model calls",
+    "performance: load/latency characterisation, excluded from the default gate",
+]
+filterwarnings = ["error::DeprecationWarning:pid_intelligence.*"]
+
+[tool.coverage.run]
+source = ["pid_intelligence"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:", "raise NotImplementedError"]

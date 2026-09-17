@@ -1,0 +1,246 @@
+/*
+ * Document viewer. A modal dialog outside the workspace grid, so it declares the few tokens
+ * it needs. Text ratios are against #ffffff unless noted.
+ */
+
+.dialog {
+  --ink: #141d2b;
+  --body: #31405c;
+  --muted: #5d6b86; /* 5.4:1 */
+  --line: #dde3ec;
+  --line-soft: #ebeef4;
+  --accent: #1d4ed8;
+
+  width: min(980px, calc(100vw - 32px));
+  margin: auto;
+  max-height: calc(100dvh - 40px);
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 30px 60px -20px rgba(18, 30, 54, 0.45);
+  color: var(--body);
+  font-size: 13px;
+}
+.dialog::backdrop {
+  background: rgba(15, 23, 36, 0.48);
+}
+.sheet {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100dvh - 42px);
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 20px 12px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.header small {
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 11px;
+  color: var(--muted);
+}
+.header h2 {
+  font-size: 17px;
+  color: var(--ink);
+  margin: 2px 0;
+}
+.header p {
+  font-size: 12px;
+  color: var(--muted);
+}
+.headerActions {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.headerActions button {
+  border: 1px solid var(--line);
+  background: #ffffff;
+  border-radius: 7px;
+  width: 30px;
+  height: 30px;
+  color: var(--body);
+}
+.real {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #e8f6ef;
+  color: #0c5533;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  padding: 8px 20px 0;
+  border-bottom: 1px solid var(--line);
+  overflow-x: auto;
+}
+.tabs button {
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  padding: 7px 10px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.tabs button:hover {
+  color: var(--ink);
+}
+.tabs button[aria-current="page"] {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+.body {
+  overflow-y: auto;
+  padding: 6px 20px 16px;
+}
+.block h3 {
+  margin: 14px 0 6px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.fields div {
+  display: grid;
+  grid-template-columns: 42% 1fr;
+  border-bottom: 1px solid var(--line-soft);
+}
+.fields dt {
+  padding: 6px 10px;
+  background: #f6f8fb;
+  color: var(--muted);
+  font-size: 11.5px;
+}
+.fields dd {
+  padding: 6px 10px;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 550;
+}
+@media (max-width: 720px) {
+  .fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.tableWrap {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.tableWrap table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.tableWrap th {
+  text-align: left;
+  padding: 6px 10px;
+  background: #f6f8fb;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+.tableWrap td {
+  padding: 6px 10px;
+  border-top: 1px solid var(--line-soft);
+  color: var(--ink);
+}
+.notes {
+  columns: 2;
+  padding-left: 18px;
+  font-size: 12px;
+}
+
+.crop,
+.loop {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+}
+.crop {
+  max-height: 420px;
+}
+.device {
+  fill: #f8fafc;
+  stroke: #31405c;
+  stroke-width: 1.5;
+}
+.wire {
+  stroke: #31405c;
+  stroke-width: 1.5;
+}
+.zone {
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  fill: #5d6b86;
+  font-weight: 700;
+}
+.tag {
+  font-size: 12px;
+  font-weight: 700;
+  fill: #141d2b;
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+.detail {
+  font-size: 9.5px;
+  fill: #5d6b86;
+}
+
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--line-soft);
+  background: #fbfcfe;
+}
+.footer button,
+.footer a {
+  border: 1px solid var(--line);
+  background: #ffffff;
+  border-radius: 7px;
+  padding: 7px 12px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--body);
+  text-decoration: none;
+}
+.footer button:hover,
+.footer a:hover {
+  border-color: #c7d7fb;
+  color: #15307a;
+}
+.footer .primary {
+  background: linear-gradient(180deg, #2a5ce0, #1d4ed8);
+  border-color: #1b45bd;
+  color: #ffffff;
+}
+.footer .primary:hover {
+  color: #ffffff;
+}

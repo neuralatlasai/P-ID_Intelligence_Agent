@@ -1,0 +1,76 @@
+.wrapper {
+  position: relative;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  min-block-size: 0;
+  overflow: hidden;
+}
+
+.turn {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/*
+ * The jump control floats over the transcript rather than displacing it, so appearing and
+ * disappearing never reflows the text the user is reading.
+ *
+ * Floating over prose means it lands on top of a line of text, which is unreadable for
+ * both. The scrim below it fades the last strip of transcript out, so the control sits on
+ * a surface rather than on a sentence — and the fade also signals that there is more below,
+ * which is the thing the control exists to say.
+ */
+.jumpWrap {
+  position: absolute;
+  inset-block-end: 0;
+  inset-inline: 0;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  padding-block-end: var(--space-3);
+  block-size: 92px;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    rgb(from var(--bg-surface) r g b / 0) 0%,
+    rgb(from var(--bg-surface) r g b / 0.82) 46%,
+    var(--bg-surface) 100%
+  );
+}
+
+.jumpWrap > * {
+  pointer-events: auto;
+  border-radius: 999px;
+  box-shadow: var(--shadow-md);
+}
+
+/* Without relative-colour support the scrim is a plain fade to the canvas colour. */
+@supports not (color: rgb(from white r g b / 1)) {
+  .jumpWrap {
+    background: linear-gradient(to bottom, transparent 0%, var(--bg-surface) 78%);
+  }
+}
+
+.historyError {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: 1px solid var(--status-degraded);
+  border-radius: var(--radius-md);
+  background: var(--status-degraded-bg);
+  color: var(--text-secondary);
+  font-size: var(--text-base);
+  line-height: var(--leading-relaxed);
+}
+
+.historyErrorHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--status-degraded);
+  font-weight: var(--weight-semibold);
+  font-size: var(--text-md);
+}

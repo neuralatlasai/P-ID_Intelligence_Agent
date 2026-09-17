@@ -1,0 +1,757 @@
+/*
+ * Asset views. These render inside `.workspace`, so they inherit its tokens (--ink, --muted,
+ * --accent, --ok, --line …) rather than declaring a second palette. Text ratios are against
+ * the surface each rule paints; the dark popover has its own, checked separately.
+ */
+
+/* ── shared chips ─────────────────────────────────────────────────────────────────────── */
+
+.simulated {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 999px;
+  border: 1px solid #ecd8ac;
+  background: #fdf5e4;
+  color: #6f4a0d; /* 6.9:1 */
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 650;
+  white-space: nowrap;
+  background: #eef1f6;
+  color: #3a4659; /* 8.4:1 */
+}
+.chip i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.statusOk {
+  background: #e8f6ef;
+  color: #0c5533; /* 8.3:1 */
+}
+.statusWarn {
+  background: #fdf5e4;
+  color: #6f4a0d; /* 6.9:1 */
+}
+.statusBad {
+  background: #fdedee;
+  color: #a4212b; /* 6.6:1 */
+}
+.statusInfo {
+  background: #eef3ff;
+  color: #1d4ed8; /* 5.9:1 */
+}
+
+.alert {
+  color: #a4212b !important;
+}
+.quiet {
+  color: var(--muted);
+  font-size: 11.5px;
+  line-height: 1.55;
+  padding: 6px 0;
+}
+
+/* ── panel shell ──────────────────────────────────────────────────────────────────────── */
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+  box-shadow: var(--shadow-sm);
+}
+.panel > header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.panel > header h2 {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 650;
+  color: var(--ink);
+  white-space: nowrap;
+}
+.panel > header h2 svg {
+  color: var(--accent);
+}
+.headerAction {
+  margin-left: auto;
+}
+.panelBody {
+  padding: 10px 14px 13px;
+  min-width: 0;
+  overflow: hidden;
+}
+.count {
+  font-size: 10.5px;
+  font-weight: 650;
+  color: #a4212b;
+}
+
+/* ── popover (dark, anchored on the drawing) ──────────────────────────────────────────── */
+
+.popover {
+  pointer-events: auto;
+  width: 344px;
+  max-height: min(420px, var(--card-max, 420px));
+  overflow-y: auto;
+  scrollbar-width: thin;
+  border-radius: 12px;
+  background: #151b28;
+  border: 1px solid #2a3348;
+  box-shadow:
+    0 20px 40px -14px rgba(8, 14, 28, 0.6),
+    0 4px 12px -4px rgba(8, 14, 28, 0.4);
+  color: #d7deec; /* 10.8:1 on #151b28 */
+  font-size: 11.5px;
+}
+.popover > header {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 13px 14px 10px;
+}
+.popover > header strong {
+  display: block;
+  color: #ffffff;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+.popover > header p {
+  margin-top: 2px;
+  color: #a3aec5; /* 6.6:1 */
+}
+.popover > header > button {
+  margin-left: auto;
+  border: 0;
+  border-radius: 7px;
+  padding: 4px 8px;
+  background: #222b3d;
+  color: #c3cddf;
+  font-size: 11px;
+}
+.popoverTop {
+  display: flex;
+  gap: 12px;
+  padding: 0 14px 10px;
+}
+.popoverSummary {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.crop {
+  flex: none;
+  margin: 0;
+}
+.crop > div {
+  width: 104px;
+  height: 104px;
+  border-radius: 8px;
+  background-color: #ffffff;
+  background-repeat: no-repeat;
+  box-shadow: inset 0 0 0 1px #2a3348;
+}
+.crop figcaption {
+  margin-top: 4px;
+  text-align: center;
+  font-size: 9.5px;
+  color: #94a1ba; /* 5.6:1 */
+}
+
+.facts {
+  display: grid;
+  gap: 2px;
+}
+.facts > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+.facts dt {
+  color: #94a1ba; /* 5.6:1 */
+  font-size: 10.5px;
+  white-space: nowrap;
+}
+.facts dd {
+  color: #eef2f9;
+  font-weight: 600;
+  text-align: right;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.popover .chip {
+  align-self: flex-start;
+  background: #1f2a3d;
+  color: #c3cddf;
+}
+.popover .statusOk {
+  background: #10281d;
+  color: #6ee7a8;
+}
+.popover .statusWarn {
+  background: #2e230d;
+  color: #f5c46b;
+}
+.popover .statusBad {
+  background: #34161a;
+  color: #fca5a5;
+}
+.popover .simulated {
+  background: #33260f;
+  border-color: #5a441a;
+  color: #f0cd8a; /* 9.1:1 */
+}
+.popover .alert {
+  color: #fca5a5 !important;
+}
+
+.provenance {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 14px 10px;
+  color: #94a1ba;
+  font-size: 10.5px;
+}
+
+.tagCloud {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding: 0 14px 10px;
+}
+.popover .tagCloud button {
+  border: 1px solid #2f3a52;
+  border-radius: 6px;
+  background: #1c2436;
+  color: #c9d4ea;
+  padding: 3px 7px;
+  font-size: 10.5px;
+  font-family: ui-monospace, "SFMono-Regular", "Cascadia Mono", Menlo, monospace;
+}
+.popover .tagCloud button:hover {
+  background: #26314a;
+  color: #ffffff;
+}
+.tagCloud span {
+  color: #94a1ba;
+  font-size: 10.5px;
+  align-self: center;
+}
+
+.popover > footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px 12px;
+  border-top: 1px solid #262f42;
+}
+.popover > footer > button {
+  border: 1px solid #2f3a52;
+  border-radius: 7px;
+  background: transparent;
+  color: #c9d4ea;
+  padding: 5px 9px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.popover > footer > button:hover {
+  background: #232d40;
+  color: #ffffff;
+}
+.popover > footer > .primaryAction {
+  margin-left: auto;
+  border-color: #3b63d6;
+  background: #2a54c8;
+  color: #ffffff;
+}
+
+/* ── telemetry ────────────────────────────────────────────────────────────────────────── */
+
+.trendHead {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.trendHead > div:first-child {
+  min-width: 0;
+  flex: 1;
+}
+.trendHead strong {
+  display: block;
+  font-size: 12px;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.trendHead small {
+  display: block;
+  color: var(--muted);
+  font-size: 10.5px;
+}
+.windows {
+  display: flex;
+  flex: none;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  overflow: hidden;
+}
+.panel .windows button {
+  border: 0;
+  border-radius: 0;
+  padding: 3px 7px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 10.5px;
+  font-weight: 650;
+}
+.panel .windows button[aria-pressed="true"] {
+  background: var(--accent-soft);
+  color: var(--accent-deep);
+}
+.trendBody {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.trend {
+  flex: 1;
+  min-width: 0;
+  height: auto;
+}
+.band {
+  fill: #e8f6ef;
+}
+.alarmLine {
+  stroke: #e7a1a7;
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+.series {
+  fill: none;
+  stroke: #6d28d9;
+  stroke-width: 1.6;
+  stroke-linejoin: round;
+}
+.axis {
+  font-size: 8.5px;
+  fill: #64748b;
+}
+.reading {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  min-width: 84px;
+}
+.reading strong {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.reading strong small {
+  margin-left: 3px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.reading span {
+  font-size: 10.5px;
+  font-weight: 650;
+}
+.reading > small {
+  font-size: 10px;
+  color: var(--muted);
+}
+.up {
+  color: #0c5533;
+}
+.down {
+  color: #a4212b;
+}
+
+/* ── hierarchy ────────────────────────────────────────────────────────────────────────── */
+
+.tree {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.tree li {
+  position: relative;
+  padding-left: calc(var(--depth) * 12px + 12px);
+}
+.tree li::before {
+  content: "";
+  position: absolute;
+  left: calc(var(--depth) * 12px + 2px);
+  top: 3px;
+  width: 6px;
+  height: 9px;
+  border-left: 1px solid #c9d2df;
+  border-bottom: 1px solid #c9d2df;
+}
+.tree li:first-child::before {
+  display: none;
+}
+.panel .tree button,
+.panel .tree span {
+  display: block;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  min-height: 26px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  color: var(--body);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.panel .tree button:hover {
+  background: #f1f4fa;
+  color: var(--accent-deep);
+}
+.panel .treeLeaf button {
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px var(--accent-line);
+}
+.panel .tree button em {
+  float: right;
+  font-style: normal;
+  font-size: 10px;
+  color: var(--muted);
+  margin-left: 8px;
+}
+.treeLeaf strong {
+  color: var(--accent-deep);
+  font-size: 12px;
+}
+.treeLeaf small {
+  margin-left: 6px;
+  color: var(--accent);
+  font-size: 10.5px;
+}
+
+/* ── files ────────────────────────────────────────────────────────────────────────────── */
+
+.files {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.files li {
+  border-bottom: 1px solid var(--line-soft);
+}
+.files li:last-child {
+  border-bottom: 0;
+}
+.panel .fileRow {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 6px 4px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  text-align: left;
+}
+.panel .fileRow:hover {
+  background: #f1f4fa;
+}
+.panel .fileRow:hover strong {
+  color: var(--accent);
+  text-decoration: underline;
+}
+.fileIcon {
+  flex: none;
+  width: 30px;
+  padding: 5px 0;
+  border-radius: 5px;
+  text-align: center;
+  font-size: 8.5px;
+  font-weight: 800;
+  background: #fdedee;
+  color: #a4212b; /* 6.6:1 */
+}
+.fileIcon[data-format="PNG"] {
+  background: #eef3ff;
+  color: #1d4ed8; /* 5.9:1 */
+}
+.fileText {
+  flex: 1;
+  min-width: 0;
+}
+.fileText strong {
+  display: block;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fileText small {
+  display: block;
+  color: var(--muted);
+  font-size: 10px;
+}
+.fileRow time {
+  flex: none;
+  color: var(--muted);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── work orders ──────────────────────────────────────────────────────────────────────── */
+
+.orders {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+  max-height: 260px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+.orders > li {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfe;
+}
+.orders > li[data-expanded] {
+  border-color: var(--accent-line, #c7d7fb);
+  background: #ffffff;
+}
+.panel .orderToggle {
+  display: grid;
+  gap: 3px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  border-radius: 8px;
+}
+.panel .orderToggle:hover {
+  background: #f1f4fa;
+}
+.orderHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.orderHead strong {
+  font-size: 12px;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.orderTitle {
+  font-size: 11px;
+  color: var(--body);
+}
+.orderMeta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  color: var(--muted);
+}
+.orderDetail {
+  padding: 0 10px 10px;
+  font-size: 11px;
+  color: var(--body);
+}
+.orderDetail p {
+  margin: 2px 0;
+}
+.orderDetail b {
+  display: inline-block;
+  min-width: 74px;
+  color: var(--muted);
+  font-weight: 600;
+}
+.orderDetail ol {
+  margin: 6px 0;
+  padding-left: 16px;
+}
+.orderDocs,
+.orderActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 6px;
+}
+.panel .orderDocs button,
+.panel .orderActions button {
+  padding: 3px 9px;
+  font-size: 10.5px;
+}
+.panel .orderActions .orderPrimary {
+  color: #ffffff;
+  background: #1d4ed8;
+  border-color: #1b45bd;
+}
+.panel .orderActions .orderPrimary:hover {
+  color: #ffffff;
+  background: #1f52e4;
+}
+
+/* ── summary ──────────────────────────────────────────────────────────────────────────── */
+
+.summary {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.summary li {
+  padding: 0;
+}
+.panel .summary button {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 5px 6px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  text-align: left;
+}
+.panel .summary button:hover {
+  background: #f1f4fa;
+}
+.check {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #0f6b41;
+  color: #ffffff;
+  font-size: 9px;
+  font-weight: 800;
+}
+.check[data-pending] {
+  background: #8a5a0f;
+}
+.summary button > strong {
+  flex: none;
+  min-width: 40px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.summaryText {
+  flex: 1;
+  min-width: 0;
+}
+.summaryText span {
+  display: block;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.summaryText small {
+  display: block;
+  font-size: 10px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chevron {
+  flex: none;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1;
+}
+
+/* ── failure modes (agent overview) ───────────────────────────────────────────────────── */
+
+.failures {
+  list-style: none;
+  margin: 8px 0 4px;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.failures li {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfe;
+}
+.failures code {
+  flex: none;
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: #eef1f6;
+  color: #3a4659; /* 8.4:1 */
+  font-size: 10.5px;
+  font-weight: 700;
+}
+.failures li > div {
+  flex: 1;
+  min-width: 0;
+}
+.failures strong {
+  display: block;
+  font-size: 11.5px;
+  color: var(--ink);
+}
+.failures small {
+  display: block;
+  margin-top: 1px;
+  font-size: 10.5px;
+  color: var(--muted);
+  line-height: 1.4;
+}

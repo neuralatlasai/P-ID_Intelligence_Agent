@@ -1,0 +1,118 @@
+/* Sample strip additions: provenance, auto-cycle countdown, policy rollout findings. */
+
+.cycleGroup {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.cycleButton {
+  min-height: 24px;
+  min-width: 24px;
+}
+
+.countdown {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  font-size: 9.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: #15803d;
+}
+.countdown svg {
+  position: absolute;
+  inset: 0;
+  transform: rotate(-90deg);
+}
+.countdown circle {
+  fill: none;
+  stroke-width: 2.5;
+}
+.countdownTrack {
+  stroke: #e3e8f0;
+}
+.countdownArc {
+  stroke: #16a34a;
+  transition: stroke-dashoffset 0.9s linear;
+}
+@media (prefers-reduced-motion: reduce) {
+  .countdownArc {
+    transition: none;
+  }
+}
+
+.provenance {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 8px;
+  margin: -2px 14px 6px;
+  font-size: 10.5px;
+  color: #5b6b82;
+  font-variant-numeric: tabular-nums;
+}
+.provenance code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10.5px;
+  color: #334155;
+}
+.split {
+  padding: 0 6px;
+  border-radius: 4px;
+  background: #eef4ff;
+  color: #1e40af;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+.split[data-split="val"] {
+  background: #fef3c7;
+  color: #854d0e;
+}
+.sep {
+  color: #94a3b8;
+}
+
+.overallFail {
+  background: #fef2f2 !important;
+}
+
+.rollout {
+  margin-top: 6px;
+  padding-top: 5px;
+  border-top: 1px solid #eef2f7;
+  font-size: 10.5px;
+  line-height: 1.4;
+  color: #334155;
+}
+.rollout strong {
+  font-weight: 650;
+  color: #0f172a;
+}
+.findings {
+  display: grid;
+  gap: 2px;
+  margin: 3px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.findings li {
+  display: flex;
+  gap: 5px;
+  align-items: baseline;
+}
+.findings li::before {
+  content: "✕";
+  flex: none;
+  font-size: 9px;
+  color: #b91c1c;
+}
+.findings li[data-caught]::before {
+  content: "✓";
+  color: #15803d;
+}
+.clean {
+  color: #15803d;
+}

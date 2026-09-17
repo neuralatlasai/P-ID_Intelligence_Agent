@@ -1,0 +1,19 @@
+node_modules/
+.next/
+.releases/
+out/
+build/
+coverage/
+playwright-report/
+test-results/
+.vercel/
+*.tsbuildinfo
+next-env.d.ts
+
+# Local configuration. Only .env.example is committed.
+.env
+.env.local
+.env.*.local
+
+.DS_Store
+*.log

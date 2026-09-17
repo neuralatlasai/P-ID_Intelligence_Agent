@@ -1,0 +1,50 @@
+.base {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 30px;
+  block-size: 30px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  transition:
+    background-color var(--duration-fast) var(--easing-standard),
+    color var(--duration-fast) var(--easing-standard);
+}
+
+.base:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.base:disabled {
+  opacity: 0.45;
+}
+
+.bordered {
+  border-color: var(--border-default);
+  background: var(--bg-surface);
+}
+
+.pressed {
+  background: var(--accent-action-subtle);
+  color: var(--accent-action);
+}
+
+/*
+ * The control stays 30px so the header keeps its density; on a coarse pointer a
+ * pseudo-element extends the hit area to the 44px minimum without changing the layout.
+ */
+@media (pointer: coarse) {
+  .base::after {
+    content: "";
+    position: absolute;
+    inset-block-start: 50%;
+    inset-inline-start: 50%;
+    inline-size: var(--touch-target-min);
+    block-size: var(--touch-target-min);
+    transform: translate(-50%, -50%);
+  }
+}

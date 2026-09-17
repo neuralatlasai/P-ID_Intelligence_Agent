@@ -1,0 +1,166 @@
+/*
+ * Design tokens.
+ *
+ * Every colour, radius, spacing step and duration used by the application is declared here.
+ * Components reference tokens, never raw values, so a visual decision is made in one place
+ * and a future dark mode is a matter of redefining this block rather than auditing the
+ * component tree.
+ *
+ * The palette is calibrated against the supplied product reference: a cool near-white
+ * canvas, bright white content surfaces, low-contrast borders, one blue action accent, and
+ * status colours reserved for semantic state. Foreground/background pairs used for text
+ * meet the WCAG 2.2 AA contrast target.
+ */
+
+:root {
+  color-scheme: light;
+
+  /* -- Surfaces ------------------------------------------------------------ */
+  --bg-canvas: #f4f6fb;
+  --bg-surface: #ffffff;
+  --bg-subtle: #f7f9fc;
+  --bg-sunken: #eef2f8;
+  --bg-hover: #eff3fa;
+  --bg-selected: #e4ecfb;
+  --bg-inverse: #1b2333;
+
+  /* -- Text ---------------------------------------------------------------- */
+  /* 15.6:1 on surface */
+  --text-primary: #15202e;
+  /* 7.2:1 on surface */
+  --text-secondary: #4a5668;
+  /*
+   * 5.1:1 on the lightest surface this is used on, and above 4.5:1 on every other.
+   * Metadata only, never body copy. The earlier value cleared 4.5:1 on pure white but
+   * failed on the subtle and sunken surfaces where most metadata actually sits.
+   */
+  --text-tertiary: #596374;
+  --text-inverse: #f7f9fc;
+  --text-link: #1c4fb5;
+
+  /* -- Borders ------------------------------------------------------------- */
+  --border-subtle: #e3e9f2;
+  --border-default: #d3dbe8;
+  --border-strong: #b6c2d4;
+  --border-focus: #1f5fd0;
+
+  /* -- Accents ------------------------------------------------------------- */
+  --accent-action: #1f5fd0;
+  --accent-action-hover: #1a51b3;
+  --accent-action-active: #164494;
+  --accent-action-subtle: #e8eefc;
+  --accent-info: #3d6bb5;
+
+  /* -- Status -------------------------------------------------------------- */
+  /* Each status has a text-safe foreground and a wash for its surface. */
+  --status-ready: #16703f;
+  --status-ready-bg: #e6f4ec;
+  --status-degraded: #8a5a0f;
+  --status-degraded-bg: #fdf3e0;
+  --status-down: #b3261e;
+  --status-down-bg: #fdecea;
+  --status-unknown: #596374;
+  --status-unknown-bg: #eef1f6;
+
+  /* -- Evidence classes ---------------------------------------------------- */
+  /*
+   * These mirror the backend's evidence vocabulary exactly. They are presentation only:
+   * the frontend colours a claim the backend has already labelled, and never assigns a
+   * class of its own.
+   */
+  --evidence-observed: #16703f;
+  --evidence-observed-bg: #e6f4ec;
+  --evidence-corroborated: #1f5fd0;
+  --evidence-corroborated-bg: #e8eefc;
+  --evidence-inferred: #6b4fb8;
+  --evidence-inferred-bg: #efeafb;
+  --evidence-conflicting: #b3261e;
+  --evidence-conflicting-bg: #fdecea;
+  --evidence-unknown: #596374;
+  --evidence-unknown-bg: #eef1f6;
+
+  /* -- Radii --------------------------------------------------------------- */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-pill: 999px;
+
+  /* -- Spacing ------------------------------------------------------------- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 28px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* -- Typography ---------------------------------------------------------- */
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+    "Noto Sans", sans-serif;
+  --font-serif: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+  --font-mono:
+    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-base: 13px;
+  --text-md: 14px;
+  --text-lg: 15px;
+  --text-xl: 17px;
+  --text-2xl: 20px;
+  --text-3xl: 26px;
+
+  --leading-tight: 1.3;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.62;
+
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+
+  /* -- Elevation ----------------------------------------------------------- */
+  /* The reference relies on borders and spacing; shadows stay almost invisible. */
+  --shadow-none: none;
+  --shadow-xs: 0 1px 2px rgb(21 32 46 / 6%);
+  --shadow-sm: 0 1px 3px rgb(21 32 46 / 8%);
+  --shadow-md: 0 4px 12px rgb(21 32 46 / 10%);
+  --shadow-lg: 0 12px 32px rgb(21 32 46 / 14%);
+
+  /* -- Motion -------------------------------------------------------------- */
+  /* Functional only. Every consumer must honour prefers-reduced-motion. */
+  --duration-fast: 120ms;
+  --duration-normal: 160ms;
+  --duration-slow: 220ms;
+  --easing-standard: cubic-bezier(0.2, 0, 0.2, 1);
+
+  /* -- Layout -------------------------------------------------------------- */
+  --sidebar-width: 236px;
+  --rail-width: 316px;
+  --header-height: 52px;
+  --frame-max-width: 1560px;
+  --measure-max-width: 74ch;
+  --touch-target-min: 44px;
+
+  /* -- Z-index ------------------------------------------------------------- */
+  --z-base: 0;
+  --z-sticky: 10;
+  /* The scrim sits *below* the drawer it dims. Above it, every tap inside the drawer
+     would hit the scrim and dismiss it, which makes the drawer unusable. */
+  --z-scrim: 30;
+  --z-drawer: 40;
+  --z-dialog: 60;
+  --z-toast: 70;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-fast: 0ms;
+    --duration-normal: 0ms;
+    --duration-slow: 0ms;
+  }
+}

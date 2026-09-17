@@ -1,0 +1,67 @@
+{
+  "name": "pid-intelligence-web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Browser UI and Node gateway for the P&ID Intelligence Agent backend.",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "scripts": {
+    "dev": "node ./node_modules/next/dist/bin/next dev",
+    "build": "node scripts/release.mjs build",
+    "start": "node scripts/release.mjs start",
+    "verify:runtime": "node scripts/verify-runtime.mjs",
+    "typecheck": "node ./node_modules/typescript/bin/tsc --noEmit",
+    "lint": "node ./node_modules/eslint/bin/eslint.js .",
+    "lint:fix": "node ./node_modules/eslint/bin/eslint.js . --fix",
+    "format": "node ./node_modules/prettier/bin/prettier.cjs --write .",
+    "format:check": "node ./node_modules/prettier/bin/prettier.cjs --check .",
+    "test": "node ./node_modules/vitest/vitest.mjs run",
+    "test:watch": "node ./node_modules/vitest/vitest.mjs",
+    "test:coverage": "node ./node_modules/vitest/vitest.mjs run --coverage",
+    "test:e2e": "node ./node_modules/@playwright/test/cli.js test",
+    "test:e2e:install": "node ./node_modules/@playwright/test/cli.js install --with-deps chromium",
+    "gate": "npm run format:check && npm run lint && npm run typecheck && npm run test && npm run build"
+  },
+  "dependencies": {
+    "eventsource-parser": "4.1.0",
+    "next": "16.3.5",
+    "openai": "7.15.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "react-markdown": "10.1.0",
+    "remark-gfm": "4.0.1",
+    "server-only": "0.0.1",
+    "three": "0.186.0"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
+    "@eslint/js": "9.39.5",
+    "@playwright/test": "1.63.0",
+    "@testing-library/dom": "10.4.1",
+    "@testing-library/jest-dom": "6.9.1",
+    "@testing-library/react": "16.3.3",
+    "@testing-library/user-event": "14.6.7",
+    "@types/node": "24.10.1",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@types/three": "0.186.0",
+    "@vitejs/plugin-react": "6.1.1",
+    "@vitest/coverage-v8": "4.1.11",
+    "eslint": "9.39.5",
+    "eslint-config-next": "16.3.5",
+    "jsdom": "30.0.1",
+    "prettier": "3.9.6",
+    "typescript": "5.9.3",
+    "vitest": "4.1.11"
+  },
+  "//scripts": [
+    "Each script invokes its tool's JS entry point through node rather than the generated",
+    "node_modules/.bin shim. The shims are shell and batch files that interpolate their own",
+    "directory unquoted, so a path containing '&' breaks them -- and this project lives under",
+    "'P&ID Intelligence Agent'. Calling node directly is shell- and platform-independent and",
+    "behaves identically everywhere. If the project moves to a path without shell",
+    "metacharacters, these can be simplified back to bare tool names."
+  ]
+}

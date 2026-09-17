@@ -1,0 +1,21 @@
+# Review ownership. Higher-risk modules require a review from the owners listed here.
+#
+# Replace the placeholder team with the real one before enabling branch protection; an
+# unresolvable owner silently disables the requirement it is meant to enforce.
+
+*                                   @neuralatlasai/pid-maintainers
+
+# The model-plane contract, session ownership and the tool privilege surface are the
+# places where a well-meant change can quietly break a guarantee.
+/src/pid_intelligence/agent/        @neuralatlasai/pid-maintainers
+/src/pid_intelligence/memory/       @neuralatlasai/pid-maintainers
+/src/pid_intelligence/tools/        @neuralatlasai/pid-maintainers
+/src/pid_intelligence/guardrails/   @neuralatlasai/pid-maintainers
+/src/pid_intelligence/corpus/paths.py @neuralatlasai/pid-maintainers
+/tests/contract/                    @neuralatlasai/pid-maintainers
+/tests/security/                    @neuralatlasai/pid-maintainers
+
+# Governance and the engineering baseline.
+/standards.md                       @neuralatlasai/pid-maintainers
+/docs/adr/                          @neuralatlasai/pid-maintainers
+/.github/                           @neuralatlasai/pid-maintainers

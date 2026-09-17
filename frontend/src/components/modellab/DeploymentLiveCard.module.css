@@ -1,0 +1,33 @@
+/* Live deployment targets. */
+
+.table th[scope="row"],
+.table td {
+  vertical-align: top;
+}
+
+.name {
+  display: block;
+  font-weight: 500;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.detail {
+  display: block;
+  font-size: 10.5px;
+  font-weight: 400;
+  color: var(--muted);
+  white-space: normal;
+}
+
+.numeric {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.note {
+  margin: 0;
+  padding: 0 14px 12px;
+  font-size: 10.5px;
+  color: var(--muted);
+}

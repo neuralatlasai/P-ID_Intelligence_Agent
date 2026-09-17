@@ -1,0 +1,77 @@
+.header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.stopWrap {
+  margin-inline-start: auto;
+  padding-inline-end: var(--space-2);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-block-start: var(--space-1);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-base);
+  color: var(--text-secondary);
+}
+
+.pipelineNote {
+  margin-block-end: var(--space-2);
+  color: var(--text-tertiary);
+  font-size: var(--text-xs);
+  line-height: var(--leading-relaxed);
+}
+
+.activityText {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-inline-size: 0;
+}
+
+.purpose {
+  color: var(--text-secondary);
+  font-size: var(--text-base);
+}
+
+.rowIcon {
+  flex: none;
+  inline-size: 14px;
+  display: grid;
+  place-items: center;
+}
+
+.complete {
+  color: var(--status-ready);
+}
+
+.failed {
+  color: var(--status-down);
+}
+
+.pending {
+  color: var(--text-tertiary);
+}
+
+.name {
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+}
+
+.connecting {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-base);
+  color: var(--text-secondary);
+}

@@ -1,0 +1,184 @@
+/*
+ * Answer typography.
+ *
+ * The assistant answer is the canonical content surface, so it gets the most care: a
+ * comfortable measure, restrained heading hierarchy, compact but legible tables, and
+ * monospace reserved for engineering identifiers and code.
+ *
+ * Everything here is scoped under `.prose` so model-authored Markdown cannot restyle the
+ * application shell.
+ */
+
+.prose {
+  color: var(--text-primary);
+  font-size: var(--text-md);
+  line-height: var(--leading-relaxed);
+  overflow-wrap: break-word;
+}
+
+.prose > * + * {
+  margin-block-start: var(--space-3);
+}
+
+.prose p {
+  margin: 0;
+  max-inline-size: var(--measure-max-width);
+}
+
+.prose h1,
+.prose h2,
+.prose h3,
+.prose h4,
+.prose h5,
+.prose h6 {
+  margin: 0;
+  color: var(--text-primary);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-tight);
+}
+
+.prose h1 {
+  font-size: var(--text-xl);
+}
+
+.prose h2 {
+  font-size: var(--text-lg);
+}
+
+.prose h3,
+.prose h4,
+.prose h5,
+.prose h6 {
+  font-size: var(--text-md);
+}
+
+.prose > * + :is(h1, h2, h3, h4, h5, h6) {
+  margin-block-start: var(--space-5);
+}
+
+.prose ul,
+.prose ol {
+  margin: 0;
+  padding-inline-start: var(--space-5);
+  max-inline-size: var(--measure-max-width);
+}
+
+.prose li + li {
+  margin-block-start: var(--space-1);
+}
+
+.prose li::marker {
+  color: var(--text-tertiary);
+}
+
+.prose a {
+  color: var(--text-link);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.prose a:hover {
+  text-decoration-thickness: 2px;
+}
+
+.prose strong {
+  font-weight: var(--weight-semibold);
+}
+
+.prose code {
+  padding: 1px 4px;
+  border-radius: var(--radius-xs);
+  background: var(--bg-sunken);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+}
+
+.prose pre {
+  margin: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  overflow-x: auto;
+}
+
+.prose pre code {
+  padding: 0;
+  background: none;
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+}
+
+.prose blockquote {
+  margin: 0;
+  padding-inline-start: var(--space-4);
+  border-inline-start: 2px solid var(--border-default);
+  color: var(--text-secondary);
+}
+
+.prose hr {
+  margin-block: var(--space-5);
+  border: 0;
+  border-block-start: 1px solid var(--border-subtle);
+}
+
+/*
+ * A generated table can be wider than the column. It scrolls inside its own container
+ * rather than forcing the page to scroll horizontally, and the container is focusable so
+ * the scroll is reachable from the keyboard.
+ */
+.tableScroll {
+  overflow-x: auto;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+}
+
+.tableScroll:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
+.prose table {
+  inline-size: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-base);
+}
+
+.prose thead {
+  background: var(--bg-subtle);
+}
+
+.prose th {
+  padding: var(--space-2) var(--space-3);
+  border-block-end: 1px solid var(--border-default);
+  color: var(--text-secondary);
+  font-weight: var(--weight-semibold);
+  text-align: start;
+  white-space: nowrap;
+}
+
+.prose td {
+  padding: var(--space-2) var(--space-3);
+  border-block-end: 1px solid var(--border-subtle);
+  vertical-align: top;
+}
+
+.prose tbody tr:last-child td {
+  border-block-end: 0;
+}
+
+/*
+ * Engineering identifiers such as FCV-2201 are emphasised where the answer already
+ * contains them. This is a typographic treatment of existing text, never entity
+ * extraction: nothing is added, removed or reinterpreted.
+ */
+.assetTag {
+  font-family: var(--font-mono);
+  font-size: 0.94em;
+  font-weight: var(--weight-medium);
+  color: var(--text-primary);
+  background: var(--bg-sunken);
+  padding: 0 3px;
+  border-radius: var(--radius-xs);
+}

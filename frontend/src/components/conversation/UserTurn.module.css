@@ -1,0 +1,53 @@
+/*
+ * The question row mirrors the assistant row: avatar on the left, content to its right.
+ *
+ * The reference product aligns both speakers the same way, and for this content it is the
+ * right choice — an engineering question can be several lines long, and a right-aligned
+ * bubble would give it less width than the answer it is asking about while making the two
+ * harder to scan against each other.
+ */
+
+.row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.avatar {
+  display: grid;
+  place-items: center;
+  inline-size: 26px;
+  block-size: 26px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-inverse);
+  color: var(--text-inverse);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  flex: none;
+}
+
+.body {
+  flex: 1;
+  min-inline-size: 0;
+}
+
+.bubble {
+  display: inline-block;
+  max-inline-size: 100%;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--bg-selected);
+  color: var(--text-primary);
+  font-size: var(--text-md);
+  line-height: var(--leading-relaxed);
+  /* Preserve the line breaks the user typed, without interpreting any Markdown. */
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+
+.meta {
+  display: flex;
+  gap: var(--space-2);
+  margin-block-start: var(--space-1);
+}

@@ -1,0 +1,122 @@
+/* Connected equipment response table. Uses the workspace tokens defined on .workspace. */
+
+.response {
+  margin-top: 16px;
+}
+.response header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px 12px;
+}
+.response h3 {
+  margin: 0;
+}
+.meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.meta i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #22c55e;
+}
+.summary {
+  margin: 6px 0 8px;
+  font-size: 12px;
+  color: var(--body);
+}
+.ok {
+  color: var(--ok);
+}
+.alarm {
+  color: var(--bad);
+}
+.tableWrap {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.table th {
+  text-align: left;
+  padding: 6px 10px;
+  background: var(--sunken);
+  color: var(--muted);
+  font-size: 10.5px;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+.table td {
+  padding: 5px 10px;
+  border-top: 1px solid var(--line-soft);
+  color: var(--ink);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+.table td small {
+  display: block;
+  font-size: 10.5px;
+  color: var(--muted);
+}
+.table tr[data-reached] td:first-child {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+.table tr[data-selected] td {
+  background: var(--accent-soft);
+}
+.workspace .table button,
+.table button {
+  min-height: 24px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--accent-deep);
+  font-weight: 700;
+  font-size: 12px;
+}
+.value {
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+}
+.band {
+  fill: #eef1f5;
+}
+.line {
+  fill: none;
+  stroke: #31405c;
+  stroke-width: 1.4;
+}
+.state {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 700;
+  background: var(--ok-soft);
+  color: #0c5533;
+}
+.state[data-state="High"] {
+  background: var(--bad-soft);
+  color: var(--bad);
+}
+.state[data-state="Medium"] {
+  background: var(--warn-soft);
+  color: #6f4a0d;
+}
+.state[data-state="none"] {
+  background: var(--sunken);
+  color: var(--muted);
+}

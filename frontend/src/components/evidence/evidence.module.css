@@ -1,0 +1,169 @@
+.sourceList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.source {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  inline-size: 100%;
+  padding: var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  text-align: start;
+}
+
+.source:hover {
+  border-color: var(--border-subtle);
+  background: var(--bg-hover);
+}
+
+.sourceIcon {
+  flex: none;
+  margin-block-start: 1px;
+  color: var(--text-tertiary);
+}
+
+.sourceBody {
+  flex: 1;
+  min-inline-size: 0;
+}
+
+.sourcePath {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+
+.sourceMeta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-block-start: 2px;
+  color: var(--text-tertiary);
+  font-size: var(--text-xs);
+}
+
+.hierarchy {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.hierarchyRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-base);
+  color: var(--text-secondary);
+}
+
+.hierarchyRail {
+  flex: none;
+  color: var(--border-strong);
+}
+
+.support {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.supportMeter {
+  flex: none;
+  inline-size: 40px;
+  block-size: 40px;
+}
+
+.supportText {
+  min-inline-size: 0;
+}
+
+.supportLabel {
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+}
+
+.supportNote {
+  margin-block-start: 2px;
+  color: var(--text-tertiary);
+  font-size: var(--text-xs);
+  line-height: var(--leading-normal);
+}
+
+.topology {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.topology li {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.topologyNode {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-subtle);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+
+.topologyArrow {
+  display: block;
+  block-size: 16px;
+  padding-inline-start: var(--space-4);
+  line-height: 16px;
+  color: var(--text-tertiary);
+}
+
+.impacted {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.impactedRow {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-size: var(--text-base);
+}
+
+.impactedTag {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  flex: none;
+}
+
+.impactedNote {
+  color: var(--text-secondary);
+  min-inline-size: 0;
+}
+
+.railEmpty {
+  padding: var(--space-4);
+  color: var(--text-tertiary);
+  font-size: var(--text-base);
+  line-height: var(--leading-relaxed);
+}
+
+.railHeading {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding-inline: var(--space-1);
+}

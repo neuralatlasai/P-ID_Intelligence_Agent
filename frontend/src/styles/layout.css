@@ -1,0 +1,215 @@
+/*
+ * Application frame and responsive layout.
+ *
+ * The reference product has three regions: a sessions sidebar, the conversation, and an
+ * evidence rail. Which of them is on screen is a function of viewport width, and every
+ * region remains reachable at every width — the rail collapses into a details stack under
+ * the answer rather than disappearing, and the sidebar becomes a drawer rather than being
+ * dropped.
+ *
+ * Breakpoints:
+ *   >= 1440px  sidebar | conversation | rail
+ *   >= 1180px  sidebar | conversation, rail available as an overlay panel
+ *   >= 768px   drawer sidebar | conversation, evidence inline under the answer
+ *    < 768px   drawer sidebar | conversation, everything stacked
+ */
+
+.appFrame {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  block-size: 100dvh;
+  max-inline-size: var(--frame-max-width);
+  margin-inline: auto;
+  background: var(--bg-canvas);
+}
+
+.appBody {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-block-size: 0;
+  overflow: hidden;
+}
+
+/* -- Sidebar --------------------------------------------------------------- */
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  min-block-size: 0;
+  inline-size: var(--sidebar-width);
+  background: var(--bg-surface);
+  border-inline-end: 1px solid var(--border-subtle);
+}
+
+.sidebarScroll {
+  flex: 1;
+  min-block-size: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/*
+ * Below the sidebar breakpoint the sidebar is a drawer. It is removed from the layout
+ * with `display: none` rather than translated off screen, so its controls leave the tab
+ * order entirely instead of becoming invisible keyboard traps.
+ */
+.sidebarDrawer {
+  position: fixed;
+  inset-block: 0;
+  inset-inline-start: 0;
+  z-index: var(--z-drawer);
+  inline-size: min(84vw, 300px);
+  box-shadow: var(--shadow-lg);
+}
+
+.drawerScrim {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-scrim);
+  background: rgb(21 32 46 / 42%);
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+/* -- Workspace ------------------------------------------------------------- */
+
+.workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-inline-size: 0;
+  min-block-size: 0;
+  overflow: hidden;
+}
+
+.conversationColumn {
+  background: var(--bg-surface);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  min-inline-size: 0;
+  min-block-size: 0;
+  overflow: hidden;
+}
+
+.conversationScroll {
+  min-block-size: 0;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .conversationScroll {
+    scroll-behavior: auto;
+  }
+}
+
+.conversationInner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  padding: var(--space-6) var(--space-6) var(--space-8);
+  margin-inline: auto;
+  inline-size: 100%;
+  max-inline-size: 920px;
+}
+
+/* -- Evidence rail --------------------------------------------------------- */
+
+.evidenceRail {
+  display: none;
+  flex-direction: column;
+  gap: var(--space-4);
+  inline-size: var(--rail-width);
+  padding: var(--space-5) var(--space-5) var(--space-8);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--bg-subtle);
+  border-inline-start: 1px solid var(--border-subtle);
+}
+
+/*
+ * Cards keep their natural height. Flex children shrink by default, so without this the
+ * column compresses every card once its content exceeds the viewport and each one is
+ * silently clipped mid-sentence.
+ */
+.evidenceRail > * {
+  flex: none;
+}
+
+/*
+ * The inline details stack carries the same cards as the rail. Exactly one of the two is
+ * rendered at any width, so evidence is never shown twice and never absent.
+ */
+.detailsStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* -- Composer -------------------------------------------------------------- */
+
+.composerRegion {
+  border-block-start: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  padding: var(--space-4) var(--space-6) var(--space-5);
+}
+
+.composerInner {
+  margin-inline: auto;
+  inline-size: 100%;
+  max-inline-size: 920px;
+}
+
+/* -- Breakpoints ----------------------------------------------------------- */
+
+@media (min-width: 768px) {
+  .conversationInner {
+    padding-inline: var(--space-8);
+  }
+}
+
+@media (min-width: 1180px) {
+  .appBody {
+    grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+  }
+
+  .sidebarDrawer {
+    position: static;
+    inline-size: var(--sidebar-width);
+    box-shadow: none;
+  }
+
+  .drawerScrim {
+    display: none;
+  }
+
+  .sidebarToggle {
+    display: none;
+  }
+}
+
+@media (min-width: 1440px) {
+  .workspace[data-rail="visible"] {
+    grid-template-columns: minmax(0, 1fr) var(--rail-width);
+  }
+
+  .workspace[data-rail="visible"] .evidenceRail {
+    display: flex;
+  }
+}
+
+/*
+ * Between 1180px and 1440px the rail has no column of its own, so it is presented as an
+ * overlay panel when the user opens it. The underlying conversation keeps its width.
+ */
+@media (min-width: 1180px) and (max-width: 1439.98px) {
+  .workspace[data-rail="overlay"] .evidenceRail {
+    display: flex;
+    position: fixed;
+    inset-block: var(--header-height) 0;
+    inset-inline-end: 0;
+    z-index: var(--z-drawer);
+    box-shadow: var(--shadow-lg);
+  }
+}

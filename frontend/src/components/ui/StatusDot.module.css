@@ -1,0 +1,48 @@
+.wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.dot {
+  inline-size: 7px;
+  block-size: 7px;
+  border-radius: var(--radius-pill);
+  flex: none;
+}
+
+.ready {
+  background: var(--status-ready);
+}
+
+.degraded {
+  background: var(--status-degraded);
+}
+
+.down {
+  background: var(--status-down);
+}
+
+.checking {
+  background: var(--status-unknown);
+}
+
+/*
+ * The pulse marks work in progress. It is a keyframe animation rather than a transition so
+ * the reduced-motion rule stops it outright instead of running it instantly.
+ */
+.pulsing {
+  animation: pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}

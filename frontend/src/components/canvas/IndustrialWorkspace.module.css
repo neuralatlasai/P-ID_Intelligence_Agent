@@ -1,0 +1,2174 @@
+/*
+ * Industrial Canvas surface.
+ *
+ * Every colour used for text is checked against the surface it sits on at 4.5:1 or better,
+ * and the computed ratio is recorded beside it. Status is never carried by hue alone: each
+ * state pairs its colour with a label, and usually with an icon or a shape as well.
+ */
+
+.workspace {
+  /* Structure */
+  --line: #dde3ec;
+  --line-soft: #ebeef4;
+  --card: #ffffff;
+  --sunken: #f4f6fa;
+  --radius: 10px;
+  --radius-sm: 7px;
+
+  /* Text — ratios are against #ffffff unless noted */
+  --ink: #141d2b; /* 16.1:1 */
+  --body: #31405c; /* 9.5:1  */
+  --muted: #5d6b86; /* 5.4:1  */
+  --faint: #64748b; /* 4.8:1  */
+
+  /* Accent */
+  --accent: #1d4ed8; /* 6.7:1  */
+  --accent-deep: #15307a; /* 11.6:1 */
+  --accent-soft: #eef3ff;
+  --accent-line: #c7d7fb;
+
+  /* Status */
+  --ok: #0f6b41; /* 6.6:1  */
+  --ok-soft: #e8f6ef;
+  --ok-line: #b9e2cd;
+  --warn: #8a5a0f; /* 5.3:1  */
+  --warn-soft: #fdf5e4;
+  --warn-line: #ecd8ac;
+  --bad: #a4212b; /* 7.4:1  */
+  --bad-soft: #fdedee;
+  --bad-line: #f0c7ca;
+
+  /* Elevation */
+  --shadow-sm: 0 1px 2px rgba(18, 30, 54, 0.07), 0 1px 1px rgba(18, 30, 54, 0.04);
+  --shadow-md:
+    0 8px 22px -10px rgba(18, 30, 54, 0.22), 0 2px 6px -2px rgba(18, 30, 54, 0.08);
+  --shadow-lift:
+    0 14px 30px -12px rgba(18, 30, 54, 0.28), 0 3px 8px -3px rgba(18, 30, 54, 0.1);
+
+  display: grid;
+  grid-template-columns: 82px minmax(0, 1fr);
+  grid-template-rows: 62px 1fr;
+  min-height: 100dvh;
+  background:
+    radial-gradient(1100px 520px at 68% -8%, #ffffff 0%, rgba(255, 255, 255, 0) 62%),
+    #e9edf4;
+  color: var(--body);
+  font-size: 13px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---------------------------------------------------------------- typography */
+
+.workspace h1 {
+  font-size: 17px;
+  font-weight: 640;
+  letter-spacing: -0.012em;
+  color: var(--ink);
+}
+.workspace h2 {
+  font-size: 12.5px;
+  font-weight: 650;
+  letter-spacing: -0.004em;
+  color: var(--ink);
+}
+.workspace h3 {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.085em;
+  text-transform: uppercase;
+  color: var(--faint);
+  margin: 20px 0 10px;
+}
+.workspace small {
+  font-size: 11px;
+}
+.workspace strong {
+  color: var(--ink);
+}
+.workspace a {
+  color: var(--accent);
+  text-decoration: none;
+}
+.workspace a:hover {
+  text-decoration: underline;
+}
+
+/* ---------------------------------------------------------------- controls */
+
+.workspace button,
+.workspace select {
+  font: inherit;
+  border: 1px solid var(--line);
+  background: var(--card);
+  border-radius: var(--radius-sm);
+  padding: 7px 12px;
+  color: var(--body);
+  font-weight: 550;
+  transition:
+    background 0.13s ease,
+    border-color 0.13s ease,
+    box-shadow 0.13s ease,
+    transform 0.13s ease;
+}
+.workspace button:hover:not(:disabled) {
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
+  color: var(--accent-deep);
+}
+.workspace button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+.workspace button:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+.workspace .primary {
+  color: #ffffff;
+  background: linear-gradient(180deg, #2a5ce0, #1d4ed8);
+  border-color: #1b45bd;
+  box-shadow: var(--shadow-sm);
+  font-size: 11.5px;
+}
+.workspace .primary:hover:not(:disabled) {
+  background: linear-gradient(180deg, #2f66ee, #1f52e4);
+  border-color: #1b45bd;
+  color: #ffffff;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workspace button,
+  .workspace select,
+  .workspace .inputCard,
+  .workspace .panel {
+    transition: none;
+  }
+  .workspace button:active:not(:disabled) {
+    transform: none;
+  }
+}
+
+/* ---------------------------------------------------------------- catalogue + connection screens */
+
+.catalogControl {
+  margin: 10px 0 18px;
+}
+.catalogBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.catalogBar span {
+  margin-right: auto;
+}
+
+/* One block per corpus folder, its sheets as a dense wrap of numbered chips. */
+.catalogFolder {
+  margin-bottom: 14px;
+}
+.catalogFolder h4 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 7px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.085em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.catalogFolder h4 span {
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--muted);
+  background: #f1f4f9;
+  border-radius: 999px;
+  padding: 1px 7px;
+}
+.catalogFolder > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.workspace .catalogFolder button {
+  min-width: 42px;
+  padding: 5px 9px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  border-radius: var(--radius-sm);
+}
+.workspace .catalogFolder button[aria-pressed="true"] {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-deep);
+  font-weight: 700;
+}
+.catalogControl p {
+  color: var(--bad);
+  background: var(--bad-soft);
+  border: 1px solid var(--bad-line);
+  border-radius: var(--radius-sm);
+  padding: 9px 11px;
+  margin-top: 12px;
+  font-size: 12px;
+}
+.connectionScreen {
+  max-width: 760px;
+  margin: 76px auto;
+  padding: 30px 32px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: var(--shadow-md);
+}
+.connectionScreen h1 {
+  font-size: 21px;
+  margin-bottom: 14px;
+}
+.connectionScreen button {
+  padding: 9px 15px;
+  margin: 0 10px 20px 0;
+}
+
+/* ---------------------------------------------------------------- icon rail */
+
+.navigation {
+  grid-row: 1 / -1;
+  background: linear-gradient(180deg, #162034 0%, #0e1626 100%);
+  border-right: 1px solid #0a1120;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 16px 6px 14px;
+  color: #c3d1e9;
+}
+.navigation > svg {
+  color: #7d9dff;
+  margin-bottom: 16px;
+  flex-shrink: 0;
+}
+.navigation button,
+.navigation a {
+  position: relative;
+  color: #aebbd4; /* 7.0:1 on #111a2b */
+  width: 70px;
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 10.5px;
+  font-weight: 560;
+  letter-spacing: 0.01em;
+  background: transparent;
+  border: 0;
+  border-radius: 9px;
+}
+.navigation button:hover:not(:disabled),
+.navigation a:hover {
+  background: #1e2b45;
+  color: #e3ebfb;
+  text-decoration: none;
+}
+.navigation button[aria-current] {
+  background: linear-gradient(180deg, #24355a, #1c2a48);
+  color: #ffffff; /* 13.9:1 */
+  box-shadow: inset 0 0 0 1px #33456d;
+}
+/* A bar as well as a tint, so the current view is not signalled by colour alone. */
+.navigation button[aria-current]::before {
+  content: "";
+  position: absolute;
+  left: -6px;
+  top: 12px;
+  bottom: 12px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: #7d9dff;
+}
+.navigation button:focus-visible,
+.navigation a:focus-visible {
+  outline: 2px solid #9db6ff;
+  outline-offset: 1px;
+}
+.navFooter {
+  margin-top: auto;
+  padding-top: 16px;
+  text-align: center;
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #8194b5; /* 4.6:1 on #0e1626 */
+}
+
+/* ---------------------------------------------------------------- top bar */
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--line);
+  background: var(--card);
+  box-shadow: 0 1px 0 rgba(18, 30, 54, 0.03);
+}
+.brand {
+  font-weight: 700;
+  white-space: nowrap;
+  font-size: 15.5px;
+  letter-spacing: -0.015em;
+  color: var(--ink);
+}
+.brand span {
+  border-left: 1px solid #d4dbe7;
+  margin-left: 16px;
+  padding-left: 16px;
+  font-size: 12px;
+  font-weight: 550;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.search {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+  max-width: 540px;
+  flex: 1;
+  background: #f5f7fb;
+  border: 1px solid var(--line);
+  padding: 7px 12px;
+  border-radius: 999px;
+  color: var(--faint);
+  transition: border-color 0.13s ease;
+}
+.search:focus-within {
+  border-color: var(--accent-line);
+  background: var(--card);
+  box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.11);
+}
+.search input {
+  min-width: 0;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--body);
+  font: inherit;
+  outline: none;
+}
+.search input::placeholder {
+  color: var(--faint);
+}
+.badge {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+  background: #eef1f6;
+  color: #4a5668; /* 7.4:1 */
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid #e0e5ec;
+  white-space: nowrap;
+}
+
+/* Health pill: dot + word, never the dot alone. */
+.workspace .status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 999px;
+  padding: 6px 13px 6px 10px;
+  font-size: 11.5px;
+  font-weight: 620;
+  white-space: nowrap;
+}
+.status .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: currentColor;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.55);
+}
+.workspace .ready_ {
+  color: var(--ok);
+  background: var(--ok-soft);
+  border-color: var(--ok-line);
+}
+.workspace .degraded_ {
+  color: var(--warn);
+  background: var(--warn-soft);
+  border-color: var(--warn-line);
+}
+.workspace .down_ {
+  color: var(--bad);
+  background: var(--bad-soft);
+  border-color: var(--bad-line);
+}
+.workspace .checking_ {
+  color: var(--muted);
+  background: #f1f3f7;
+  border-color: var(--line);
+}
+
+/* ---------------------------------------------------------------- layout */
+
+.main {
+  display: grid;
+  grid-template-columns: 262px minmax(0, 1fr) 342px;
+  grid-template-rows: minmax(610px, calc(100dvh - 296px)) auto;
+  gap: 13px;
+  padding: 13px;
+  min-width: 0;
+}
+.inputs,
+.center,
+.agent,
+.panel {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+  box-shadow: var(--shadow-sm);
+  min-width: 0;
+}
+.inputs {
+  padding: 12px 10px 4px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Small tracked label with a count on the right — the rhythm of every section here. */
+.sectionHeading {
+  flex: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin: 2px 2px 7px;
+}
+.sectionHeading h2 {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.085em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.workspace .clearFilter {
+  font-size: 10.5px;
+  font-weight: 650;
+  padding: 2px 9px;
+  border-radius: 999px;
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+  color: var(--accent-deep);
+}
+.sectionHeading span {
+  font-size: 10.5px;
+  font-weight: 650;
+  color: var(--muted);
+  background: #f1f4f9;
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+.workspace .inputCard {
+  position: relative;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  text-align: left;
+  padding: 13px 12px 13px 14px;
+  margin-bottom: 9px;
+  background: linear-gradient(180deg, #ffffff, #fbfcfe);
+  border-color: var(--line);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.inputCard::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--accent);
+  opacity: 0.85;
+}
+.workspace .inputCard:hover {
+  box-shadow: var(--shadow-md);
+  background: #ffffff;
+}
+.inputCard > svg {
+  flex-shrink: 0;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 8px;
+  padding: 6px;
+  box-sizing: content-box;
+  width: 16px;
+  height: 16px;
+}
+.inputCard > svg:last-child {
+  width: 12px;
+  height: 12px;
+  padding: 0;
+  background: none;
+  color: var(--ok);
+  margin-left: auto;
+}
+.inputCard strong {
+  font-size: 12px;
+  font-weight: 650;
+}
+.inputCard p {
+  margin: 3px 0;
+  font-size: 11px;
+  color: var(--body);
+}
+.inputCard small {
+  color: var(--faint);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.inputs > .muted {
+  flex: none;
+}
+.muted {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+/* ---------------------------------------------------------------- object list */
+
+.objectList {
+  /* The list takes whatever height the column has left, and scrolls inside it. */
+  flex: 1 1 0;
+  overflow-y: auto;
+  margin: 0 -4px;
+  padding: 0 4px 10px;
+  min-height: 160px;
+  scrollbar-width: thin;
+}
+.workspace .objectList button {
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  border: 0;
+  border-radius: var(--radius-sm);
+  padding: 5px 8px;
+  text-align: left;
+  gap: 8px;
+  background: transparent;
+}
+.objectList button > i {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.objectList button > span {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.objectList strong {
+  display: block;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--body);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.objectList small {
+  display: block;
+  margin-top: 1px;
+  font-size: 10px;
+  color: var(--faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.objectList em {
+  flex-shrink: 0;
+  font-style: normal;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--muted); /* 5.0:1 on the #f1f4f9 chip; --faint lands at 4.2 */
+  background: #f1f4f9;
+  border-radius: 4px;
+  padding: 2px 5px;
+}
+.workspace .objectList button[aria-pressed="true"] {
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px var(--accent-line);
+}
+.objectList button[aria-pressed="true"] strong,
+.objectList button[aria-pressed="true"] em {
+  color: var(--accent-deep);
+}
+.objectList button[aria-pressed="true"] small {
+  color: var(--accent); /* 5.9:1 on #eef3ff */
+}
+.objectList button[aria-pressed="true"]::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 7px;
+  bottom: 7px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--accent);
+}
+
+.sources {
+  flex: none;
+  display: grid;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+.workspace .sources button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border-left: 3px solid var(--accent);
+  background: #fbfcfe;
+  text-align: left;
+}
+.sources button > svg:first-child {
+  flex: none;
+  color: var(--accent);
+}
+.sources button > svg:last-child {
+  flex: none;
+  margin-left: auto;
+  color: var(--ok);
+}
+.sources button > span {
+  min-width: 0;
+}
+.sources strong {
+  display: block;
+  font-size: 11.5px;
+  font-weight: 650;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sources small {
+  display: block;
+  font-size: 10px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.objectDetail {
+  margin: 2px 0 6px 18px;
+  padding: 6px 8px;
+  border-left: 2px solid var(--accent-line);
+  font-size: 10.5px;
+}
+.objectDetail dl {
+  display: grid;
+  gap: 1px;
+  margin: 5px 0;
+}
+.objectDetail dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+}
+.objectDetail dt {
+  color: var(--muted);
+}
+.objectDetail dd {
+  color: var(--ink);
+  font-weight: 600;
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.objectActions {
+  display: flex;
+  gap: 4px;
+}
+.workspace .objectActions button {
+  width: auto;
+  flex: 1;
+  justify-content: center;
+  min-height: 24px;
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  background: #ffffff;
+  font-size: 10.5px;
+}
+.workspace .objectActions button:last-child {
+  color: #ffffff;
+  background: #1d4ed8;
+  border-color: #1b45bd;
+}
+.workspace .objectActions button:last-child:hover:not(:disabled) {
+  color: #ffffff;
+  background: #1f52e4;
+}
+
+/* ---------------------------------------------------------------- centre column */
+
+.center {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 560px;
+  /* The banner and toolbar respond to this column's width, not the window's: at three
+     columns the column is far narrower than the viewport, and a media query would leave
+     them wrapping badly on a wide screen. */
+  container-type: inline-size;
+}
+.documentBar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 15px;
+  border-bottom: 1px solid var(--line-soft);
+  background: linear-gradient(180deg, #ffffff, #fcfdfe);
+}
+.documentBar > svg {
+  flex-shrink: 0;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-line);
+  border-radius: 9px;
+  padding: 8px;
+  box-sizing: content-box;
+  width: 17px;
+  height: 17px;
+}
+.documentBar > div {
+  min-width: 0;
+}
+.documentBar p {
+  color: var(--faint);
+  font-size: 11px;
+  margin-top: 3px;
+  font-family: ui-monospace, "SFMono-Regular", "Cascadia Mono", Menlo, monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.documentBar button {
+  margin-left: auto;
+  flex-shrink: 0;
+  font-size: 11.5px;
+}
+.documentBar .badge {
+  margin-left: auto;
+}
+
+/* Source-connected banner. Icon + wording carry the state; the tint reinforces it. */
+.ready {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: linear-gradient(90deg, var(--ok-soft), rgba(232, 246, 239, 0.35));
+  border: 1px solid var(--ok-line);
+  border-radius: var(--radius-sm);
+  color: var(--body);
+  margin: 12px 13px 0;
+  padding: 10px 13px;
+}
+.ready > svg {
+  flex-shrink: 0;
+  color: #ffffff;
+  background: var(--ok);
+  border-radius: 50%;
+  padding: 5px;
+  box-sizing: content-box;
+  width: 12px;
+  height: 12px;
+}
+.ready strong {
+  font-size: 12px;
+  color: #0c5533; /* 8.3:1 on #e8f6ef */
+}
+.ready p {
+  font-size: 11px;
+  margin-top: 2px;
+  color: #3a4a5f; /* 8.0:1 on #e8f6ef */
+}
+.ready > span {
+  margin-left: auto;
+  padding-left: 14px;
+  border-left: 1px solid var(--ok-line);
+  font-weight: 700;
+  font-size: 19px;
+  color: var(--ok);
+  text-align: center;
+  line-height: 1.1;
+}
+.ready small {
+  display: block;
+  margin-top: 2px;
+  font-weight: 650;
+  font-size: 9.5px;
+  letter-spacing: 0.075em;
+  text-transform: uppercase;
+  color: #3a4a5f;
+}
+
+/* ------------------------------------------------------- the drawing stage */
+
+/*
+ * The sheet floats on a dotted field, the way a drawing sits on a drafting table, and the
+ * controls float over it rather than occupying a chrome bar above it. On a 900px screen
+ * that difference is a legible sheet versus a thumbnail.
+ *
+ * The wrapper exists so the controls can be positioned against the pane while the sheet
+ * scrolls underneath: pinning them inside the scroller would drag them across the drawing.
+ */
+.stageWrap {
+  position: relative;
+  overflow: hidden;
+  flex: 1;
+  /* The stage is the one child that gives way: the bars above and below it keep their
+     height, so the selection and playback rows are never clipped by the column. */
+  min-height: 0;
+  border-block: 1px solid var(--line);
+}
+.stage {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+  scrollbar-width: thin;
+  padding: 26px 26px 26px 84px;
+  display: flex;
+  background-color: #eef1f6;
+  background-image: radial-gradient(circle at 1px 1px, #c3cbd9 1.15px, transparent 0);
+  background-size: 22px 22px;
+  box-shadow: inset 0 1px 4px rgba(18, 30, 54, 0.06);
+}
+.stage:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -3px;
+}
+.stageError {
+  margin: auto;
+  padding: 16px 20px;
+  border-radius: var(--radius);
+  background: var(--bad-soft);
+  border: 1px solid var(--bad-line);
+  color: var(--bad);
+}
+.sheet {
+  /* auto margins rather than justify-content: an over-zoomed sheet must stay scrollable
+     to its left edge, which centring on the container does not allow. */
+  margin: auto;
+  flex: none;
+  min-width: 0;
+}
+.sheet figcaption {
+  font-size: 10.5px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  color: #55637c; /* 6.0:1 on #eef1f6 */
+  padding: 0 0 6px 2px;
+  font-family: ui-monospace, "SFMono-Regular", "Cascadia Mono", Menlo, monospace;
+}
+.sheetBody {
+  position: relative;
+  background: #ffffff;
+  border: 1px solid #c6d0de;
+  border-radius: 4px;
+  box-shadow: var(--shadow-lift);
+}
+.sheetBody img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 3px;
+}
+.sheetBody canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  cursor: crosshair;
+}
+
+/* Floating palette, pinned to the pane. */
+.palette {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(6px);
+  box-shadow: var(--shadow-md);
+}
+.workspace .palette button {
+  width: 46px;
+  min-height: 44px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 5px 2px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 9.5px;
+  font-weight: 650;
+}
+.workspace .palette button:hover:not(:disabled) {
+  background: #f1f4fa;
+  color: var(--accent-deep);
+}
+/* A pressed layer gets a tint, a darker label and an outline; never the tint alone. */
+.workspace .palette button[aria-pressed="true"] {
+  background: var(--accent-soft);
+  color: var(--accent-deep);
+  box-shadow: inset 0 0 0 1px var(--accent-line);
+}
+.palette hr {
+  border: 0;
+  border-top: 1px solid var(--line-soft);
+  margin: 4px 6px;
+}
+
+/* Floating zoom pill, bottom right of the pane. */
+.zoomPill {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(6px);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+}
+.workspace .zoomPill button {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0 13px;
+  height: 100%;
+  font-size: 15px;
+  line-height: 1;
+}
+.workspace .zoomPill button:last-child {
+  font-size: 11.5px;
+  border-left: 1px solid var(--line);
+}
+.zoomPill output {
+  min-width: 46px;
+  text-align: center;
+  font-size: 11.5px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+/*
+ * The detail card, anchored at the selected symbol.
+ *
+ * Dark, so it separates unambiguously from the white sheet beneath it at any zoom. It is
+ * `aria-hidden` and its controls are not tabbable: every fact and every action in it also
+ * appears in the agent panel, which is what keyboard and screen-reader users operate.
+ */
+.anchor {
+  position: absolute;
+  z-index: 4;
+  pointer-events: none;
+}
+
+.card {
+  pointer-events: auto;
+  /* The width and max height are what the placement maths treats as the footprint;
+     changing either without changing CARD_WIDTH / CARD_HEIGHT lets the card overflow. */
+  width: 268px;
+  max-height: 330px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  padding: 13px 14px 12px;
+  border-radius: 12px;
+  background: #151b28;
+  border: 1px solid #2a3348;
+  box-shadow:
+    0 20px 40px -14px rgba(8, 14, 28, 0.6),
+    0 4px 12px -4px rgba(8, 14, 28, 0.4);
+  color: #d7deec; /* 10.8:1 on #151b28 */
+  font-size: 11.5px;
+}
+.card header {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 9px;
+}
+.card header strong {
+  display: block;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+.card header p {
+  margin-top: 3px;
+  color: #a3aec5; /* 6.6:1 on #151b28 */
+  line-height: 1.45;
+}
+.workspace .card header button {
+  margin-left: auto;
+  flex-shrink: 0;
+  border: 0;
+  background: #222b3d;
+  color: #c3cddf;
+  border-radius: 7px;
+  padding: 4px 8px;
+  font-size: 11px;
+}
+.workspace .card header button:hover {
+  background: #2d384e;
+  color: #ffffff;
+}
+.cardNote {
+  display: block;
+  padding: 6px 9px;
+  margin-bottom: 10px;
+  border-radius: 7px;
+  background: #33260f;
+  border: 1px solid #5a441a;
+  color: #f0cd8a; /* 9.1:1 on #33260f */
+  font-size: 10.5px;
+  line-height: 1.45;
+}
+.cardFacts {
+  display: grid;
+  gap: 1px;
+  border-top: 1px solid #262f42;
+  padding-top: 8px;
+}
+.cardFacts > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 3px 0;
+}
+.cardFacts dt {
+  color: #94a1ba; /* 5.6:1 on #151b28 */
+  font-size: 10.5px;
+  white-space: nowrap;
+}
+.cardFacts dd {
+  color: #eef2f9;
+  font-weight: 600;
+  text-align: right;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cardFacts dd i {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+  margin-right: 6px;
+  vertical-align: 1px;
+}
+.cardHint {
+  color: #8b97ae;
+  font-weight: 400;
+}
+.cardActions {
+  display: grid;
+  gap: 2px;
+  margin-top: 10px;
+  padding-top: 9px;
+  border-top: 1px solid #262f42;
+}
+.workspace .cardActions button {
+  border: 0;
+  background: transparent;
+  color: #b9c6dd;
+  text-align: left;
+  padding: 7px 8px;
+  border-radius: 7px;
+  font-size: 11.5px;
+  font-weight: 550;
+}
+.workspace .cardActions button:hover {
+  background: #232d40;
+  color: #ffffff;
+}
+
+.selectionBar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 13px;
+  font-size: 11.5px;
+  background: linear-gradient(180deg, #fbfcfe, #f6f8fc);
+  border-bottom: 1px solid var(--line-soft);
+}
+.selectionBar > span {
+  display: block;
+  flex: 1;
+  min-width: 0;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.selectionBar > span > strong {
+  display: inline-block;
+  margin-right: 8px;
+}
+.selectionBar strong {
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-line);
+  color: var(--accent-deep);
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.selectionBar button {
+  font-size: 11.5px;
+  flex-shrink: 0;
+}
+.playback {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 13px;
+}
+.playback > div {
+  margin-right: auto;
+  min-width: 0;
+}
+.playback strong {
+  font-size: 11.5px;
+}
+.playback small {
+  display: block;
+  color: var(--faint);
+  font-size: 10.5px;
+  margin-top: 2px;
+}
+
+/* ---------------------------------------------------------------- agent panel */
+
+.agent {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.panelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 13px 15px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.panelHeader h2 {
+  font-size: 12px;
+}
+.agent .panelHeader {
+  justify-content: flex-start;
+  background: linear-gradient(180deg, #ffffff, #f8fafd);
+}
+.agent .panelHeader > svg {
+  color: var(--accent);
+}
+.tabs {
+  display: flex;
+  gap: 2px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--line);
+}
+.workspace .tabs button {
+  border: 0;
+  border-radius: 0;
+  padding: 12px 10px;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 12px;
+}
+.workspace .tabs button:hover {
+  background: transparent;
+  color: var(--accent-deep);
+}
+.workspace .tabs button[aria-pressed="true"] {
+  color: var(--accent-deep);
+  box-shadow: inset 0 -2px var(--accent);
+}
+.overview {
+  padding: 2px 15px 18px;
+  overflow-y: auto;
+}
+.overview h3:first-child {
+  margin-top: 16px;
+}
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 9px;
+  margin: 10px 0 4px;
+}
+.stats > div,
+.workspace .stats > button {
+  display: block;
+  width: 100%;
+  padding: 12px 10px;
+  background: linear-gradient(180deg, #fbfcff, #f5f8fe);
+  border: 1px solid #e4eaf5;
+  border-radius: var(--radius-sm);
+  text-align: left;
+}
+.workspace .stats > button:hover:not(:disabled) {
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+  color: var(--body);
+}
+.workspace .stats > button[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.stats svg {
+  color: var(--accent);
+  width: 15px;
+  height: 15px;
+}
+.stats strong {
+  font-size: 21px;
+  font-weight: 680;
+  letter-spacing: -0.02em;
+  display: block;
+  margin: 6px 0 1px;
+  font-variant-numeric: tabular-nums;
+}
+.stats small {
+  display: block;
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.selectedCard {
+  padding: 14px;
+  background: linear-gradient(180deg, #fbfcff, #f5f8fe);
+  border: 1px solid #e4eaf5;
+  border-radius: var(--radius-sm);
+}
+.selectedCard svg {
+  color: var(--accent);
+  margin-bottom: 8px;
+}
+.selectedCard strong {
+  font-size: 14px;
+  letter-spacing: -0.01em;
+}
+.selectedCard p {
+  font-size: 11px;
+  color: var(--muted);
+  margin: 4px 0;
+}
+.selectedCard button {
+  margin-top: 10px;
+  width: 100%;
+  font-size: 11.5px;
+}
+.connections > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  font-size: 11.5px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+.connections > div:last-child {
+  border-bottom: 0;
+}
+.connections dt {
+  color: var(--muted);
+}
+.connections dd {
+  color: var(--ink);
+  font-weight: 600;
+  text-align: right;
+}
+/* Connection state: a shape plus the word, so the marker is never the only signal. */
+.connections dd::before {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  margin-right: 7px;
+  vertical-align: 1px;
+  background: #b7c0cf;
+}
+.connections .live::before {
+  background: var(--ok);
+}
+.connections .warnState::before {
+  background: var(--warn);
+}
+.connections .badState::before {
+  background: var(--bad);
+}
+.connections .plain::before {
+  display: none;
+}
+.connections .mutedConnection {
+  color: var(--muted);
+  font-weight: 500;
+}
+.assistantPanel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.assistantPanel[hidden],
+.overview[hidden] {
+  display: none;
+}
+.sessionLink {
+  padding: 10px 15px;
+  font-size: 11.5px;
+  font-weight: 600;
+  border-bottom: 1px solid var(--line-soft);
+  background: var(--accent-soft);
+}
+
+/* ---------------------------------------------------------------- bottom row */
+
+/*
+ * The context row: telemetry, hierarchy, files, work orders, plant summary. The trend is
+ * given the most width because a chart squeezed to a fifth of the row loses its axis.
+ */
+.bottom {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 13px;
+  align-items: start;
+}
+.panel {
+  padding-bottom: 13px;
+  display: flex;
+  flex-direction: column;
+}
+.panel > :not(.panelHeader) {
+  margin-left: 15px;
+  margin-right: 15px;
+}
+.panel .panelHeader h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.085em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.panel .panelHeader svg {
+  color: var(--accent);
+  width: 14px;
+  height: 14px;
+}
+.panel > button {
+  font-size: 11.5px;
+  margin-top: auto;
+  align-self: flex-start;
+}
+.metric {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  padding-top: 13px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.metric strong {
+  font-size: 25px;
+  font-weight: 680;
+  letter-spacing: -0.025em;
+  font-variant-numeric: tabular-nums;
+}
+.metric small {
+  margin-left: 2px;
+  font-size: 13px;
+  color: var(--faint);
+  font-weight: 600;
+}
+.trend {
+  width: calc(100% - 30px);
+  height: 86px;
+}
+.hierarchy {
+  font-size: 11.5px;
+  padding: 12px 0 14px;
+  position: relative;
+}
+.workspace .hierarchy button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 5px 8px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--muted);
+  font-size: 11.5px;
+  text-align: left;
+}
+.workspace .hierarchy button:hover:not(:disabled) {
+  background: #f1f4fa;
+  color: var(--accent-deep);
+}
+.hierarchy button:nth-child(2) {
+  padding-left: 22px;
+}
+.hierarchy button:nth-child(3) {
+  padding-left: 36px;
+}
+.hierarchy button em {
+  margin-left: auto;
+  font-style: normal;
+  font-size: 10px;
+  font-weight: 650;
+  color: var(--muted); /* 5.0:1 on the #f1f4f9 chip; --faint lands at 4.3 */
+  background: #f1f4f9;
+  border-radius: 999px;
+  padding: 1px 7px;
+}
+.workspace .hierarchy .hierarchyLeaf {
+  margin-left: 50px;
+  width: calc(100% - 50px);
+  padding: 6px 11px;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-line);
+  color: var(--accent-deep);
+  font-weight: 650;
+}
+.files {
+  padding: 4px 0 10px;
+}
+.files a {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 10px 8px;
+  margin: 0 -8px;
+  border-radius: var(--radius-sm);
+  border-bottom: 1px solid var(--line-soft);
+}
+.files a:hover {
+  background: var(--accent-soft);
+  text-decoration: none;
+}
+.files a:last-child {
+  border-bottom: 0;
+}
+.files svg {
+  flex-shrink: 0;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 7px;
+  padding: 6px;
+  box-sizing: content-box;
+  width: 15px;
+  height: 15px;
+}
+.files strong {
+  display: block;
+  font-size: 11.5px;
+}
+.files small {
+  display: block;
+  color: var(--faint);
+  margin-top: 3px;
+  font-size: 10.5px;
+}
+
+/* An honest empty state: a dashed frame says "nothing here", not "loading". */
+.empty {
+  padding: 16px 14px;
+  font-size: 11.5px;
+  color: var(--muted);
+  line-height: 1.65;
+  border: 1px dashed #d5dce8;
+  border-radius: var(--radius-sm);
+  background: #fbfcfe;
+  text-align: center;
+  margin-top: 12px;
+}
+.empty svg {
+  color: #9aa7bc;
+  margin-bottom: 10px;
+}
+.empty strong {
+  display: block;
+  font-size: 12px;
+}
+.empty p {
+  margin-top: 6px;
+}
+.empty button {
+  margin-top: 12px;
+  font-size: 11.5px;
+}
+
+/* ---------------------------------------------------------------- secondary views */
+
+.contentArea {
+  padding: 16px 18px;
+  overflow-y: auto;
+  flex: 1;
+}
+.contentArea h2 {
+  font-size: 16px;
+  margin-bottom: 8px;
+}
+.contentArea p {
+  line-height: 1.6;
+  margin-bottom: 12px;
+  color: var(--muted);
+  max-width: 82ch;
+}
+.notice {
+  padding: 11px 13px;
+  background: var(--warn-soft);
+  border: 1px solid var(--warn-line);
+  border-radius: var(--radius-sm);
+  font-size: 11.5px;
+  color: #6f4a0d; /* 6.9:1 on #fdf5e4 */
+}
+.assetFocus {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  margin: 4px 0 18px;
+  padding: 13px 15px;
+  background: linear-gradient(180deg, #fbfcff, #f5f8fe);
+  border: 1px solid #e0e7f5;
+  border-radius: var(--radius);
+}
+.assetFocus > i {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+.assetFocus > div {
+  min-width: 0;
+}
+.assetFocus h3 {
+  margin: 0;
+  font-size: 15px;
+  letter-spacing: -0.012em;
+  text-transform: none;
+  color: var(--ink);
+}
+.assetFocus span {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--faint);
+}
+.assetFocus dl {
+  display: flex;
+  gap: 22px;
+  margin-left: auto;
+  padding-left: 18px;
+  border-left: 1px solid #dde5f3;
+  text-align: right;
+}
+.assetFocus dt {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--faint);
+  white-space: nowrap;
+}
+.assetFocus dd {
+  font-size: 17px;
+  font-weight: 680;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  line-height: 1.2;
+}
+.assetGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(232px, 1fr));
+  gap: 7px;
+  margin-bottom: 18px;
+}
+.workspace .assetGrid button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 11px;
+  border-radius: var(--radius-sm);
+  text-align: left;
+}
+.assetGrid button > i {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.assetGrid button > span {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.assetGrid strong {
+  display: block;
+  font-size: 11.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.assetGrid small {
+  display: block;
+  margin-top: 1px;
+  color: var(--faint);
+  font-size: 10px;
+}
+.assetGrid em {
+  flex-shrink: 0;
+  font-style: normal;
+  font-size: 9.5px;
+  font-weight: 650;
+  color: var(--muted);
+  background: #f1f4f9;
+  border-radius: 4px;
+  padding: 2px 6px;
+  white-space: nowrap;
+}
+.range {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 18px 0;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.range output {
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.range input {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+/* ---------------------------------------------------------------- responsive */
+
+/*
+ * Three columns plus a four-panel row needs roughly 1500px to hold its shape. Below that
+ * the columns get narrow enough that headings wrap to three lines and the drawing — the
+ * thing the screen exists for — is squeezed to a strip. So the layout sheds a column at a
+ * time rather than compressing everything at once, and the page scrolls once it cannot
+ * fit the viewport: a cramped drawing is worse than a scrollbar.
+ */
+
+@media (min-width: 1800px) {
+  .main {
+    grid-template-columns: 290px minmax(0, 1fr) 400px;
+  }
+}
+
+.bottom > :first-child {
+  grid-column: 1 / -1;
+}
+
+/* The twin needs the width of the object list and its full height: the list is hidden, the
+   centre grows with its content, and the agent panel stays in reach beside it. */
+.main[data-view="Twin"] {
+  grid-template-rows: auto auto;
+}
+.main[data-view="Twin"] > .inputs {
+  display: none;
+}
+.main[data-view="Twin"] > .center {
+  grid-column: 1 / 3;
+  grid-row: 1;
+  overflow: visible;
+}
+.main[data-view="Twin"] > .agent {
+  align-self: start;
+  position: sticky;
+  top: 13px;
+  max-height: calc(100dvh - 26px);
+}
+
+/* Two columns: the agent panel moves below the drawing, full width. */
+@media (max-width: 1499px) {
+  .main {
+    grid-template-columns: 250px minmax(0, 1fr);
+    grid-template-rows: minmax(600px, calc(100dvh - 160px)) auto auto;
+  }
+  .agent {
+    grid-column: 1 / -1;
+    min-height: 520px;
+    max-height: 760px;
+  }
+  .main[data-view="Twin"] {
+    grid-template-rows: auto auto auto;
+  }
+  .main[data-view="Twin"] > .center {
+    grid-column: 1 / -1;
+  }
+  .main[data-view="Twin"] > .agent {
+    position: static;
+  }
+  .bottom {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  /* The trend keeps a full row once there are only two columns. */
+  .bottom > :first-child {
+    grid-column: 1 / -1;
+  }
+  /* Side by side, the agent panel's overview reads as two columns of facts. */
+  .overview {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px 24px;
+    align-content: start;
+  }
+  .overview h3 {
+    grid-column: 1 / -1;
+  }
+  .assistantPanel {
+    min-height: 560px;
+  }
+}
+
+/* One column: the object list becomes a short, scrollable strip above the drawing. */
+@media (max-width: 1080px) {
+  .main {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(600px, calc(100dvh - 160px)) auto auto;
+  }
+  .inputs {
+    max-height: 340px;
+  }
+  .brand span {
+    display: none;
+  }
+  .topbar {
+    gap: 12px;
+  }
+}
+
+@media (max-width: 860px) {
+  .bottom {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .overview {
+    display: block;
+  }
+}
+
+@media (max-width: 650px) {
+  .workspace {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto 1fr;
+  }
+  .navigation {
+    grid-row: 2;
+    flex-direction: row;
+    padding: 5px;
+    gap: 2px;
+    justify-content: space-around;
+  }
+  .navigation > svg,
+  .navFooter {
+    display: none;
+  }
+  .navigation button,
+  .navigation a {
+    /* Seven destinations share the row: they flex to it instead of overflowing it. */
+    flex: 1 1 0;
+    width: auto;
+    min-width: 0;
+    min-height: 48px;
+    padding-inline: 2px;
+    font-size: 10.5px;
+    gap: 3px;
+  }
+  .navigation button[aria-current]::before {
+    left: 10px;
+    right: 10px;
+    top: auto;
+    bottom: 2px;
+    width: auto;
+    height: 3px;
+    border-radius: 3px;
+  }
+  .agent {
+    max-height: none;
+  }
+  .overview {
+    overflow-y: visible;
+  }
+  .topbar {
+    grid-row: 1;
+    flex-wrap: wrap;
+    padding: 12px;
+    gap: 10px;
+  }
+  .brand {
+    font-size: 14px;
+  }
+  .topbar .badge {
+    margin-left: auto;
+  }
+  .search {
+    flex-basis: 100%;
+    order: 3;
+  }
+  .main {
+    gap: 10px;
+    padding: 10px;
+  }
+  .inputCard {
+    display: none !important;
+  }
+  .objectList {
+    min-height: 88px;
+  }
+  .documentBar {
+    flex-wrap: wrap;
+  }
+  .documentBar button {
+    margin-left: 0;
+  }
+  .selectionBar,
+  .playback {
+    flex-wrap: wrap;
+  }
+  .playback > div {
+    width: 100%;
+  }
+  .trend {
+    height: 100px;
+  }
+  /* The palette would cover a third of a phone-width stage. */
+  .palette {
+    flex-direction: row;
+    top: auto;
+    bottom: 12px;
+    left: 12px;
+    right: 12px;
+    justify-content: space-around;
+    overflow-x: auto;
+  }
+  .palette hr {
+    display: none;
+  }
+  .stage {
+    padding: 18px;
+  }
+  .zoomPill {
+    top: 12px;
+    right: 12px;
+    bottom: auto;
+  }
+}
+
+/* ------------------------------------------------------- new blocks */
+
+/* Class breakdown: colour chip, name, count. The colour never carries the name. */
+.classList {
+  flex: none;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  margin-bottom: 10px;
+}
+.workspace .classList button {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 26px;
+  padding: 3px 5px 3px 6px;
+  border: 1px solid var(--line-soft);
+  border-radius: 6px;
+  background: #fbfcfe;
+  font-size: 10.5px;
+  color: var(--body);
+  text-align: left;
+}
+.workspace .classList button:hover:not(:disabled) {
+  background: #f1f4fa;
+  color: var(--accent-deep);
+}
+/* A pressed filter gets a tint and an outline, and the heading below renames itself to the
+   group, so the state is never carried by the tint alone. */
+.workspace .classList button[aria-pressed="true"] {
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
+  color: var(--accent-deep);
+}
+.classList button[aria-pressed="true"] b {
+  color: var(--accent-deep);
+}
+.classList button i {
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.classList button span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.classList button b {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+/* Overlay key. Text beside every swatch, so the colours are never load-bearing alone. */
+.legend {
+  flex: none;
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 9px 14px 8px;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.legend span,
+.workspace .legend button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px 3px 7px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: transparent;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.workspace .legend button:hover:not(:disabled) {
+  background: #eef1f7;
+  border-color: var(--line);
+  color: var(--ink);
+}
+/* Switched off: the swatch empties and the label is struck through, so the state reads
+   without relying on colour. */
+.workspace .legend button[aria-pressed="false"] {
+  color: var(--faint);
+  text-decoration: line-through;
+}
+.legend button[aria-pressed="false"] i {
+  background: transparent;
+  opacity: 0.45;
+}
+.legendSelected {
+  margin-left: auto;
+}
+.legend i {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  border: 1.5px solid var(--swatch);
+  background: color-mix(in srgb, var(--swatch) 16%, transparent);
+}
+
+/* The parsed-source banner carries the counts on its right, like a readiness strip. */
+.ready {
+  flex-wrap: wrap;
+}
+.ready > div {
+  flex: 1 1 260px;
+  min-width: 0;
+}
+.readyStats {
+  display: flex;
+  gap: 20px;
+  margin-left: auto;
+  padding-left: 18px;
+  border-left: 1px solid var(--ok-line);
+  text-align: right;
+}
+@container (max-width: 640px) {
+  .readyStats {
+    margin-left: 0;
+    padding-left: 0;
+    border-left: 0;
+    text-align: left;
+    flex-basis: 100%;
+  }
+}
+.readyStats dt {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.075em;
+  text-transform: uppercase;
+  color: #3a4a5f; /* 8.0:1 on #e8f6ef */
+}
+.readyStats dd {
+  font-size: 19px;
+  font-weight: 680;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--ok);
+  line-height: 1.15;
+}
+.workspace .indexed {
+  margin-left: auto;
+  background: var(--ok-soft);
+  border-color: var(--ok-line);
+  color: #0c5533; /* 8.3:1 on #e8f6ef */
+}
+
+/* Contextualisation pipeline. A tick or a number, plus a word — never a colour alone. */
+.steps {
+  margin: 10px 0 4px;
+}
+.steps li {
+  display: flex;
+  gap: 11px;
+  padding-bottom: 14px;
+  position: relative;
+}
+.steps li:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  left: 11px;
+  top: 25px;
+  bottom: 3px;
+  width: 1px;
+  background: var(--line);
+}
+.steps li > span {
+  width: 23px;
+  height: 23px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 11px;
+  z-index: 1;
+}
+.stepDone > span {
+  background: var(--ok-soft);
+  color: var(--ok);
+  box-shadow: inset 0 0 0 1px var(--ok-line);
+}
+.stepPending > span {
+  background: #f1f3f7;
+  color: var(--faint);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.steps strong {
+  font-size: 11.5px;
+}
+.stepPending strong {
+  color: var(--muted);
+}
+.steps p {
+  font-size: 11px;
+  color: var(--faint);
+  margin-top: 2px;
+  line-height: 1.5;
+}
+.workspace .steps button {
+  margin-top: 7px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 9px 5px 11px;
+  font-size: 11px;
+}
+
+/* Grounded conversation openers. Prompts, never answers: sending stays the user's act. */
+.suggestions {
+  flex: none;
+  padding: 12px 15px 14px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.suggestions h3 {
+  margin: 0 0 9px;
+}
+.workspace .suggestions button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  text-align: left;
+  padding: 9px 11px;
+  margin-bottom: 6px;
+  font-size: 11.5px;
+  font-weight: 550;
+  background: linear-gradient(180deg, #fbfcff, #f5f8fe);
+  border-color: #e0e7f5;
+}
+.workspace .suggestions button svg {
+  flex-shrink: 0;
+  color: var(--faint);
+}
+
+.mono {
+  font-family: ui-monospace, "SFMono-Regular", "Cascadia Mono", Menlo, monospace;
+}

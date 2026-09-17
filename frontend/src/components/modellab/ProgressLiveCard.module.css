@@ -1,0 +1,201 @@
+/* Live progress card. Colour tokens (--ink, --muted, …) come from the lab's .app root. */
+
+.card {
+  align-self: stretch;
+}
+
+.body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 8px;
+  padding-bottom: 10px;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.simChip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  padding: 0 8px;
+  border-radius: 99px;
+  background: #f3effe;
+  color: #5b21b6; /* 8.3:1 on #f3effe */
+  font-size: 10.5px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0 14px;
+}
+.stats > div {
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--line-soft);
+  border-radius: 7px;
+  background: #f8fafc;
+}
+.stats dt {
+  color: var(--muted);
+  font-size: 10.5px;
+  white-space: nowrap;
+}
+.stats dd {
+  margin: 1px 0 0;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.stats small {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.countdown {
+  margin: 0 14px;
+}
+.countdownHead {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11.5px;
+}
+.countdownHead span {
+  color: var(--muted);
+}
+.countdownHead strong {
+  color: var(--ink);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.countdownBar {
+  height: 5px;
+  margin-top: 4px;
+  border-radius: 3px;
+  background: #dbe6fb;
+  overflow: hidden;
+}
+.countdownBar i {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--blue);
+  transition: width 0.9s linear;
+}
+
+.sparks {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0 14px;
+}
+.sparks figure {
+  min-width: 0;
+  margin: 0;
+  padding: 6px 8px 4px;
+  border: 1px solid var(--line-soft);
+  border-radius: 7px;
+}
+.sparks figcaption {
+  display: flex;
+  flex-direction: column;
+  font-size: 10.5px;
+  color: var(--muted);
+}
+.sparks figcaption span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sparks figcaption strong {
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.spark {
+  display: block;
+  width: 100%;
+  height: 30px;
+  margin-top: 2px;
+  overflow: visible;
+}
+.spark polyline[data-line] {
+  fill: none;
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+  stroke-linejoin: round;
+}
+.spark polyline[data-fill] {
+  stroke: none;
+  opacity: 0.12;
+}
+.spark[data-tone="blue"] polyline[data-line] {
+  stroke: var(--blue);
+}
+.spark[data-tone="blue"] polyline[data-fill],
+.spark[data-tone="blue"] circle {
+  fill: var(--blue);
+}
+.spark[data-tone="green"] polyline[data-line] {
+  stroke: var(--green);
+}
+.spark[data-tone="green"] polyline[data-fill],
+.spark[data-tone="green"] circle {
+  fill: var(--green);
+}
+
+.footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 14px;
+  color: var(--muted);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+}
+.fresh {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.fresh i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #94a3b8;
+}
+.fresh[data-running] i {
+  background: #22c55e;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fresh[data-running] i {
+    animation: none;
+  }
+  .countdownBar i {
+    transition: none;
+  }
+}

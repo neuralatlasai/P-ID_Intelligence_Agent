@@ -1,0 +1,670 @@
+/**
+ * Live views of a stage's inputs: ingestion pipelines, objective weighting, the instruction
+ * mixture and deployment measurements.
+ *
+ * Two kinds of number meet here and are never mixed up. Corpus counts come from `CorpusFacts`
+ * through `availability` and are real: nothing in this module raises them. Everything that
+ * moves — sync schedules, samples consumed this epoch, batch composition, measured latency —
+ * belongs to the simulated run and is labelled as such where it is shown.
+ *
+ * Every function is a pure function of its arguments. Noise comes from `hashString` over a
+ * stable key, never from `Math.random`, so two viewers agree and a paused run stays frozen.
+ * Sync times are the one thing that keeps moving while training is paused, because a data
+ * pipeline does not stop when the optimiser does.
+ */
+
+import { hashString } from "@/lib/canvas/engineering";
+
+import { curveAt } from "./run";
+import { availability, type CorpusFacts } from "./samples";
+import type { CurveSpec, Stage } from "./stages";
+
+/** A uniform value in [0, 1) for a key. */
+function unit(key: string): number {
+  return hashString(key) / 4294967296;
+}
+
+/** The saturating approach metrics take over a run, normalised to 0 at 0 and 1 at 1. */
+function ease(progress: number): number {
+  const p = Math.min(1, Math.max(0, progress));
+  const shape = Math.pow(1 + (p * 100) / 18, -1.1);
+  const floor = Math.pow(1 + 100 / 18, -1.1);
+  return (1 - shape) / (1 - floor);
+}
+
+const lerp = (from: number, to: number, t: number) => from + (to - from) * t;
+
+// ────────────────────────────────────────────────────────────────────────────────────────────
+// Ingestion
+// ────────────────────────────────────────────────────────────────────────────────────────────
+
+export type PipelineStatus = "Synced" | "Indexing" | "Awaiting source" | "Not connected";
+export type Freshness = "fresh" | "stale" | "static";
+export type SourceKind = "drawings" | "graphs" | "images" | "3d" | "telemetry" | "docs";
+
+const MINUTE = 60;
+const HOUR = 3600;
+
+/** How often each kind of source is re-synced, seconds. */
+export const SYNC_INTERVAL: Record<SourceKind, number> = {
+  drawings: 6 * HOUR,
+  graphs: 6 * HOUR,
+  images: 30 * MINUTE,
+  "3d": 24 * HOUR,
+  telemetry: MINUTE,
+  docs: HOUR,
+};
+
+/**
+ * Which real source feeds each contract row. `null` means the corpus has no source of that
+ * kind at all, so the row can never be connected, whatever its count.
+ */
+const ROW_SOURCE: Record<string, SourceKind | null> = {
+  // Stage 1
+  pid: "drawings",
+  graph: "graphs",
+  images: "images",
+  "3d": "3d",
+  ts: "telemetry",
+  docs: "docs",
+  // Stage 2
+  packages: "docs",
+  alignment: "images",
+  procedural: "docs",
+  topology: "graphs",
+  anomaly: "telemetry",
+  telemetry: "telemetry",
+  // Stage 4
+  traces: "docs",
+  rollouts: "docs",
+  correspondences: "images",
+  simulation: "telemetry",
+  extraction: "docs",
+  dialogues: null,
+};
+
+export interface IngestionRow {
+  readonly id: string;
+  readonly source: SourceKind | null;
+  readonly status: PipelineStatus;
+  /** Real count the corpus supplies today; never inflated. */
+  readonly available: number;
+  /** Sync cadence, seconds; null for rows with no source. */
+  readonly intervalSeconds: number | null;
+  /** Epoch ms of the last completed sync; null for fixtures and unconnected rows. */
+  readonly lastSyncAt: number | null;
+  readonly secondsSinceSync: number | null;
+  /** Human label, e.g. "Synced · 4m ago" or "Bundled fixture". */
+  readonly syncLabel: string;
+  readonly freshness: Freshness;
+  /** Samples of this row consumed so far in the current epoch, ≤ available. */
+  readonly consumed: number;
+  /** Share of the current epoch completed, 0–1. */
+  readonly epochShare: number;
+  /** 1-based epoch the run is in over the planned dataset. */
+  readonly epoch: number;
+}
+
+function formatAgoShort(seconds: number): string {
+  if (seconds < 60) return "just now";
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+  if (seconds < 86400) {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    return m ? `${h}h ${m}m ago` : `${h}h ago`;
+  }
+  return `${Math.floor(seconds / 86400)}d ago`;
+}
+
+/**
+ * Where the run is in its current pass over the planned dataset (the contract's summed
+ * targets). The planned size, not today's availability, is the denominator: the corpus is
+ * a subset of the plan, and each row is consumed in proportion as the epoch advances.
+ */
+export function epochPosition(
+  stage: Stage,
+  step: number,
+  globalBatch: number,
+): { readonly share: number; readonly epoch: number; readonly datasetSize: number } {
+  const datasetSize = stage.contract.reduce((sum, row) => sum + row.target, 0);
+  if (datasetSize <= 0) return { share: 0, epoch: 1, datasetSize: 0 };
+  const seen = Math.max(0, Math.floor(step)) * Math.max(0, Math.floor(globalBatch));
+  return {
+    share: (seen % datasetSize) / datasetSize,
+    epoch: Math.floor(seen / datasetSize) + 1,
+    datasetSize,
+  };
+}
+
+/**
+ * The ingestion state of every contract row of a stage, keyed by row id.
+ *
+ * Syncs happen on each source's schedule, offset per row so they do not all land together.
+ * A scheduled sync occasionally does not complete (decided by hash, about one in eight for
+ * slow sources); the row then still shows the previous sync and goes stale until the next.
+ * A sync is followed by a short indexing window.
+ */
+export function ingestionFor(
+  stage: Stage,
+  facts: CorpusFacts,
+  step: number,
+  globalBatch: number,
+  now: number,
+): ReadonlyMap<string, IngestionRow> {
+  const available = availability(stage.id, facts);
+  const position = epochPosition(stage, step, globalBatch);
+  const rows = new Map<string, IngestionRow>();
+
+  for (const row of stage.contract) {
+    const count = Math.max(0, available.get(row.id)?.count ?? 0);
+    const source = ROW_SOURCE[row.id] ?? null;
+    const base = {
+      id: row.id,
+      source,
+      available: count,
+      epochShare: position.share,
+      epoch: position.epoch,
+    };
+
+    if (source === null || count === 0) {
+      rows.set(row.id, {
+        ...base,
+        status: "Not connected",
+        intervalSeconds: null,
+        lastSyncAt: null,
+        secondsSinceSync: null,
+        syncLabel: source === null ? "No source in corpus" : "Source has no records",
+        freshness: "static",
+        consumed: 0,
+      });
+      continue;
+    }
+
+    const consumed = Math.min(count, Math.floor(position.share * count));
+    const interval = SYNC_INTERVAL[source];
+    const catalogueOffline =
+      (source === "drawings" || source === "graphs") && facts.drawings === null;
+
+    if (facts.source === "demo" || catalogueOffline) {
+      // Offline: the rows are counted from the fixture shipped with the app. Nothing syncs.
+      rows.set(row.id, {
+        ...base,
+        status: catalogueOffline ? "Awaiting source" : "Synced",
+        intervalSeconds: interval,
+        lastSyncAt: null,
+        secondsSinceSync: null,
+        syncLabel: catalogueOffline
+          ? "Bundled fixture · catalogue offline"
+          : "Bundled fixture",
+        freshness: "static",
+        consumed,
+      });
+      continue;
+    }
+
+    const intervalMs = interval * 1000;
+    const offset = hashString(`sync-offset:${stage.id}:${row.id}`) % intervalMs;
+    const bucket = Math.floor((now - offset) / intervalMs);
+    // Fast sources retry within the minute; only slower ones visibly miss a cycle.
+    const missRate = interval >= HOUR ? 0.12 : interval >= 30 * MINUTE ? 0.06 : 0;
+    const missed = unit(`sync-miss:${stage.id}:${row.id}:${bucket}`) < missRate;
+    const lastSyncAt = (missed ? bucket - 1 : bucket) * intervalMs + offset;
+    const secondsSinceSync = Math.max(0, (now - lastSyncAt) / 1000);
+    const indexingWindow = Math.min(10 * MINUTE, Math.max(5, interval * 0.06));
+    const indexing = !missed && secondsSinceSync < indexingWindow;
+    const stale = secondsSinceSync > interval;
+
+    rows.set(row.id, {
+      ...base,
+      status: indexing ? "Indexing" : "Synced",
+      intervalSeconds: interval,
+      lastSyncAt,
+      secondsSinceSync,
+      syncLabel: indexing
+        ? `Indexing · started ${formatAgoShort(secondsSinceSync)}`
+        : `Synced · ${formatAgoShort(secondsSinceSync)}`,
+      freshness: stale ? "stale" : "fresh",
+      consumed,
+    });
+  }
+  return rows;
+}
+
+// ────────────────────────────────────────────────────────────────────────────────────────────
+// Alignment matrix detail
+// ────────────────────────────────────────────────────────────────────────────────────────────
+
+/** What links two modalities (indices into MODALITIES) and what the count is a count of. */
+export function alignmentLink(
+  row: number,
+  column: number,
+): { readonly what: string; readonly basis: string } {
+  const a = Math.min(row, column);
+  const b = Math.max(row, column);
+  const links: Record<string, { what: string; basis: string }> = {
+    "0-1": {
+      what: "Every drawn symbol is a node in the paired GraphML topology.",
+      basis: "Nodes on the loaded sheet",
+    },
+    "0-2": {
+      what: "Field photographs registered to the symbol they depict.",
+      basis: "Registered field references",
+    },
+    "0-3": {
+      what: "Symbols whose device class has a procedural 3D model.",
+      basis: "Distinct field classes with a model, plus the exchanger twin",
+    },
+    "0-4": {
+      what: "Instrument symbols that carry a historian tag.",
+      basis: "Simulated historian tags on this sheet",
+    },
+    "0-5": {
+      what: "Documents filed against a drawn asset in the register.",
+      basis: "Register documents",
+    },
+    "1-2": {
+      what: "Photographed devices located on a topology node.",
+      basis: "Registered field references",
+    },
+    "1-3": {
+      what: "Twin component detections attached to the exchanger's graph node.",
+      basis: "Detections in the exchanger twin scene",
+    },
+    "1-4": {
+      what: "Control loops joining measured tags through the topology.",
+      basis: "Control loops in the register",
+    },
+    "1-5": {
+      what: "Work orders raised against assets in the graph.",
+      basis: "Work orders in the register",
+    },
+    "2-3": {
+      what: "Photograph detections matched to twin components.",
+      basis: "Detections in the exchanger twin scene",
+    },
+    "2-4": {
+      what: "No photograph is time-stamped against a trend window in this corpus.",
+      basis: "No direct alignment",
+    },
+    "2-5": {
+      what: "No photograph is cited by a document in this corpus.",
+      basis: "No direct alignment",
+    },
+    "3-4": {
+      what: "The exchanger twin is driven by its live telemetry.",
+      basis: "One twin scene bound to telemetry",
+    },
+    "3-5": {
+      what: "No 3D model is referenced by a document in this corpus.",
+      basis: "No direct alignment",
+    },
+    "4-5": {
+      what: "Work orders on assets whose tags have telemetry.",
+      basis: "Work orders in the register, when tagged assets exist",
+    },
+  };
+  return links[`${a}-${b}`] ?? { what: "Same modality.", basis: "Not applicable" };
+}
+
+// ────────────────────────────────────────────────────────────────────────────────────────────
+// Objectives
+// ────────────────────────────────────────────────────────────────────────────────────────────
+
+interface ObjectiveSpec {
+  readonly key: string;
+  readonly label: string;
+  readonly weight: number;
+}
+
+const OBJECTIVES: Partial<Record<Stage["id"], readonly ObjectiveSpec[]>> = {
+  pretraining: [
+    { key: "mlm", label: "Masked multimodal modeling", weight: 0.35 },
+    { key: "contrastive", label: "Contrastive alignment", weight: 0.25 },
+    { key: "grounding", label: "OCR / tag grounding", weight: 0.2 },
+    { key: "topology", label: "Topology prediction", weight: 0.15 },
+    { key: "registration", label: "2D ↔ 3D registration consistency", weight: 0.05 },
+  ],
+  sft: [
+    { key: "language", label: "Grounded dialogue tuning", weight: 0.4 },
+    { key: "grounding", label: "Spatial disambiguation / grounding", weight: 0.25 },
+    { key: "tool", label: "Tool calling", weight: 0.2 },
+    { key: "extraction", label: "Structured extraction", weight: 0.15 },
+  ],
+};
+
+/**
+ * Objectives whose loss is not plotted in the stage's loss tab. The registration term is
+ * logged separately in practice; it follows the same shape as its sibling losses.
+ */
+const FALLBACK_CURVES: Record<string, CurveSpec> = {
+  registration: {
+    key: "registration-loss",
+    label: "Registration loss",
+    colour: "#16a34a",
+    start: 1.8,
+    end: 0.0055,
+    tau: 1200,
+    noise: 0.07,
+  },
+};
+
+export interface ObjectiveShare {
+  readonly key: string;
+  readonly label: string;
+  readonly colour: string;
+  readonly weight: number;
+  readonly loss: number;
+  /** weight × loss / Σ(weight × loss); shares sum to 1. */
+  readonly share: number;
+  /** True when the loss is not one of the plotted curves. */
+  readonly derived: boolean;
+}
+
+export function objectiveShares(stage: Stage, step: number): readonly ObjectiveShare[] {
+  const specs = OBJECTIVES[stage.id];
+  const tab = stage.curves[0];
+  if (!specs || !tab) return [];
+  const rows = specs.map((spec) => {
+    const plotted = tab.curves.find((curve) => curve.key === spec.key);
+    const curve = plotted ?? FALLBACK_CURVES[spec.key];
+    const loss = curve ? Math.max(0, curveAt(curve, step)) : 0;
+    return {
+      key: spec.key,
+      label: spec.label,
+      colour: curve?.colour ?? "#64748b",
+      weight: spec.weight,
+      loss,
+      derived: !plotted,
+    };
+  });
+  const total = rows.reduce((sum, row) => sum + row.weight * row.loss, 0);
+  return rows.map((row) => ({
+    ...row,
+    share: total > 0 ? (row.weight * row.loss) / total : row.weight,
+  }));
+}
+
+// ────────────────────────────────────────────────────────────────────────────────────────────
+// Instruction mixture
+// ────────────────────────────────────────────────────────────────────────────────────────────
+
+export const MIXTURE_FAMILIES = [
+  { id: "qa", label: "Plant QA", share: 0.25, colour: "#2563eb" },
+  { id: "grounding", label: "Grounding", share: 0.2, colour: "#8b5cf6" },
+  { id: "topology", label: "Topology / tool-use", share: 0.2, colour: "#22c55e" },
+  { id: "procedure", label: "Procedure reasoning", share: 0.2, colour: "#f59e0b" },
+  { id: "telemetry", label: "Telemetry-conditioned", share: 0.15, colour: "#38bdf8" },
+] as const;
+
+export interface MixtureFamilyCount {
+  readonly id: string;
+  readonly label: string;
+  readonly share: number;
+  readonly colour: string;
+  /** Samples of this family seen since step 0. */
+  readonly seen: number;
+  /** Samples of this family in the most recent optimiser batch. */
+  readonly lastBatch: number;
+}
+
+export interface MixtureCounts {
+  /** Index of the most recent completed batch (the integer step). */
+  readonly batchIndex: number;
+  readonly batchSize: number;
+  readonly totalSeen: number;
+  readonly families: readonly MixtureFamilyCount[];
+  /** The tick the reading was taken at. */
+  readonly asOf: number;
+}
+
+/** Round non-negative weights to integers summing to `total` (largest remainder). */
+function apportion(weights: readonly number[], total: number): number[] {
+  const sum = weights.reduce((acc, w) => acc + w, 0);
+  if (total <= 0 || sum <= 0) return weights.map(() => 0);
+  const exact = weights.map((w) => (w / sum) * total);
+  const floors = exact.map(Math.floor);
+  let remainder = total - floors.reduce((acc, n) => acc + n, 0);
+  const order = exact
+    .map((value, index) => ({ index, frac: value - Math.floor(value) }))
+    .sort((x, y) => y.frac - x.frac || x.index - y.index);
+  for (const { index } of order) {
+    if (remainder <= 0) break;
+    floors[index]! += 1;
+    remainder -= 1;
+  }
+  return floors;
+}
+
+/**
+ * Samples seen per task family, and the make-up of the latest batch. The batch is drawn
+ * like a multinomial sample: each family's count scatters around its expected share with a
+ * binomial-sized spread (a hash-seeded normal draw), then counts are rounded to sum exactly
+ * to the global batch.
+ */
+export function mixtureCounts(
+  step: number,
+  globalBatch: number,
+  now: number,
+): MixtureCounts {
+  const batchSize = Math.max(0, Math.floor(globalBatch));
+  const batchIndex = Math.max(0, Math.floor(step));
+  const totalSeen = batchIndex * batchSize;
+  const seen = apportion(
+    MIXTURE_FAMILIES.map((family) => family.share),
+    totalSeen,
+  );
+  const draws = MIXTURE_FAMILIES.map((family) => {
+    const mean = batchSize * family.share;
+    const sd = Math.sqrt(batchSize * family.share * (1 - family.share));
+    const u1 = Math.max(1e-9, unit(`mix:${batchIndex}:${family.id}:a`));
+    const u2 = unit(`mix:${batchIndex}:${family.id}:b`);
+    const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+    return Math.max(0, mean + sd * Math.max(-2.5, Math.min(2.5, z)));
+  });
+  // A draw where every family clamps to zero falls back to the planned shares.
+  const drawn = draws.some((value) => value > 0)
+    ? draws
+    : MIXTURE_FAMILIES.map((family) => family.share);
+  const lastBatch = apportion(drawn, batchSize);
+  return {
+    batchIndex,
+    batchSize,
+    totalSeen,
+    families: MIXTURE_FAMILIES.map((family, index) => ({
+      id: family.id,
+      label: family.label,
+      share: family.share,
+      colour: family.colour,
+      seen: seen[index]!,
+      lastBatch: lastBatch[index]!,
+    })),
+    asOf: now,
+  };
+}
+
+// ────────────────────────────────────────────────────────────────────────────────────────────
+// Reward contract (stage 3)
+// ────────────────────────────────────────────────────────────────────────────────────────────
+
+export interface BatchReward {
+  readonly name: string;
+  readonly weight: number;
+  /** Mean verifier score over the batch, 0–1 (penalty: rate of penalised answers). */
+  readonly score: number;
+  /** weight × score. */
+  readonly value: number;
+}
+
+/** Weighted reward per contract row for the current batch of the simulated policy. */
+export function batchRewards(
+  stage: Stage,
+  step: number,
+  progress: number,
+): readonly BatchReward[] {
+  const t = ease(progress);
+  const bucket = Math.floor(Math.max(0, step) / 40);
+  return (stage.rewards ?? []).map((reward) => {
+    const jitter = (unit(`reward:${reward.name}:${bucket}`) * 2 - 1) * 0.03;
+    const offset = (unit(`reward-offset:${reward.name}`) * 2 - 1) * 0.05;
+    const score =
+      reward.weight < 0
+        ? Math.min(1, Math.max(0, lerp(0.15, 0.035, t) * (1 + jitter * 4)))
+        : Math.min(1, Math.max(0, lerp(0.42, 0.86, t) + offset + jitter));
+    return {
+      name: reward.name,
+      weight: reward.weight,
+      score,
+      value: reward.weight * score,
+    };
+  });
+}
+
+// ────────────────────────────────────────────────────────────────────────────────────────────
+// Deployment (stage 4)
+// ────────────────────────────────────────────────────────────────────────────────────────────
+
+export type DeploymentStatus = "Supported" | "Ready" | "Pending";
+
+export interface DeploymentTarget {
+  readonly id: "vllm" | "tensorrt" | "edge" | "local";
+  readonly name: string;
+  readonly detail: string;
+  readonly status: DeploymentStatus;
+  /** What has to happen before the status changes, when pending. */
+  readonly gate: string;
+  readonly p50: number;
+  readonly p95: number;
+  readonly tokensPerSecond: number;
+  readonly memoryGb: number;
+}
+
+export interface DeploymentMeasurements {
+  /** Epoch whose end-of-epoch evaluation produced these numbers (0 = baseline). */
+  readonly epoch: number;
+  readonly epochs: number;
+  /** Share of the run at which the measurement was taken. */
+  readonly measuredProgress: number;
+  /** Epoch ms of the measurement, given the run's wall-clock length in seconds. */
+  readonly measuredAt: number;
+  readonly targets: readonly DeploymentTarget[];
+}
+
+interface TargetModel {
+  readonly id: DeploymentTarget["id"];
+  readonly name: string;
+  readonly detail: string;
+  readonly p50: readonly [number, number];
+  readonly tail: readonly [number, number];
+  readonly tokens: readonly [number, number];
+  readonly memory: readonly [number, number];
+  readonly supportedAt?: number;
+  readonly memoryBudgetGb?: number;
+}
+
+const TARGET_MODELS: readonly TargetModel[] = [
+  {
+    id: "vllm",
+    name: "vLLM server",
+    detail: "FP16 / INT8, continuous batching",
+    p50: [0.62, 0.38],
+    tail: [1.9, 1.55],
+    tokens: [142, 196],
+    memory: [12.8, 10.6],
+    supportedAt: 0.1,
+  },
+  {
+    id: "tensorrt",
+    name: "TensorRT-LLM",
+    detail: "INT8 / FP8, fused kernels",
+    p50: [0.55, 0.29],
+    tail: [1.7, 1.4],
+    tokens: [165, 238],
+    memory: [11.9, 9.7],
+    supportedAt: 0.3,
+  },
+  {
+    id: "edge",
+    name: "Edge GPU / plant server",
+    detail: "L4 / L40S, 16 GB budget, air-gapped",
+    p50: [1.05, 0.62],
+    tail: [1.8, 1.45],
+    tokens: [31, 46],
+    memory: [17.6, 14.2],
+    supportedAt: 0.5,
+    memoryBudgetGb: 16,
+  },
+  {
+    id: "local",
+    name: "Local inference profile",
+    detail: "Single GPU, p95 < 1 s target",
+    p50: [1.4, 0.82],
+    tail: [1.5, 1.12],
+    tokens: [38, 52.7],
+    memory: [18, 16],
+  },
+];
+
+/**
+ * Latency, throughput and memory per deployment target from the quantisation-aware
+ * evaluation the simulated run performs at the end of each epoch. Values improve with the
+ * student's progress; each reading carries a small, fixed measurement scatter.
+ *
+ * The local profile is Ready exactly when its measured p95 is under one second.
+ */
+export function deploymentMeasurements(
+  progress: number,
+  now: number,
+  epochs = 50,
+  runSeconds = 0,
+): DeploymentMeasurements {
+  const p = Math.min(1, Math.max(0, progress));
+  const epoch = Math.min(epochs, Math.floor(p * epochs + 1e-9));
+  const measuredProgress = epoch / epochs;
+  const t = ease(measuredProgress);
+
+  const targets = TARGET_MODELS.map((model): DeploymentTarget => {
+    const scatter = (key: string, size: number) =>
+      1 + (unit(`deploy:${model.id}:${key}:${epoch}`) * 2 - 1) * size;
+    const p50 = lerp(model.p50[0], model.p50[1], t) * scatter("p50", 0.02);
+    const p95 = p50 * lerp(model.tail[0], model.tail[1], t) * scatter("p95", 0.015);
+    const tokensPerSecond =
+      lerp(model.tokens[0], model.tokens[1], t) * scatter("tok", 0.02);
+    const memoryGb = lerp(model.memory[0], model.memory[1], t) * scatter("mem", 0.005);
+
+    let status: DeploymentStatus;
+    let gate: string;
+    if (model.id === "local") {
+      status = p95 < 1 ? "Ready" : "Pending";
+      gate = status === "Ready" ? "p95 under 1 s" : `p95 ${p95.toFixed(2)} s, needs < 1 s`;
+    } else {
+      const reached = measuredProgress >= (model.supportedAt ?? 0);
+      const fits = model.memoryBudgetGb === undefined || memoryGb <= model.memoryBudgetGb;
+      status = reached && fits ? "Supported" : "Pending";
+      gate =
+        status === "Supported"
+          ? "Export validated"
+          : !reached
+            ? `Export validated at ${Math.round((model.supportedAt ?? 0) * 100)}%`
+            : `Needs ≤ ${model.memoryBudgetGb} GB`;
+    }
+    return {
+      id: model.id,
+      name: model.name,
+      detail: model.detail,
+      status,
+      gate,
+      p50,
+      p95,
+      tokensPerSecond,
+      memoryGb,
+    };
+  });
+
+  return {
+    epoch,
+    epochs,
+    measuredProgress,
+    measuredAt: now - Math.max(0, p - measuredProgress) * runSeconds * 1000,
+    targets,
+  };
+}

@@ -1,0 +1,273 @@
+/* Live checkpoints card. Colour tokens come from the lab's .app root. */
+
+.card {
+  align-self: stretch;
+}
+
+.toggle {
+  min-height: 24px;
+  padding: 0 4px;
+  border-radius: 4px;
+}
+.toggle:focus-visible,
+.expand:focus-visible,
+.action:focus-visible,
+.wrap:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
+.wrap[data-all] {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.table th:last-child,
+.table td.expandCell {
+  width: 28px;
+  padding-right: 0;
+  text-align: right;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.time {
+  color: var(--body) !important;
+  white-space: nowrap;
+}
+
+/* in-flight and countdown rows */
+
+.flight td,
+.nextRow td {
+  padding-top: 7px !important;
+  padding-bottom: 7px !important;
+  background: var(--blue-soft);
+}
+.flightHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+  margin-bottom: 5px;
+  font-size: 11.5px;
+}
+.flightHead strong {
+  color: #1e40af;
+  font-weight: 650;
+}
+.flightHead span {
+  color: var(--ink);
+}
+.flightHead .muted {
+  margin-left: auto;
+  color: var(--muted);
+}
+.writeBar {
+  display: block;
+  height: 5px;
+  border-radius: 3px;
+  background: #dbe6fb;
+  overflow: hidden;
+}
+.writeBar i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #3b82f6, #2563eb);
+  transition: width 0.9s linear;
+}
+.writeBar[data-running] i {
+  background-image:
+    repeating-linear-gradient(
+      -45deg,
+      rgba(255, 255, 255, 0.35) 0 5px,
+      transparent 5px 10px
+    ),
+    linear-gradient(90deg, #3b82f6, #2563eb);
+  background-size:
+    14px 14px,
+    100% 100%;
+  animation: stripes 0.8s linear infinite;
+}
+@keyframes stripes {
+  to {
+    background-position:
+      14px 0,
+      0 0;
+  }
+}
+
+.nextRow td {
+  color: #1e40af;
+  font-size: 11.5px;
+}
+.nextRow td > svg {
+  vertical-align: -2px;
+  margin-right: 6px;
+}
+.nextRow strong {
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+/* checkpoint rows */
+
+.row[data-best] td {
+  background: #f0fdf4;
+}
+.row[data-open] td {
+  border-bottom-color: transparent;
+}
+.row[data-fresh] td {
+  animation: rowIn 1.2s ease-out;
+}
+@keyframes rowIn {
+  from {
+    background: #dbeafe;
+    opacity: 0.2;
+  }
+  40% {
+    opacity: 1;
+  }
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 18px;
+  padding: 0 7px;
+  border-radius: 99px;
+  background: #eef2f7;
+  color: #334155;
+  font-size: 10.5px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+.chip[data-status="Best"] {
+  background: var(--green-soft);
+  color: #166534; /* 6.5:1 on #dcfce7 */
+}
+.chip[data-status="Evaluated"] {
+  background: #e0ecff;
+  color: #1e40af;
+}
+
+.expand {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--muted) !important;
+}
+.expand:hover {
+  border-color: var(--line);
+  color: var(--ink) !important;
+}
+.expand svg {
+  transition: transform 0.15s ease;
+}
+.expand[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+
+.detailsRow td {
+  padding-top: 0 !important;
+  background: #f8fafc;
+}
+.details {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+  padding: 6px 0 2px;
+  font-size: 11.5px;
+}
+.details > div {
+  display: grid;
+  grid-template-columns: 82px minmax(0, 1fr);
+  gap: 8px;
+}
+.details dt {
+  color: var(--muted);
+}
+.details dd {
+  margin: 0;
+  min-width: 0;
+  color: var(--ink);
+}
+.details code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10.5px;
+  overflow-wrap: anywhere;
+}
+.simNote {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 5px;
+  border-radius: 4px;
+  background: #f3effe;
+  color: #5b21b6;
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 0 4px;
+}
+.action {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 26px;
+  padding: 0 9px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--ink) !important;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+.action:hover {
+  border-color: #c7d2e1;
+}
+.action[data-primary] {
+  border-color: var(--blue);
+  background: var(--blue);
+  color: #fff !important;
+}
+.copyStatus {
+  color: var(--green);
+  font-size: 11px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .writeBar[data-running] i,
+  .row[data-fresh] td {
+    animation: none;
+  }
+  .writeBar i,
+  .expand svg {
+    transition: none;
+  }
+}

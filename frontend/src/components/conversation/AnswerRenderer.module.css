@@ -1,0 +1,173 @@
+.answer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/*
+ * One evidence-classified block: Observed, Corroborated, Inferred, Conflicting/Unknown.
+ * The left rule carries the classification colour, and the heading carries its name, so
+ * the classification never depends on colour alone.
+ */
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/*
+ * A classified block is a card, not an indent.
+ *
+ * Four of these stack in a single answer, and a 2px rule alone leaves them reading as one
+ * long column of prose. The tinted panel gives each classification a boundary an engineer
+ * can scan to, which is the whole point of the labels: "what did you observe" and "what did
+ * you infer" are different questions and should not look like the same paragraph.
+ */
+.classified {
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-inline-start: 3px solid var(--border-default);
+  border-start-end-radius: var(--radius-md);
+  border-end-end-radius: var(--radius-md);
+  background: var(--bg-sunken);
+}
+
+.heading {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+/* A dot in the classification colour, beside a name that already states it in words.
+   Only classified sections get one: on a plain heading it would mark nothing. */
+.classified .heading::before {
+  content: "";
+  inline-size: 7px;
+  block-size: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  align-self: center;
+  flex: none;
+}
+
+.qualifier {
+  color: var(--text-tertiary);
+  font-weight: var(--weight-regular);
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+
+/*
+ * Claims inside a classified block.
+ *
+ * The agent writes one claim per list item, usually `<claim> — <source>`. The marker is
+ * replaced by a rule-aligned dash and the measure is widened, so a claim that wraps stays
+ * visually one item rather than merging into the next.
+ */
+.classified :global(.prose ul) {
+  padding-inline-start: 0;
+  list-style: none;
+}
+
+.classified :global(.prose li) {
+  position: relative;
+  padding-inline-start: var(--space-4);
+}
+
+.classified :global(.prose li)::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: 0;
+  inset-block-start: 0.62em;
+  inline-size: 7px;
+  block-size: 1px;
+  background: var(--text-tertiary);
+}
+
+.classified :global(.prose li + li) {
+  margin-block-start: var(--space-2);
+}
+
+.observed {
+  border-inline-start-color: var(--evidence-observed);
+}
+
+.observed .heading {
+  color: var(--evidence-observed);
+}
+
+.corroborated {
+  border-inline-start-color: var(--evidence-corroborated);
+}
+
+.corroborated .heading {
+  color: var(--evidence-corroborated);
+}
+
+.inferred {
+  border-inline-start-color: var(--evidence-inferred);
+}
+
+.inferred .heading {
+  color: var(--evidence-inferred);
+}
+
+.conflicting {
+  border-inline-start-color: var(--evidence-conflicting);
+}
+
+.conflicting .heading {
+  color: var(--evidence-conflicting);
+}
+
+.unknown {
+  border-inline-start-color: var(--evidence-unknown);
+}
+
+.unknown .heading {
+  color: var(--evidence-unknown);
+}
+
+/*
+ * The streaming cursor. It marks the insertion point without re-animating text that has
+ * already arrived, which would make settled content restless.
+ */
+.cursor {
+  display: inline-block;
+  inline-size: 2px;
+  block-size: 1em;
+  margin-inline-start: 2px;
+  vertical-align: text-bottom;
+  background: var(--accent-action);
+  animation: blink 1s steps(2, start) infinite;
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cursor {
+    animation: none;
+    opacity: 0.8;
+  }
+}
+
+.partialNotice {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--status-degraded);
+  border-radius: var(--radius-sm);
+  background: var(--status-degraded-bg);
+  color: var(--status-degraded);
+  font-size: var(--text-base);
+}

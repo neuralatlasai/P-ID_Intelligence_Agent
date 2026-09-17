@@ -1,0 +1,67 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "ES2022"
+    ],
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "exactOptionalPropertyTypes": false,
+    "useUnknownInCatchVariables": true,
+    "forceConsistentCasingInFileNames": true,
+    "allowJs": false,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": false,
+    "noEmit": true,
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": [
+        "./src/*"
+      ]
+    }
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    "vitest.config.mts",
+    "playwright.config.ts",
+    ".next/dev/types/**/*.ts",
+    ".releases/release-1789576065681-6a2d30eb/types/**/*.ts",
+    ".releases/release-1789576065681-6a2d30eb/dev/types/**/*.ts",
+    ".releases/release-1789576439134-0711c1eb/types/**/*.ts",
+    ".releases/release-1789576439134-0711c1eb/dev/types/**/*.ts",
+    ".releases/release-1789581539357-97ac7409/types/**/*.ts",
+    ".releases/release-1789581539357-97ac7409/dev/types/**/*.ts",
+    ".releases/release-1789581881278-74b6908b/types/**/*.ts",
+    ".releases/release-1789581881278-74b6908b/dev/types/**/*.ts",
+    ".releases/release-1789584127981-b4c8ddeb/types/**/*.ts",
+    ".releases/release-1789584127981-b4c8ddeb/dev/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    ".next",
+    ".releases",
+    "out",
+    "playwright-report",
+    "test-results"
+  ]
+}

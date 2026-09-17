@@ -1,0 +1,42 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-xs);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.neutral {
+  background: var(--bg-sunken);
+  color: var(--text-secondary);
+}
+
+.observed {
+  background: var(--evidence-observed-bg);
+  color: var(--evidence-observed);
+}
+
+.corroborated {
+  background: var(--evidence-corroborated-bg);
+  color: var(--evidence-corroborated);
+}
+
+.inferred {
+  background: var(--evidence-inferred-bg);
+  color: var(--evidence-inferred);
+}
+
+.conflicting {
+  background: var(--evidence-conflicting-bg);
+  color: var(--evidence-conflicting);
+}
+
+.unknown {
+  background: var(--evidence-unknown-bg);
+  color: var(--evidence-unknown);
+}
