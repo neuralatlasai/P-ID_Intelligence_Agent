@@ -192,7 +192,9 @@ export function SampleStrip({
     >
       <header className={styles.cardHeader}>
         <span className={styles.cardIcon}>
-          <Icon name="sample" size={19} />
+          <span className={styles.technicalLabel} aria-hidden="true">
+            IN
+          </span>
         </span>
         <h2>{stage.sampleTitle}</h2>
         <span className={styles.cardAside}>
@@ -660,7 +662,7 @@ function ReasoningTrace({
     <div className={styles.trace} tabIndex={0} aria-label="Reasoning trace">
       <div className={styles.bubble} data-role="user">
         <span className={styles.bubbleIcon}>
-          <Icon name="user" size={14} />
+          <code aria-hidden="true">x</code>
         </span>
         <div>
           <strong>User</strong>
@@ -669,7 +671,7 @@ function ReasoningTrace({
       </div>
       <div className={styles.bubble} data-role="model">
         <span className={styles.bubbleIcon}>
-          <Icon name="robot" size={14} />
+          <code aria-hidden="true">fθ</code>
         </span>
         <div>
           <strong>Model (grounded reasoning)</strong>
@@ -695,7 +697,9 @@ function ReasoningTrace({
 function VerifierResult({ verification }: { readonly verification: Verification }) {
   // Every check is a gate: a high weighted score still fails when one check fails, so the
   // verdict names the gate instead of leaving "Fail 0.90" to be puzzled over.
-  const gates = verification.checks.filter((check) => !check.pass).map((check) => check.label);
+  const gates = verification.checks
+    .filter((check) => !check.pass)
+    .map((check) => check.label);
   const verdict = verification.pass
     ? "Pass"
     : verification.fabricated.length > 0
@@ -830,7 +834,7 @@ function TeacherStudent({
   ) => (
     <div className={styles.bubble} data-role="model">
       <span className={styles.bubbleIcon}>
-        <Icon name="robot" size={14} />
+        <code aria-hidden="true">{role === "Teacher" ? "fT" : "fS"}</code>
       </span>
       <div>
         <strong>

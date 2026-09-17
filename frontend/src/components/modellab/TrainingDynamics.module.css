@@ -1,0 +1,333 @@
+.root {
+  --text: #202d3b;
+  --muted: #5c6876;
+  --edge: #dde3e8;
+  border: 1px solid var(--edge);
+  border-radius: 5px;
+  background: #fff;
+  min-width: 0;
+  color: var(--text);
+}
+.kicker {
+  color: #626e7a;
+  font:
+    10px/1.6 ui-monospace,
+    Consolas,
+    monospace;
+  letter-spacing: 0.085em;
+}
+.tokenFlow {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  align-items: center;
+  gap: 22px;
+  padding: 22px 28px;
+  border-bottom: 1px solid var(--edge);
+}
+.tokenFlow p {
+  color: var(--muted);
+  font-size: 11px;
+  margin: 6px 0 0;
+}
+.tokenFlow ol {
+  display: flex;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  gap: 3px;
+}
+.tokenFlow li {
+  flex: 1;
+  padding: 10px 12px;
+  background: #f0f3f6;
+  border-top: 2px solid #a9b9c6;
+  min-width: 0;
+}
+.tokenFlow li[data-target="true"] {
+  background: #eaf3ef;
+  border-color: #6a9181;
+}
+.tokenFlow strong {
+  font:
+    9px/1.5 ui-monospace,
+    Consolas,
+    monospace;
+  color: #41566b;
+  letter-spacing: 0.04em;
+}
+.tokenFlow small {
+  display: block;
+  margin-top: 5px;
+  font-size: 10px;
+  color: #526374;
+}
+.composition {
+  padding: 24px 28px 0;
+}
+.compositionHeading {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: center;
+  margin-bottom: 24px;
+}
+.compositionHeading h4 {
+  font-size: 20px;
+  margin: 8px 0 0;
+  font-weight: 550;
+  letter-spacing: -0.025em;
+}
+.total {
+  display: grid;
+  gap: 4px;
+  text-align: right;
+}
+.total > span {
+  font-size: 10px;
+  color: var(--muted);
+}
+.total strong {
+  font:
+    24px/1.25 ui-monospace,
+    Consolas,
+    monospace;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+}
+.stackHeader {
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--muted);
+  margin-bottom: 9px;
+}
+/* Each segment is a control: 24 px is the smallest target, so a 3 % share still gets one. */
+.stack {
+  display: flex;
+  height: 24px;
+  gap: 2px;
+}
+.stack button {
+  display: block;
+  flex-basis: 0;
+  min-width: 24px;
+  border: 0;
+  padding: 0;
+  opacity: 0.8;
+}
+.stack button[aria-pressed="true"],
+.stack button:hover {
+  opacity: 1;
+}
+.penalty,
+.unweighted {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.7;
+  margin: 12px 0;
+}
+.penalty span {
+  padding: 0 5px;
+  color: #965252;
+}
+.unweighted {
+  padding: 12px 14px;
+  background: #f6f7f8;
+  border-left: 2px solid #9daebd;
+}
+.signals {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  margin-top: 18px;
+}
+.signal {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border: 1px solid var(--edge);
+  padding: 13px 14px 11px;
+  text-align: left;
+  border-radius: 3px;
+}
+.signal[aria-pressed="true"] {
+  border-color: var(--signal);
+  background: #fafbfc;
+  box-shadow: inset 0 2px var(--signal);
+}
+.signalHeading {
+  display: flex;
+  gap: 7px;
+  align-items: baseline;
+  min-height: 37px;
+}
+.signalHeading > i {
+  width: 5px;
+  height: 5px;
+  flex: none;
+  background: var(--signal);
+}
+.signalHeading > span {
+  color: #667583;
+  font:
+    9px/1.5 ui-monospace,
+    Consolas,
+    monospace;
+}
+.signalHeading strong {
+  font-weight: 500;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.signalValue {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  margin: 10px 0 4px;
+  font:
+    24px/1.4 ui-monospace,
+    Consolas,
+    monospace;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.045em;
+}
+.signalValue small {
+  color: #647382;
+  font:
+    10px/1.5 ui-monospace,
+    Consolas,
+    monospace;
+  letter-spacing: 0;
+}
+.microChart {
+  width: 100%;
+  height: 54px;
+  display: block;
+  margin: 5px 0 10px;
+}
+.gridLine {
+  fill: none;
+  stroke: #e4e9ed;
+  stroke-width: 0.6;
+}
+.signalMeta {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 4px;
+  border-top: 1px solid #e7ebef;
+  padding-top: 10px;
+  font-size: 9px;
+  color: #5b6a79;
+}
+.inspection {
+  display: grid;
+  grid-template-columns: 5px minmax(140px, 0.6fr) minmax(0, 2fr);
+  gap: 12px;
+  align-items: center;
+  background: #f6f8fa;
+  padding: 14px 16px;
+  margin: 16px 0 0;
+}
+.inspection > span {
+  height: 20px;
+  width: 3px;
+}
+.inspection strong {
+  font-size: 11px;
+  font-weight: 550;
+}
+.inspection p {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.7;
+  margin: 0;
+}
+.chartNote {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  padding: 16px 0;
+  color: var(--muted);
+  font-size: 10px;
+}
+.chartNote > span {
+  font:
+    9px/1.5 ui-monospace,
+    Consolas,
+    monospace;
+  letter-spacing: 0.04em;
+}
+.chartNote code {
+  font-size: 10px;
+}
+.chartNote p {
+  margin: 0 0 0 auto;
+}
+.root :focus-visible {
+  outline: 2px solid #285d83;
+  outline-offset: 3px;
+}
+@media (max-width: 1100px) {
+  .tokenFlow {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .signals {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 640px) {
+  .tokenFlow {
+    padding: 20px 18px;
+  }
+  .tokenFlow ol {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .composition {
+    padding: 20px 18px 0;
+  }
+  .compositionHeading {
+    align-items: start;
+  }
+  .compositionHeading h4 {
+    font-size: 18px;
+  }
+  .total strong {
+    font-size: 20px;
+  }
+  .signals {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .signalHeading {
+    min-height: 0;
+  }
+  .microChart {
+    height: 70px;
+  }
+  .inspection {
+    grid-template-columns: 5px minmax(0, 1fr);
+  }
+  .inspection p {
+    grid-column: 2;
+  }
+  .stackHeader {
+    flex-direction: column;
+    gap: 4px;
+  }
+  .chartNote p {
+    margin-left: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .root *,
+  .root *::before,
+  .root *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

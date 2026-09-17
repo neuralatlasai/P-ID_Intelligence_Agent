@@ -13,6 +13,23 @@ import type { ArtifactSpec, Stage } from "@/lib/modellab/stages";
 import { Icon, type IconName } from "./icons";
 import styles from "./ModelLab.module.css";
 
+/** Technical panel labels avoid assigning unrelated pictograms to model operations. */
+const PANEL_LABELS: Partial<Record<IconName, string>> = {
+  recipe: "CFG",
+  contract: "DATA",
+  runtime: "SYS",
+  sample: "IN",
+  pulse: "RUN",
+  metrics: "EVAL",
+  checkpoint: "CKPT",
+  donut: "MIX",
+  target: "OBJ",
+  bell: "LOG",
+  file: "OUT",
+  robot: "KD",
+  deploy: "SERVE",
+};
+
 const number = (value: number) => value.toLocaleString("en-US");
 
 export function Card({
@@ -33,8 +50,8 @@ export function Card({
   return (
     <section className={`${styles.card} ${className ?? ""}`} id={id} aria-label={title}>
       <header className={styles.cardHeader}>
-        <span className={styles.cardIcon}>
-          <Icon name={icon} size={19} />
+        <span className={styles.technicalLabel} aria-hidden="true">
+          {PANEL_LABELS[icon] ?? "SPEC"}
         </span>
         <h2>{title}</h2>
         {aside ? <span className={styles.cardAside}>{aside}</span> : null}
@@ -49,12 +66,17 @@ export function Card({
 // ────────────────────────────────────────────────────────────────────────────────────────────
 
 /** Student rows that are measured by the evaluation harness rather than fixed by the plan. */
-const MEASURED_STUDENT_ROWS: Record<string, { metric: string; format: (v: number) => string }> =
-  {
-    "VRAM footprint": { metric: "Peak VRAM", format: (v) => `${v.toFixed(1)} GB` },
-    "Throughput (tokens/s)": { metric: "Throughput", format: (v) => v.toFixed(1) },
-    "Latency (per sample)": { metric: "Latency per sample", format: (v) => `${v.toFixed(2)} s` },
-  };
+const MEASURED_STUDENT_ROWS: Record<
+  string,
+  { metric: string; format: (v: number) => string }
+> = {
+  "VRAM footprint": { metric: "Peak VRAM", format: (v) => `${v.toFixed(1)} GB` },
+  "Throughput (tokens/s)": { metric: "Throughput", format: (v) => v.toFixed(1) },
+  "Latency (per sample)": {
+    metric: "Latency per sample",
+    format: (v) => `${v.toFixed(2)} s`,
+  },
+};
 
 /**
  * The teacher is a fixed, finished model, so its column is its reference profile. The
@@ -173,7 +195,10 @@ export function RewardBreakdownCard({
             <tr>
               <th scope="col">Reward component</th>
               <th scope="col">Contribution</th>
-              <th scope="col" title="Weight × batch score; the column sums to the batch mean reward">
+              <th
+                scope="col"
+                title="Weight × batch score; the column sums to the batch mean reward"
+              >
                 Value
               </th>
               <th
@@ -236,21 +261,21 @@ export function RewardBreakdownCard({
 // Artifacts
 // ────────────────────────────────────────────────────────────────────────────────────────────
 
-const ARTIFACT_ICONS: Record<ArtifactSpec["icon"], IconName> = {
-  cube: "cube",
-  book: "book",
-  target: "target",
-  graph: "graph",
-  box: "box",
-  code: "code",
-  table: "table",
-  db: "db",
-  flag: "flag",
-  file: "file",
-  gear: "gear",
-  shield: "shield",
-  chart: "chart",
-  rocket: "rocket",
+const ARTIFACT_LABELS: Record<ArtifactSpec["icon"], string> = {
+  cube: "REP",
+  book: "VOC",
+  target: "HEAD",
+  graph: "GRAPH",
+  box: "CKPT",
+  code: "CODE",
+  table: "DATA",
+  db: "DATA",
+  flag: "EVAL",
+  file: "FILE",
+  gear: "CFG",
+  shield: "EVAL",
+  chart: "STAT",
+  rocket: "SERVE",
 };
 
 /** Seconds an artifact takes to write, whatever the run's step rate. */
@@ -500,8 +525,8 @@ export function ArtifactsRow({
               data-fresh={fresh || undefined}
             >
               <div className={styles.artifactTop}>
-                <span className={styles.artifactIcon}>
-                  <Icon name={ARTIFACT_ICONS[spec.icon]} size={20} />
+                <span className={styles.technicalLabel} aria-hidden="true">
+                  {ARTIFACT_LABELS[spec.icon]}
                 </span>
                 <span className={styles.artifactText}>
                   <strong>{spec.title}</strong>

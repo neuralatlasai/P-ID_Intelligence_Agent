@@ -46,6 +46,13 @@ import { ContractLiveCard } from "./ContractLiveCard";
 import { CurvesLiveCard } from "./CurvesLiveCard";
 import { DeploymentLiveCard } from "./DeploymentLiveCard";
 import { HardwareCard } from "./HardwareCard";
+import {
+  ExecutionArchitecture,
+  InputConversion,
+  LifecycleOverview,
+  LifecycleSection,
+  ModelComputation,
+} from "./LifecycleWorkbench";
 import { MetricsLiveCard } from "./MetricsLiveCard";
 import { MixtureLiveCard } from "./MixtureLiveCard";
 import { ProgressLiveCard } from "./ProgressLiveCard";
@@ -127,7 +134,8 @@ export function ModelLab({
   const [now, setNow] = useState(() => Date.now());
   const [session, setSession] = useState(() => loadSession(Date.now(), storage()));
   const [drafts, setDrafts] = useState<Partial<Record<StageId, RunConfig>>>({});
-  const [autoCycle, setAutoCycle] = useState(true);
+  // Keep evidence stable during a long analysis; readers can explicitly enable rotation.
+  const [autoCycle, setAutoCycle] = useState(false);
   const [cycleStart, setCycleStart] = useState(() => Date.now());
   const [settingsOpen, setSettingsOpen] = useState(false);
 
@@ -448,9 +456,6 @@ export function ModelLab({
 
         <main className={styles.main} id="model-lab">
           <header className={styles.stageHeader}>
-            <span className={styles.stageIcon} aria-hidden="true">
-              <Icon name="clipboard" size={20} />
-            </span>
             <div>
               <h1>
                 <span className={styles.stageNumber}>{stage.number}</span> {stage.title}
@@ -501,57 +506,83 @@ export function ModelLab({
 
           <Stepper current={stage.id} session={session} effective={effective} now={now} />
 
-          <section className={styles.upper}>
-            <div className={styles.upperLeft}>
-              <div className={styles.topLeft} data-stage={stage.id}>
-                <RecipeLiveCard {...liveProps} />
-                <ContractLiveCard {...liveProps} facts={facts} />
-              </div>
-              <div className={styles.sampleSlot}>
-                {sample ? (
-                  <SampleStrip
-                    stage={stage}
-                    sample={sample}
-                    samples={samples}
-                    index={sampleIndex}
-                    onChoose={choose}
-                    autoCycle={autoCycle && running}
-                    onToggleCycle={() => {
-                      freezeCycle();
-                      setAutoCycle((value) => !value);
-                    }}
-                    drawing={drawing}
-                    imageUrl={imageUrl}
-                    register={register}
-                    answer={answer}
-                    student={student}
-                    verification={verification}
-                    studentVerification={studentVerification}
-                    now={now}
-                    running={running}
-                    policy={policy}
-                    teacherPolicy={teacherPolicy}
-                    studentPolicy={studentPolicy}
-                    provenance={provenance}
-                    rolloutLabel={provenance?.rolloutId}
-                    cycleSecondsLeft={Math.max(
-                      0,
-                      Math.ceil((CYCLE_MS - (cycleElapsed % CYCLE_MS)) / 1000),
-                    )}
-                    cyclePeriodSeconds={CYCLE_MS / 1000}
-                  />
-                ) : (
-                  <div className={styles.card}>
-                    <p className={styles.quiet}>
-                      This sheet has no registered field references, so there is no sample
-                      to align.
-                    </p>
-                  </div>
-                )}
-              </div>
-              <RunLogCard {...liveProps} />
+          <LifecycleOverview stage={stage} />
+
+          <LifecycleSection
+            index={0}
+            description="Inspect source availability, modality joins and the evidence required by this stage."
+          >
+            <ContractLiveCard {...liveProps} facts={facts} />
+          </LifecycleSection>
+
+          <LifecycleSection
+            index={1}
+            description="Follow one selected example through source geometry, conversion rules and the model-side input contract."
+          >
+            <div className={styles.sampleSlot}>
+              {sample ? (
+                <SampleStrip
+                  stage={stage}
+                  sample={sample}
+                  samples={samples}
+                  index={sampleIndex}
+                  onChoose={choose}
+                  autoCycle={autoCycle && running}
+                  onToggleCycle={() => {
+                    freezeCycle();
+                    setAutoCycle((value) => !value);
+                  }}
+                  drawing={drawing}
+                  imageUrl={imageUrl}
+                  register={register}
+                  answer={answer}
+                  student={student}
+                  verification={verification}
+                  studentVerification={studentVerification}
+                  now={now}
+                  running={running}
+                  policy={policy}
+                  teacherPolicy={teacherPolicy}
+                  studentPolicy={studentPolicy}
+                  provenance={provenance}
+                  rolloutLabel={provenance?.rolloutId}
+                  cycleSecondsLeft={Math.max(
+                    0,
+                    Math.ceil((CYCLE_MS - (cycleElapsed % CYCLE_MS)) / 1000),
+                  )}
+                  cyclePeriodSeconds={CYCLE_MS / 1000}
+                />
+              ) : (
+                <div className={styles.card}>
+                  <p className={styles.quiet}>
+                    This sheet has no registered field references, so there is no sample to
+                    align.
+                  </p>
+                </div>
+              )}
             </div>
-            <div className={styles.rightColumn} id="runtime">
+            <InputConversion
+              {...liveProps}
+              sample={sample}
+              drawing={drawing}
+              answer={answer}
+            />
+          </LifecycleSection>
+
+          <LifecycleSection
+            index={2}
+            description="Read the forward path, supervision and parameter update in execution order."
+          >
+            <ModelComputation key={stage.id} {...liveProps} sample={sample} facts={facts} />
+            <RecipeLiveCard {...liveProps} />
+          </LifecycleSection>
+
+          <LifecycleSection
+            index={3}
+            description="Apply the runtime configuration, inspect the memory plan and track the simulated run."
+          >
+            <ExecutionArchitecture {...liveProps} />
+            <div className={styles.executionRow} id="runtime">
               {stage.teacherStudent && (
                 <TeacherStudentRuntimeCard stage={stage} step={step} />
               )}
@@ -576,40 +607,45 @@ export function ModelLab({
                 }}
               />
             </div>
-          </section>
-
-          <section className={styles.analysisRow} data-stage={stage.id}>
-            <MetricsLiveCard {...liveProps} />
-            {stage.id === "rl" ? (
-              <>
-                {sideCard}
-                <CurvesLiveCard {...liveProps} />
-              </>
-            ) : (
-              <>
-                <CurvesLiveCard {...liveProps} />
-                {sideCard}
-              </>
-            )}
-          </section>
-
-          <section
-            className={styles.opsRow}
-            data-with-checkpoints={stage.id !== "pretraining" || undefined}
-          >
             <HardwareCard {...liveProps} />
-            {stage.id !== "pretraining" && checkpointsCard}
-          </section>
+            <RunLogCard {...liveProps} />
+          </LifecycleSection>
 
-          <ArtifactsRow
-            stage={stage}
-            progress={progress}
-            step={step}
-            sheet={sheet}
-            verifications={artifactSamples}
-            now={now}
-            running={running}
-          />
+          <LifecycleSection
+            index={4}
+            description="Compare held-out metrics, objective curves and checkpoint evidence before stage promotion."
+          >
+            <div className={styles.evaluationRow}>
+              <MetricsLiveCard {...liveProps} />
+              {stage.id === "rl" ? (
+                <>
+                  {sideCard}
+                  <CurvesLiveCard {...liveProps} />
+                </>
+              ) : (
+                <>
+                  <CurvesLiveCard {...liveProps} />
+                  {sideCard}
+                </>
+              )}
+            </div>
+            {stage.id !== "pretraining" && checkpointsCard}
+          </LifecycleSection>
+
+          <LifecycleSection
+            index={5}
+            description="Inspect generated configuration files and the planned checkpoint handoff to the next stage."
+          >
+            <ArtifactsRow
+              stage={stage}
+              progress={progress}
+              step={step}
+              sheet={sheet}
+              verifications={artifactSamples}
+              now={now}
+              running={running}
+            />
+          </LifecycleSection>
         </main>
       </div>
 

@@ -23,19 +23,19 @@
 }
 .secondary {
   padding: 0 14px;
-  border: 1px solid #cbd5e1;
+  border: 1px solid #1f2937;
   border-radius: 7px;
   background: #ffffff;
-  color: #1e40af !important;
+  color: #111827 !important;
 }
 .secondary:hover {
-  background: #eef4ff;
+  background: #f3f4f6;
 }
 .secondary b {
   min-width: 18px;
   padding: 0 5px;
   border-radius: 999px;
-  background: #1e40af;
+  background: #111827;
   color: #ffffff;
   font-size: 10.5px;
   line-height: 18px;
@@ -43,15 +43,15 @@
 }
 .primary {
   padding: 0 14px 0 16px;
-  border: 1px solid #4338ca;
+  border: 1px solid #111827;
   border-right: 0;
   border-radius: 7px 0 0 7px;
-  background: linear-gradient(180deg, #5146e8, #4338ca);
+  background: #111827;
   color: #ffffff !important;
 }
 .primary:hover:not(:disabled),
 .primaryMenu:hover {
-  background: linear-gradient(180deg, #5b51f0, #4a3fd6);
+  background: #1f2937;
 }
 .primary:disabled {
   opacity: 1;
@@ -63,10 +63,10 @@
 .primaryMenu {
   justify-content: center;
   width: 34px;
-  border: 1px solid #4338ca;
+  border: 1px solid #111827;
   border-left: 1px solid rgba(255, 255, 255, 0.35);
   border-radius: 0 7px 7px 0;
-  background: linear-gradient(180deg, #5146e8, #4338ca);
+  background: #111827;
   color: #ffffff !important;
 }
 
@@ -166,36 +166,50 @@
   cursor: not-allowed;
 }
 
+/* Weight lineage, in the same specification-note form as the simulation boundary. */
 .lineage {
   display: flex;
   align-items: flex-start;
-  gap: 8px;
+  gap: 10px;
   margin: 0;
-  padding: 6px 11px;
-  border-radius: 7px;
-  font-size: 11.5px;
-  border: 1px solid #d7e3f7;
-  background: #f5f8ff;
-  color: #1e3a8a;
+  padding: 9px 12px;
+  border: 1px solid #d9dee6;
+  border-radius: 4px;
+  background: #ffffff;
+  color: #374151;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+.lineage::before {
+  content: "WEIGHT LINEAGE";
+  flex: none;
+  min-width: 158px;
+  font-family: ui-monospace, "SFMono-Regular", "Cascadia Mono", Menlo, Consolas, monospace;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  line-height: 19px;
+  color: #111827;
 }
 .lineage svg {
   flex: none;
-  margin-top: 2px;
+  margin-top: 3px;
+  color: #111827;
 }
 .lineage a {
-  color: #1d4ed8 !important;
+  color: #111827 !important;
   font-weight: 600;
   text-decoration: underline !important;
+  text-underline-offset: 2px;
 }
+/* An interim parent is a caveat, not an alarm: a dashed rule says "not final". */
 .lineage[data-state="interim"] {
-  border-color: #e9d8a6;
-  background: #fffbeb;
-  color: #713f12;
+  border-style: dashed;
+  border-color: #9ca3af;
 }
 .lineage[data-state="blocked"] {
-  border-color: #f0c7ca;
-  background: #fdedee;
-  color: #7f1d1d;
+  border-color: #b91c1c;
+  color: #7f1d1d; /* 10.4:1 */
 }
 
 .freshness {
@@ -243,5 +257,15 @@
   }
   .freshness {
     display: none;
+  }
+}
+
+@media (max-width: 820px) {
+  .lineage {
+    flex-wrap: wrap;
+  }
+  .lineage::before {
+    flex-basis: 100%;
+    min-width: 0;
   }
 }
