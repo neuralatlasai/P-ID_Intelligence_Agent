@@ -109,6 +109,17 @@ test.describe("live context panels", () => {
     await expect(viewer).toContainText("Tag number");
     await expect(viewer).toContainText("Simulated document");
 
+    // A long document scrolls in its body; the tab strip keeps its full height.
+    await viewer.locator("nav").getByRole("button").last().click();
+    const strip = await page.getByRole("dialog").locator("nav").evaluate((nav) => ({
+      clipped: nav.scrollHeight - nav.clientHeight > 1,
+      tab: Math.min(
+        ...[...nav.querySelectorAll("button")].map((b) => b.getBoundingClientRect().height),
+      ),
+    }));
+    expect(strip.clipped).toBe(false);
+    expect(strip.tab).toBeGreaterThanOrEqual(32);
+
     // The drawing tab shows the real sheet, marked as corpus source rather than simulated.
     await viewer.getByRole("button", { name: "P&ID" }).click();
     await expect(page.getByRole("dialog")).toContainText("Corpus source");

@@ -30,6 +30,21 @@
   max-height: calc(100dvh - 42px);
 }
 
+/*
+ * Header, tabs and footer keep their natural height; only the body gives way and scrolls.
+ * Without this a long document squeezed the tab strip, which — being a horizontal scroll
+ * container — clipped its tabs in half and grew a scrollbar of its own.
+ */
+.header,
+.tabs,
+.footer {
+  flex: none;
+}
+.body {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
 .header {
   display: flex;
   justify-content: space-between;
@@ -77,32 +92,49 @@
 
 .tabs {
   display: flex;
-  gap: 4px;
-  padding: 8px 20px 0;
+  align-items: flex-end;
+  gap: 2px;
+  padding: 6px 20px 0;
   border-bottom: 1px solid var(--line);
   overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
 }
-.tabs button {
+/* Qualified by the dialog so workspace-wide button styles (borders, radii) do not leak in. */
+.dialog .tabs button {
+  flex: none;
+  min-height: 36px;
+  margin: 0 0 -1px;
+  padding: 8px 12px;
   border: 0;
   border-bottom: 2px solid transparent;
+  border-radius: 6px 6px 0 0;
   background: transparent;
-  padding: 7px 10px;
+  box-shadow: none;
   font: inherit;
-  font-size: 12px;
+  font-size: 12.5px;
   font-weight: 600;
+  line-height: 18px;
   color: var(--muted);
   white-space: nowrap;
 }
-.tabs button:hover {
+.dialog .tabs button:hover {
   color: var(--ink);
+  background: #f4f6fa;
 }
-.tabs button[aria-current="page"] {
+.dialog .tabs button[aria-current="page"] {
   color: var(--accent);
   border-bottom-color: var(--accent);
+  background: transparent;
+}
+.dialog .tabs button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -3px;
 }
 
 .body {
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 6px 20px 16px;
 }
 .block h3 {
