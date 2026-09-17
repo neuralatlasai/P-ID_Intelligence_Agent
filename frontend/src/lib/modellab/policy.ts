@@ -300,13 +300,41 @@ export function rlPolicyProfile(stage: Stage, progress: number): ErrorProfile {
   const value = (label: string, fallback: number) =>
     metricValue(stage, label, progress) ?? fallback;
   const faithfulness = value("Grounded answer faithfulness", 1);
-  return {
+  const raw = {
     hallucination: clamp01(value("Hallucination rate", 0)),
     wrongConnection: clamp01(1 - value("Topology constraint satisfaction", 1)),
     staleReading: clamp01(1 - value("Simulation consistency score", 1)),
     missingCitation: clamp01(value("Unsupported assertion rate", 0)),
     wrongLine: clamp01((1 - faithfulness) * 0.5),
   };
+  // The per-error rates above are each a separate metric, and drawn independently they fail
+  // far more rollouts than the policy's measured pass@1 says. Scale them together so a clean
+  // rollout is exactly as likely as that metric: P(no error) = Π(1 − k·rᵢ) = pass@1.
+  const passAt1 = metricValue(stage, "Verifier pass@1", progress);
+  if (passAt1 === undefined) return raw;
+  const scale = passScale(Object.values(raw), clamp01(passAt1));
+  return {
+    hallucination: clamp01(raw.hallucination * scale),
+    wrongConnection: clamp01(raw.wrongConnection * scale),
+    staleReading: clamp01(raw.staleReading * scale),
+    missingCitation: clamp01(raw.missingCitation * scale),
+    wrongLine: clamp01(raw.wrongLine * scale),
+  };
+}
+
+/** The k in [0, 1/max rate] with Π(1 − k·rᵢ) = target, by bisection (the product falls in k). */
+export function passScale(rates: readonly number[], target: number): number {
+  const clean = (k: number) => rates.reduce((p, r) => p * (1 - clamp01(k * r)), 1);
+  const top = 1 / Math.max(1e-9, ...rates);
+  if (clean(top) >= target) return top;
+  let lo = 0;
+  let hi = top;
+  for (let index = 0; index < 50; index += 1) {
+    const mid = (lo + hi) / 2;
+    if (clean(mid) > target) lo = mid;
+    else hi = mid;
+  }
+  return (lo + hi) / 2;
 }
 
 /** The distillation teacher: a strong, fixed model with small residual error rates. */
@@ -440,11 +468,13 @@ export function sampleProvenance(
   const total = split === "train" ? SHARDS[stage.id] : Math.max(1, SHARDS[stage.id] / 8);
   const shardIndex = hashString(`${key}:shard`) % total;
   const { rolloutsPerStep, rolloutsTotal } = stage.run;
+  // `rolloutIndex` is the optimiser step: the rollout shown is one of the group sampled for
+  // the last completed step, so its number never runs ahead of the progress card's count.
+  const perStep = rolloutsPerStep ?? 9;
   const rolloutId =
     stage.id === "rl"
       ? `rollout ${(
-          (Math.max(0, rolloutIndex) * (rolloutsPerStep ?? 9) +
-            (hash % (rolloutsPerStep ?? 9))) %
+          (Math.max(0, rolloutIndex - 1) * perStep + (hash % perStep)) %
           (rolloutsTotal ?? 900_000)
         ).toLocaleString("en-US")}`
       : undefined;

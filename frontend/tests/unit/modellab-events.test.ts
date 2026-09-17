@@ -10,6 +10,7 @@ import {
   matchesFilter,
   nextEvents,
   runEvents,
+  SERIALIZE_SECONDS,
   WRITE_WINDOW_SECONDS,
   type EventFilter,
 } from "@/lib/modellab/events";
@@ -29,7 +30,8 @@ const slow: Stage = { ...pretraining, run: { ...pretraining.run, stepsPerSecond:
 describe("runEvents", () => {
   it("is deterministic", () => {
     for (const stage of [...STAGES, slow]) {
-      const step = stage.run.openingStep + 123.4;
+      // Far enough into every stage (SFT opens at step 1,216) for twenty events to exist.
+      const step = Math.max(stage.run.openingStep, stage.run.totalSteps / 2) + 123.4;
       const a = runEvents(stage, step, NOW, stage.run.stepsPerSecond, 20);
       const b = runEvents(stage, step, NOW, stage.run.stepsPerSecond, 20);
       expect(a).toEqual(b);
@@ -66,7 +68,15 @@ describe("runEvents", () => {
       const events = runEvents(stage, run.openingStep, NOW, rate, 500);
       const writes = events.filter((event) => event.kind === "checkpoint-written");
       expect(writes.length).toBeGreaterThan(0);
-      for (const write of writes) expect(write.step % run.checkpointEvery).toBe(0);
+      // Logged when serialisation finishes, SERIALIZE_SECONDS after the step boundary.
+      for (const write of writes) {
+        const boundary = write.step - SERIALIZE_SECONDS * rate;
+        expect(
+          Math.abs(
+            boundary / run.checkpointEvery - Math.round(boundary / run.checkpointEvery),
+          ),
+        ).toBeLessThan(1e-6);
+      }
       for (const verified of events.filter((e) => e.kind === "checkpoint-verified")) {
         const boundary = verified.step - WRITE_WINDOW_SECONDS * rate;
         expect(
@@ -222,7 +232,7 @@ describe("live cards", () => {
       };
       const html = [
         renderToStaticMarkup(
-          createElement(ProgressLiveCard, { ...props, verifierPassRate: 0.8 }),
+          createElement(ProgressLiveCard, { ...props, livePass: { passed: 4, total: 5 } }),
         ),
         renderToStaticMarkup(createElement(CheckpointsLiveCard, props)),
         renderToStaticMarkup(createElement(RunLogCard, props)),

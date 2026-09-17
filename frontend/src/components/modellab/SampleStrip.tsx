@@ -693,6 +693,16 @@ function ReasoningTrace({
 // ────────────────────────────────────────────────────────────────────────────────────────────
 
 function VerifierResult({ verification }: { readonly verification: Verification }) {
+  // Every check is a gate: a high weighted score still fails when one check fails, so the
+  // verdict names the gate instead of leaving "Fail 0.90" to be puzzled over.
+  const gates = verification.checks.filter((check) => !check.pass).map((check) => check.label);
+  const verdict = verification.pass
+    ? "Pass"
+    : verification.fabricated.length > 0
+      ? "Fail · fabricated tag"
+      : gates.length > 0
+        ? `Fail · ${gates[0]!.toLowerCase()} gate${gates.length > 1 ? ` +${gates.length - 1}` : ""}`
+        : "Fail · below threshold";
   return (
     <table className={styles.verifier}>
       <tbody>
@@ -714,9 +724,11 @@ function VerifierResult({ verification }: { readonly verification: Verification 
             <span className={styles.passMark} data-pass={verification.pass || undefined}>
               <Icon name={verification.pass ? "check" : "cross"} size={11} />
             </span>
-            {verification.pass ? "Pass" : "Fail"}
+            {verdict}
           </td>
-          <td>{verification.overall.toFixed(2)}</td>
+          <td title="Weighted score across checks; the verdict also requires every check to pass">
+            {verification.overall.toFixed(2)}
+          </td>
         </tr>
       </tbody>
       {verification.fabricated.length > 0 && (

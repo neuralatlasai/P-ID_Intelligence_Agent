@@ -130,20 +130,24 @@ export function CheckpointsLiveCard({
             ) : lifecycle.next ? (
               <tr className={local.nextRow}>
                 <td colSpan={columns}>
-                  <Icon name="checkpoint" size={14} />
-                  <span>
-                    Next · step {number(lifecycle.next.step)} in{" "}
-                    <strong>{formatDuration(lifecycle.next.etaSeconds)}</strong>
-                    {running ? "" : " (paused)"}
+                  <span className={local.nextLine}>
+                    <Icon name="checkpoint" size={14} />
+                    <span>
+                      Next · step {number(lifecycle.next.step)} in{" "}
+                      <strong>{formatDuration(lifecycle.next.etaSeconds)}</strong>
+                      {running ? "" : " (paused)"}
+                    </span>
                   </span>
                 </td>
               </tr>
             ) : (
               <tr className={local.nextRow}>
                 <td colSpan={columns}>
-                  <Icon name="check" size={14} />
-                  <span>
-                    Run complete · final checkpoint {formatSteps(stage.run.totalSteps)}
+                  <span className={local.nextLine}>
+                    <Icon name="check" size={14} />
+                    <span>
+                      Run complete · final checkpoint {formatSteps(stage.run.totalSteps)}
+                    </span>
                   </span>
                 </td>
               </tr>

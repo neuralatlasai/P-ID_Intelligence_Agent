@@ -290,7 +290,7 @@ export function ModelLab({
     [sample, stage, evalProgress, rollout],
   );
   const provenance = sample
-    ? sampleProvenance(stage, sample, rolloutIndex, drawing.source)
+    ? sampleProvenance(stage, sample, Math.floor(step), drawing.source)
     : undefined;
 
   // Every sample's current rollout, verified: the stage-wide pass rate and reward inputs.
@@ -394,9 +394,11 @@ export function ModelLab({
         return (
           <RewardBreakdownCard
             stage={stage}
+            step={step}
             progress={progress}
             checkMeans={checkMeans}
             fabricatedRate={fabricatedRate}
+            liveCount={allVerifications.length}
           />
         );
       case "distillation":
@@ -550,7 +552,9 @@ export function ModelLab({
               <RunLogCard {...liveProps} />
             </div>
             <div className={styles.rightColumn} id="runtime">
-              {stage.teacherStudent && <TeacherStudentRuntimeCard stage={stage} />}
+              {stage.teacherStudent && (
+                <TeacherStudentRuntimeCard stage={stage} step={step} />
+              )}
               <RuntimeConfigCard
                 {...liveProps}
                 draft={draft}
@@ -566,7 +570,10 @@ export function ModelLab({
               />
               <ProgressLiveCard
                 {...liveProps}
-                verifierPassRate={passRate(allVerifications)}
+                livePass={{
+                  passed: allVerifications.filter((item) => item.pass).length,
+                  total: allVerifications.length,
+                }}
               />
             </div>
           </section>
@@ -626,10 +633,6 @@ function storage(): Storage | undefined {
   } catch {
     return undefined;
   }
-}
-
-function passRate(items: readonly { readonly pass: boolean }[]): number {
-  return items.length ? items.filter((item) => item.pass).length / items.length : 0;
 }
 
 // ────────────────────────────────────────────────────────────────────────────────────────────

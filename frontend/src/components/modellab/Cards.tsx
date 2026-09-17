@@ -4,7 +4,9 @@ import type { ReactNode } from "react";
 
 import { hashString } from "@/lib/canvas/engineering";
 import { artifactFile } from "@/lib/modellab/artifacts";
-import { formatAgo, formatDuration, formatSteps, metricAt } from "@/lib/modellab/run";
+import { lastEvalStep, metricAtEval } from "@/lib/modellab/evaluation";
+import { batchRewards } from "@/lib/modellab/ingestion";
+import { formatAgo, formatDuration, formatSteps } from "@/lib/modellab/run";
 import type { CheckId } from "@/lib/modellab/samples";
 import type { ArtifactSpec, Stage } from "@/lib/modellab/stages";
 
@@ -46,9 +48,42 @@ export function Card({
 // Teacher and student runtime
 // ────────────────────────────────────────────────────────────────────────────────────────────
 
-export function TeacherStudentRuntimeCard({ stage }: { readonly stage: Stage }) {
+/** Student rows that are measured by the evaluation harness rather than fixed by the plan. */
+const MEASURED_STUDENT_ROWS: Record<string, { metric: string; format: (v: number) => string }> =
+  {
+    "VRAM footprint": { metric: "Peak VRAM", format: (v) => `${v.toFixed(1)} GB` },
+    "Throughput (tokens/s)": { metric: "Throughput", format: (v) => v.toFixed(1) },
+    "Latency (per sample)": { metric: "Latency per sample", format: (v) => `${v.toFixed(2)} s` },
+  };
+
+/**
+ * The teacher is a fixed, finished model, so its column is its reference profile. The
+ * student is still training: its memory, throughput and latency are the values the last
+ * published evaluation measured, identical to the metrics table and the deployment card.
+ */
+export function TeacherStudentRuntimeCard({
+  stage,
+  step,
+}: {
+  readonly stage: Stage;
+  readonly step: number;
+}) {
+  const evalStep = lastEvalStep(stage, step);
+  const studentValue = (key: string, planned: string): string => {
+    const measured = MEASURED_STUDENT_ROWS[key];
+    const spec = measured && stage.metrics.find((m) => m.label.startsWith(measured.metric));
+    return measured && spec ? measured.format(metricAtEval(spec, stage, step)) : planned;
+  };
   return (
-    <Card title={stage.runtimeTitle} icon="runtime">
+    <Card
+      title={stage.runtimeTitle}
+      icon="runtime"
+      aside={
+        <span className={styles.asideNote}>
+          Student measured at eval {number(evalStep)}
+        </span>
+      }
+    >
       <div
         className={styles.tableWrap}
         tabIndex={0}
@@ -74,7 +109,7 @@ export function TeacherStudentRuntimeCard({ stage }: { readonly stage: Stage }) 
               <tr key={key}>
                 <th scope="row">{key}</th>
                 <td>{teacher}</td>
-                <td>{student}</td>
+                <td>{studentValue(key, student)}</td>
               </tr>
             ))}
           </tbody>
@@ -88,16 +123,26 @@ export function TeacherStudentRuntimeCard({ stage }: { readonly stage: Stage }) 
 // Reward breakdown
 // ────────────────────────────────────────────────────────────────────────────────────────────
 
+/**
+ * The batch reward, decomposed. Values are the same rows as the reward contract (their sum is
+ * the mean reward the curves plot), so the two cards cannot disagree. The live column is kept
+ * apart: it is the verifier's score on the handful of carousel rollouts shown on this page,
+ * a small sample that is expected to scatter around the batch figure.
+ */
 export function RewardBreakdownCard({
   stage,
+  step,
   progress,
   checkMeans,
   fabricatedRate,
+  liveCount,
 }: {
   readonly stage: Stage;
+  readonly step: number;
   readonly progress: number;
   readonly checkMeans?: Partial<Record<CheckId, number>>;
   readonly fabricatedRate?: number;
+  readonly liveCount: number;
 }) {
   const verifierFor = [
     "grounding",
@@ -106,34 +151,37 @@ export function RewardBreakdownCard({
     "citation",
     "simulator",
   ] as const;
+  const batch = batchRewards(stage, step, progress);
   const rows = (stage.rewards ?? []).map((reward, index) => {
     // The first five rewards are scored by the verifier checks of the same name, in order.
     const check = verifierFor[index];
-    const measured = check ? checkMeans?.[check] : undefined;
-    let score: number;
-    let live = false;
-    if (measured !== undefined) {
-      // Blend the live verifier score on the carousel samples with the policy's training trend.
-      score = 0.5 * measured + 0.5 * (0.45 + 0.5 * progress);
-      live = true;
-    } else if (reward.weight < 0) {
-      score = Math.max(0.05, (fabricatedRate ?? 0) + 0.15 * (1 - progress));
-      live = fabricatedRate !== undefined;
-    } else {
-      score = 0.35 + 0.15 * progress;
-    }
-    return { reward, value: reward.weight * score, live };
+    const live =
+      reward.weight < 0 ? fabricatedRate : check ? checkMeans?.[check] : undefined;
+    return { reward, value: batch[index]?.value ?? 0, live };
   });
   const total = rows.reduce((sum, row) => sum + Math.abs(row.value), 0) || 1;
+  const sum = rows.reduce((acc, row) => acc + row.value, 0);
   return (
-    <Card title="Reward breakdown" icon="chart">
+    <Card
+      title="Reward breakdown"
+      icon="chart"
+      aside={<span className={styles.asideNote}>Batch mean {sum.toFixed(3)}</span>}
+    >
       <div className={styles.tableWrap}>
         <table className={styles.table} data-reward>
           <thead>
             <tr>
               <th scope="col">Reward component</th>
               <th scope="col">Contribution</th>
-              <th scope="col">Value</th>
+              <th scope="col" title="Weight × batch score; the column sums to the batch mean reward">
+                Value
+              </th>
+              <th
+                scope="col"
+                title={`Verifier score on the ${liveCount} rollouts in the sample carousel (penalty: share with a fabricated tag)`}
+              >
+                Live ({liveCount})
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -148,7 +196,6 @@ export function RewardBreakdownCard({
                       aria-hidden="true"
                     />
                     {reward.name.replace(/ reward$/, "")}
-                    {live && <span className={styles.liveTag}>live</span>}
                   </td>
                   <td>
                     <span className={styles.bar}>
@@ -162,7 +209,18 @@ export function RewardBreakdownCard({
                     <small>{Math.round(share * 100)}%</small>
                   </td>
                   <td className={value < 0 ? styles.negative : undefined}>
-                    {value.toFixed(2)}
+                    {value >= 0 ? "+" : "−"}
+                    {Math.abs(value).toFixed(3)}
+                  </td>
+                  <td>
+                    {live === undefined ? (
+                      "—"
+                    ) : (
+                      <>
+                        {live.toFixed(2)}
+                        <span className={styles.liveTag}>live</span>
+                      </>
+                    )}
                   </td>
                 </tr>
               );
@@ -350,8 +408,12 @@ export function ArtifactsRow({
 
           let subtitle = spec.subtitle;
           let detail = spec.detail;
+          if (spec.subtitle === "experiment") {
+            subtitle = `Ready for SFT · ${stage.experimentId}`;
+          }
           if (spec.subtitle === "hallucination" && hallucination) {
-            const value = metricAt(hallucination, progress);
+            // The value the metrics table shows: the last published evaluation.
+            const value = metricAtEval(hallucination, stage, step);
             subtitle = `${Math.round(hallucination.start * 100)}% → ${(value * 100).toFixed(1)}%`;
             detail = `↓ ${((1 - value / hallucination.start) * 100).toFixed(1)}% relative reduction`;
           }

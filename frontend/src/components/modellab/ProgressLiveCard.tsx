@@ -3,14 +3,10 @@
 import type { ReactNode } from "react";
 
 import { hashString } from "@/lib/canvas/engineering";
-import {
-  bestCheckpoint,
-  curveAt,
-  formatDuration,
-  formatSteps,
-  learningRateAt,
-  metricAt,
-} from "@/lib/modellab/run";
+import { lastEvalStep, metricAtEval } from "@/lib/modellab/evaluation";
+import { checkpointLifecycle } from "@/lib/modellab/events";
+import { epochPosition } from "@/lib/modellab/ingestion";
+import { curveAt, formatDuration, formatSteps, learningRateAt } from "@/lib/modellab/run";
 
 import { Card } from "./Cards";
 import type { LiveCardProps } from "./live";
@@ -99,8 +95,11 @@ export function ProgressLiveCard({
   running,
   config,
   profile,
-  verifierPassRate,
-}: LiveCardProps & { readonly verifierPassRate: number }) {
+  livePass,
+}: LiveCardProps & {
+  /** Rollouts of the sample carousel that passed the verifier just now. */
+  readonly livePass: { readonly passed: number; readonly total: number };
+}) {
   const { run } = stage;
   const rate = Math.max(1e-9, run.stepsPerSecond);
   const complete = step >= run.totalSteps;
@@ -116,63 +115,112 @@ export function ProgressLiveCard({
 
   const rows: [string, ReactNode][] = [];
   let headline: ReactNode = `Step ${number(step)} / ${number(run.totalSteps)}`;
+  // Every figure below is read from the same source as the card that owns it: checkpoint
+  // values from the checkpoint table, scores from the last published evaluation, epochs
+  // from the data contract and the applied global batch.
+  const lifecycle = checkpointLifecycle(stage, step, rate, now);
+  const latest = lifecycle.records[0];
+  const best = lifecycle.best;
+  const evalStep = lastEvalStep(stage, step);
+  const evalNote = <span className={local.muted}> · eval @ {number(evalStep)}</span>;
+  const position = epochPosition(stage, step, config.globalBatch);
+  const plannedEpochs = position.datasetSize
+    ? (run.totalSteps * config.globalBatch) / position.datasetSize
+    : (run.epochs ?? 1);
+  const epochValue = position.epoch - 1 + position.share;
+  const epochText = `${Math.min(epochValue, plannedEpochs).toFixed(2)} / ${plannedEpochs.toFixed(Math.abs(plannedEpochs - Math.round(plannedEpochs)) < 0.05 ? 0 : 1)}`;
 
   if (stage.id === "pretraining") {
-    const best = bestCheckpoint(stage, step);
     rows.push(
       ["Elapsed", formatDuration(elapsedSeconds)],
       ["Remaining", remaining],
-      ["Current loss", curveAt(primary, step).toFixed(3)],
+      ["Train loss", curveAt(primary, step).toFixed(3)],
       [
         "Best checkpoint",
-        best ? `${best.valLoss.toFixed(3)} @ ${formatSteps(best.step)}` : "—",
+        best ? `val ${best.valLoss.toFixed(3)} @ ${formatSteps(best.step)}` : "—",
       ],
       ["Learning rate", learningRateAt(run, step).toExponential(1)],
     );
   } else if (stage.id === "sft") {
-    const epoch = step / (run.stepsPerEpoch ?? run.totalSteps);
+    const score = stage.metrics[0]!;
     rows.push(
-      ["Epoch", `${epoch.toFixed(1)} / ${run.epochs ?? 1}`],
+      ["Epoch", epochText],
       [
-        "Best val score",
-        `${metricAt(stage.metrics[0]!, progress).toFixed(3)} (grounding mAP)`,
+        "Grounding mAP",
+        <>
+          {metricAtEval(score, stage, step).toFixed(3)}
+          {evalNote}
+        </>,
       ],
-      ["Val loss", (0.38 + curveAt(primary, step) * 1.5).toFixed(3)],
+      [
+        "Val loss",
+        latest ? `${latest.valLoss.toFixed(3)} @ ${formatSteps(latest.step)}` : "—",
+      ],
       ["ETA", remaining],
     );
   } else if (stage.id === "rl") {
     const reward = primary;
-    const kl = (stage.curves[3] ?? stage.curves[0]!).curves[0]!;
+    const kl = stage.curves
+      .flatMap((tab) => tab.curves)
+      .find((curve) => curve.key === "kl" && !curve.dashed);
     const mean = curveAt(reward, step);
-    const klValue = curveAt(kl, step);
+    const passMetric = stage.metrics[0]!;
+    const perStep = run.rolloutsPerStep ?? 1;
     headline = null;
     rows.push(
       [
         "Rollouts",
-        `${number(step * (run.rolloutsPerStep ?? 1))} / ${number(run.rolloutsTotal ?? 0)}`,
+        `${number(Math.floor(step) * perStep)} / ${number(run.rolloutsTotal ?? run.totalSteps * perStep)}`,
       ],
       [
         "Mean reward",
         <>
-          {mean.toFixed(2)}{" "}
+          {mean.toFixed(3)}{" "}
           <span className={styles.up}>↑ +{(mean - reward.start).toFixed(2)}</span>
         </>,
       ],
       [
         "KL vs init",
+        kl ? (
+          <>
+            {curveAt(kl, step).toFixed(4)}{" "}
+            <span className={local.muted}>(target 0.020)</span>
+          </>
+        ) : (
+          "—"
+        ),
+      ],
+      [
+        "Verifier pass@1",
         <>
-          {klValue.toFixed(3)} <span className={local.muted}>(target 0.02)</span>
+          {metricAtEval(passMetric, stage, step).toFixed(2)}
+          {evalNote}
+          {livePass.total > 0 && (
+            <span className={local.muted}>
+              {" "}
+              · live {livePass.passed}/{livePass.total}
+            </span>
+          )}
         </>,
       ],
-      ["Verifier pass rate", `${Math.round(verifierPassRate * 100)}% (live samples)`],
       ["ETA", remaining],
     );
   } else {
-    const epoch = Math.floor(step / (run.stepsPerEpoch ?? run.totalSteps));
-    headline = `Epoch ${epoch} / ${run.epochs ?? 1}`;
+    headline = `Epoch ${epochText}`;
     rows.push(
-      ["Retention", metricAt(stage.metrics[0]!, progress).toFixed(3)],
-      ["Best student", metricAt(stage.metrics[1]!, progress * 0.97).toFixed(3)],
+      [
+        "Retention",
+        <>
+          {metricAtEval(stage.metrics[0]!, stage, step).toFixed(3)}
+          {evalNote}
+        </>,
+      ],
+      [
+        "Best checkpoint",
+        best
+          ? `KL ${best.valLoss.toFixed(3)} @ ${formatSteps(best.step)}${best.evalScore === undefined ? "" : ` · retention ${best.evalScore.toFixed(3)}`}`
+          : "—",
+      ],
       ["ETA", remaining],
       ["Phase", phaseOf(progress)],
     );

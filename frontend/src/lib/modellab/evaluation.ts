@@ -18,6 +18,9 @@ import type { MetricSpec, Stage } from "./stages";
 /** Share of a metric's start→final range that evaluation noise may move a reading by. */
 const EVAL_NOISE = 0.02;
 
+/** Wall-clock seconds an evaluation pass takes to finish after the step it evaluates. */
+export const EVAL_SECONDS = 720;
+
 /** Optimiser steps between evaluations of the held-out split. */
 export function evalEvery(stage: Stage): number {
   const { run } = stage;
@@ -25,7 +28,8 @@ export function evalEvery(stage: Stage): number {
     case "rl":
       return 2500;
     case "distillation":
-      return run.stepsPerEpoch ?? run.checkpointEvery;
+      // Every checkpoint is evaluated, including the quantisation-aware deployment pass.
+      return run.checkpointEvery;
     default:
       return Math.max(1, Math.round(run.checkpointEvery / 2));
   }
@@ -36,19 +40,27 @@ function clampStep(stage: Stage, step: number): number {
   return Math.min(stage.run.totalSteps, Math.max(0, step));
 }
 
+/** Optimiser steps the run advances while one evaluation pass is running. */
+export function evalLagSteps(stage: Stage): number {
+  const rate = stage.run.stepsPerSecond;
+  return Number.isFinite(rate) && rate > 0 ? EVAL_SECONDS * rate : 0;
+}
+
 /**
- * The step of the most recent completed evaluation. Step 0 is the baseline evaluation, and
- * a finished run is always evaluated at its final step even when that is off-cadence.
+ * The step of the most recent evaluation whose results have been published: an evaluation of
+ * step s finishes `EVAL_SECONDS` of training later, and until then the previous numbers stand.
+ * Step 0 is the baseline evaluation, and a finished run is always evaluated at its final step
+ * even when that is off-cadence.
  */
 export function lastEvalStep(stage: Stage, step: number): number {
   const at = clampStep(stage, step);
   if (at >= stage.run.totalSteps) return stage.run.totalSteps;
   const every = evalEvery(stage);
   // The epsilon absorbs float error in a fractional step that sits exactly on a boundary.
-  return Math.floor((at + 1e-9) / every) * every;
+  return Math.max(0, Math.floor((at - evalLagSteps(stage) + 1e-9) / every) * every);
 }
 
-/** The step the next evaluation lands at, or undefined once the final one has run. */
+/** The step of the next evaluation to publish, or undefined once the final one has run. */
 export function nextEvalStep(stage: Stage, step: number): number | undefined {
   const last = lastEvalStep(stage, step);
   if (last >= stage.run.totalSteps) return undefined;
@@ -61,7 +73,7 @@ function evalNoise(metric: MetricSpec, stage: Stage, evalStep: number): number {
 }
 
 /** A metric as the evaluation at `evalStep` measured it. */
-function measured(metric: MetricSpec, stage: Stage, evalStep: number): number {
+export function measured(metric: MetricSpec, stage: Stage, evalStep: number): number {
   const base = metricAt(metric, evalStep / stage.run.totalSteps);
   // The baseline evaluation reproduces the starting point exactly (stage 3's SFT baseline).
   if (evalStep <= 0) return base;

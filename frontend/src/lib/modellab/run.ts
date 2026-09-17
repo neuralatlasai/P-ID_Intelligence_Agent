@@ -102,6 +102,28 @@ export function learningRateAt(run: RunSpec, step: number): number {
   return run.learningRate * (0.1 + 0.9 * 0.5 * (1 + Math.cos(Math.PI * Math.min(1, t))));
 }
 
+/**
+ * True when a stage's checkpoint validation value `a` beats `b`. Stage 3 checkpoints are
+ * scored by held-out reward, where higher is better; every other stage by a loss or KL.
+ */
+export function isBetter(stage: Stage, a: number, b: number): boolean {
+  return stage.id === "rl" ? a > b : a < b;
+}
+
+/**
+ * The held-out value written with a checkpoint at `step`: the stage's primary curve with its
+ * own evaluation noise, a little worse than the training batch reads (a validation loss sits
+ * above the training loss; a held-out reward below the training reward).
+ */
+export function validationAt(stage: Stage, step: number): number {
+  const primary = stage.curves[0]!.curves[0]!;
+  const value = curveAt(
+    { ...primary, key: `${primary.key}#val`, noise: primary.noise * 1.6 },
+    step,
+  );
+  return stage.id === "rl" ? value * 0.98 : value * 1.08;
+}
+
 export interface Checkpoint {
   readonly step: number;
   readonly valLoss: number;
@@ -117,17 +139,12 @@ export interface Checkpoint {
  */
 export function checkpoints(stage: Stage, step: number, limit = 5): readonly Checkpoint[] {
   const { run } = stage;
-  const primary = stage.curves[0]!.curves[0]!;
   const written: { step: number; valLoss: number }[] = [];
-  for (let at = run.checkpointEvery; at <= step; at += run.checkpointEvery) {
-    const valLoss = curveAt(
-      { ...primary, key: `${primary.key}#val`, noise: primary.noise * 1.6 },
-      at,
-    );
-    written.push({ step: at, valLoss: valLoss * 1.08 });
+  for (let at = run.checkpointEvery; at <= step + 1e-9; at += run.checkpointEvery) {
+    written.push({ step: at, valLoss: validationAt(stage, at) });
   }
   const best = written.reduce<{ step: number; valLoss: number } | undefined>(
-    (low, item) => (!low || item.valLoss < low.valLoss ? item : low),
+    (top, item) => (!top || isBetter(stage, item.valLoss, top.valLoss) ? item : top),
     undefined,
   );
   return written
@@ -165,7 +182,9 @@ export function formatAgo(seconds: number): string {
     const m = Math.floor((seconds % 3600) / 60);
     return m ? `${h}h ${m}m ago` : `${h}h ago`;
   }
-  return `${Math.floor(seconds / 86400)}d ago`;
+  const days = Math.floor(seconds / 86400);
+  const hours = Math.floor((seconds % 86400) / 3600);
+  return hours ? `${days}d ${hours}h ago` : `${days}d ago`;
 }
 
 export function formatSteps(step: number): string {

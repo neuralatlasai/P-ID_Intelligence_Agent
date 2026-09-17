@@ -21,7 +21,7 @@ import {
 import { openingControl, stepAt, type RunControl } from "./run";
 import { STAGES, stageById, type Stage, type StageId } from "./stages";
 
-export const SESSION_KEY = "pid.modellab.session.v2";
+export const SESSION_KEY = "pid.modellab.session.v3";
 
 export interface AppliedConfig {
   readonly config: RunConfig;

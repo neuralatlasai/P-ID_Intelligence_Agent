@@ -154,7 +154,11 @@ export function RuntimeConfigCard({
       : 0;
 
   return (
-    <Card title={stage.runtimeTitle} icon="runtime" aside={statusChip}>
+    <Card
+      title={stage.teacherStudent ? "Student training runtime" : stage.runtimeTitle}
+      icon="runtime"
+      aside={statusChip}
+    >
       <div className={styles.body}>
         <div className={styles.grid} role="group" aria-label="Model stack and cluster">
           <Field label="Vision-language model">
@@ -251,7 +255,7 @@ export function RuntimeConfigCard({
                 >
                   {GPU_OPTIONS.map((count) => (
                     <option key={count} value={count}>
-                      {count} GPU/node
+                      {count} GPUs
                     </option>
                   ))}
                 </select>

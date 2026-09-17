@@ -116,9 +116,14 @@
   color: #1e40af;
   font-size: 11.5px;
 }
-.nextRow td > svg {
-  vertical-align: -2px;
-  margin-right: 6px;
+.nextLine {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.nextLine > svg {
+  flex: none;
 }
 .nextRow strong {
   font-weight: 650;

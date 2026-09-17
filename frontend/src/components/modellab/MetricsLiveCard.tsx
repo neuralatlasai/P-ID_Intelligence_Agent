@@ -4,6 +4,7 @@ import { useState, type ReactNode } from "react";
 
 import {
   evalEvery,
+  evalLagSteps,
   lastEvalStep,
   metricAtEval,
   metricHistory,
@@ -154,15 +155,19 @@ function evalNote(stage: Stage, step: number, running: boolean): string {
   const last = lastEvalStep(stage, step);
   const next = nextEvalStep(stage, step);
   const rate = run.stepsPerSecond > 0 ? run.stepsPerSecond : 1;
-  const ago = formatDuration((step - last) / rate);
+  // Results are published when the pass finishes, EVAL_SECONDS after the step it evaluates.
+  const lag = last === 0 || last >= run.totalSteps ? 0 : evalLagSteps(stage);
+  const ago = formatDuration(Math.max(0, step - last - lag) / rate);
   const head =
     last === 0 ? "Baseline evaluated at step 0" : `Evaluated at step ${number(last)}`;
-  const parts = [head, last === 0 && step < 1 ? "before training" : `${ago} ago`];
+  const parts = [head, last === 0 && step < 1 ? "before training" : `published ${ago} ago`];
   if (next === undefined) parts.push("final evaluation");
   else {
-    const wait = formatDuration(Math.max(0, next - step) / rate);
+    const wait = formatDuration(Math.max(0, next + evalLagSteps(stage) - step) / rate);
     parts.push(
-      running ? `next eval in ${wait}` : `next eval in ${wait} of training (paused)`,
+      running
+        ? `next results in ${wait}`
+        : `next results in ${wait} of training (paused)`,
     );
   }
   return parts.join(" · ");
@@ -179,8 +184,7 @@ export function MetricsLiveCard({ stage, step, running }: LiveCardProps) {
   const fresh = evalStep !== openedAt;
   const evalProgress = evalStep / stage.run.totalSteps;
   const every = evalEvery(stage);
-  const cadence =
-    stage.id === "distillation" ? "every epoch" : `every ${number(every)} steps`;
+  const cadence = `every ${number(every)} steps`;
 
   return (
     <Card

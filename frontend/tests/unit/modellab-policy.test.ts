@@ -171,9 +171,13 @@ describe("policy rollouts", () => {
   it("derives profiles from the stage metrics", () => {
     const early = rlPolicyProfile(rl, 0);
     const late = rlPolicyProfile(rl, 1);
-    expect(early.hallucination).toBeCloseTo(0.15);
-    expect(late.hallucination).toBeCloseTo(0.035);
-    expect(early.wrongConnection).toBeCloseTo(0.24);
+    // A clean rollout is exactly as likely as the policy's measured verifier pass@1.
+    const clean = (profile: typeof early) =>
+      POLICY_ERROR_KINDS.reduce((p, kind) => p * (1 - profile[kind]), 1);
+    expect(clean(early)).toBeCloseTo(0.62, 6);
+    expect(clean(late)).toBeCloseTo(0.9, 6);
+    // The metric-derived mix is kept: hallucination to wrong-connection stays 0.15 : 0.24.
+    expect(early.hallucination / early.wrongConnection).toBeCloseTo(0.15 / 0.24, 6);
     for (const kind of POLICY_ERROR_KINDS)
       expect(late[kind]).toBeLessThanOrEqual(early[kind]);
 

@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import {
   checkpointMarkers,
+  EVAL_SECONDS,
   emaSmooth,
   evalEvery,
+  evalLagSteps,
   evalMarkers,
   lastEvalStep,
   metricAtEval,
@@ -27,24 +29,47 @@ describe("evaluation cadence", () => {
     );
     expect(evalEvery(stage("sft"))).toBe(stage("sft").run.checkpointEvery / 2);
     expect(evalEvery(stage("rl"))).toBe(2500);
-    expect(evalEvery(stage("distillation"))).toBe(stage("distillation").run.stepsPerEpoch);
+    expect(evalEvery(stage("distillation"))).toBe(stage("distillation").run.checkpointEvery);
   });
 
   it("reports the last and next evaluation around a step", () => {
-    const pre = stage("pretraining");
+    // With no step rate there is no evaluation lag, so boundaries are exact.
+    const instant = (id: StageId) => ({
+      ...stage(id),
+      run: { ...stage(id).run, stepsPerSecond: 0 },
+    });
+    const pre = instant("pretraining");
     expect(lastEvalStep(pre, 68_240.7)).toBe(68_000);
     expect(nextEvalStep(pre, 68_240.7)).toBe(69_000);
     expect(lastEvalStep(pre, 999.99)).toBe(0);
     expect(lastEvalStep(pre, 1000)).toBe(1000);
-    expect(lastEvalStep(stage("rl"), 53_556)).toBe(52_500);
+    expect(lastEvalStep(instant("rl"), 53_556)).toBe(52_500);
     expect(lastEvalStep(pre, pre.run.totalSteps + 50)).toBe(pre.run.totalSteps);
     expect(nextEvalStep(pre, pre.run.totalSteps)).toBeUndefined();
   });
 });
 
+describe("evaluation publication", () => {
+  it("publishes an evaluation only after the pass has run for EVAL_SECONDS", () => {
+    const pre = stage("pretraining");
+    const lag = evalLagSteps(pre);
+    expect(lag).toBeCloseTo(EVAL_SECONDS * pre.run.stepsPerSecond, 9);
+    const every = evalEvery(pre);
+    const boundary = 68_000;
+    expect(lastEvalStep(pre, boundary + lag * 0.5)).toBe(boundary - every);
+    expect(lastEvalStep(pre, boundary + lag + 0.01)).toBe(boundary);
+  });
+});
+
+/** A stage with no step rate: evaluations publish on their boundary, with no pass lag. */
+const instantStage = (id: StageId) => ({
+  ...stage(id),
+  run: { ...stage(id).run, stepsPerSecond: 0 },
+});
+
 describe("metricAtEval", () => {
   it("holds constant between evaluations and changes when one lands", () => {
-    for (const item of STAGES) {
+    for (const item of STAGES.map((entry) => instantStage(entry.id))) {
       const every = evalEvery(item);
       const at = every * 20;
       for (const metric of item.metrics) {
@@ -61,7 +86,7 @@ describe("metricAtEval", () => {
   });
 
   it("stays close to the underlying curve and reproduces the baseline exactly", () => {
-    const rl = stage("rl");
+    const rl = instantStage("rl");
     for (const metric of rl.metrics) {
       expect(metricAtEval(metric, rl, 10)).toBe(metric.start);
       const value = metricAtEval(metric, rl, 60_000);

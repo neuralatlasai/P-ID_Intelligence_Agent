@@ -15,14 +15,12 @@ const STATE: Record<DeploymentStatus, string> = {
 
 /**
  * Stage 4 deployment targets with the latency, throughput and memory the simulated
- * quantisation-aware evaluation measured at the last completed epoch.
+ * quantisation-aware pass measured at the last published evaluation — the same evaluation
+ * the metrics table and the checkpoint table report.
  */
-export function DeploymentLiveCard({ stage, progress, now }: LiveCardProps) {
-  const { run } = stage;
-  const epochs = run.epochs ?? 50;
-  const runSeconds = run.totalSteps / Math.max(1e-9, run.stepsPerSecond);
-  const measured = deploymentMeasurements(progress, now, epochs, runSeconds);
-  const measuredStep = Math.round(measured.measuredProgress * run.totalSteps);
+export function DeploymentLiveCard({ stage, step, now }: LiveCardProps) {
+  const measured = deploymentMeasurements(stage, step, now);
+  const measuredStep = measured.evalStep;
 
   return (
     <Card
@@ -31,9 +29,9 @@ export function DeploymentLiveCard({ stage, progress, now }: LiveCardProps) {
       id="deployment"
       aside={
         <span className={styles.asideNote}>
-          {measured.epoch === 0
-            ? "Baseline eval (epoch 0)"
-            : `Measured at epoch ${measured.epoch}/${measured.epochs}`}
+          {measuredStep === 0
+            ? "Baseline eval (step 0)"
+            : `Measured at eval step ${measuredStep.toLocaleString("en-US")}`}
         </span>
       }
     >
@@ -91,8 +89,9 @@ export function DeploymentLiveCard({ stage, progress, now }: LiveCardProps) {
         </table>
       </div>
       <p className={local.note}>
-        Measurements come from the simulated quantisation-aware evaluation run at the end of
-        each epoch (last: step {measuredStep.toLocaleString("en-US")}); no inference
+        Measurements come from the simulated quantisation-aware pass of each evaluation
+        (last published: step {measuredStep.toLocaleString("en-US")}). The local profile
+        reads the latency, throughput and memory rows of the metrics table; no inference
         hardware is attached.
       </p>
     </Card>

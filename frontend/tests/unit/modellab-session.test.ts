@@ -85,8 +85,8 @@ describe("session", () => {
 
   it("rolls back to a checkpoint and stops with records", () => {
     const session = freshSession(NOW);
-    const rolled = resumeFromCheckpoint(session, "sft", 16_000, NOW);
-    expect(rolled.controls.sft.step).toBe(16_000);
+    const rolled = resumeFromCheckpoint(session, "sft", 1_000, NOW);
+    expect(rolled.controls.sft.step).toBe(1_000);
     expect(rolled.history[0]?.reason).toBe("resumed-from-checkpoint");
     const stopped = stopRun(rolled, "sft", NOW + 1000);
     expect(stopped.controls.sft.status).toBe("paused");

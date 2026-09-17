@@ -17,7 +17,7 @@
 
 .row {
   display: grid;
-  grid-template-columns: minmax(84px, 36%) minmax(0, 1fr);
+  grid-template-columns: minmax(84px, 32%) minmax(0, 1fr);
   align-items: center;
   gap: 8px;
   padding: 3px 0;
@@ -48,7 +48,7 @@
   width: 100%;
   min-width: 0;
   min-height: 26px;
-  padding: 2px 22px 2px 6px;
+  padding: 2px 18px 2px 6px;
   border: 1px solid #cbd5e1;
   border-radius: 6px;
   background-color: #ffffff;

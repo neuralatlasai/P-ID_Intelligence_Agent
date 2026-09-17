@@ -17,8 +17,13 @@
 
 import { hashString, seededRandom } from "@/lib/canvas/engineering";
 
-import { checkpoints, curveAt, learningRateAt, metricAt } from "./run";
+import { EVAL_SECONDS, evalEvery, measured } from "./evaluation";
+import { checkpoints, curveAt, isBetter, learningRateAt } from "./run";
 import type { Stage } from "./stages";
+
+// One evaluation schedule for the whole page: the log, the metrics table and the checkpoint
+// table all read it from the evaluation harness.
+export { EVAL_SECONDS, evalEvery };
 
 export type EventSeverity = "info" | "warn" | "ok";
 
@@ -62,8 +67,6 @@ export interface EventOptions {
 export const SERIALIZE_SECONDS = 75;
 export const UPLOAD_SECONDS = 240;
 export const WRITE_WINDOW_SECONDS = 300;
-/** Wall-clock seconds an evaluation pass takes to finish after the step it evaluates. */
-export const EVAL_SECONDS = 720;
 
 const KIND_ORDER: readonly EventKind[] = [
   "run-complete",
@@ -122,17 +125,12 @@ export function checkpointShards(stage: Stage): number {
   return Math.min(32, Math.max(4, Math.ceil(gb / 8)));
 }
 
-/** Steps between evaluation passes: twice per checkpoint interval. */
-export function evalEvery(stage: Stage): number {
-  return Math.max(1, Math.round(stage.run.checkpointEvery / 2));
-}
-
-/** Score of the stage's primary metric for an evaluation at a step. */
+/**
+ * Score of the stage's primary metric for an evaluation at a step: exactly the number the
+ * metrics table shows once that evaluation has published.
+ */
 export function evalScoreAt(stage: Stage, step: number): number {
-  const metric = stage.metrics[0]!;
-  const base = metricAt(metric, Math.min(1, step / stage.run.totalSteps));
-  const wobble = (unit(`${stage.experimentId}:eval:${Math.round(step)}`) * 2 - 1) * 0.004;
-  return base * (1 + wobble);
+  return measured(stage.metrics[0]!, stage, Math.round(step));
 }
 
 function shardEvery(stage: Stage): number {
@@ -217,6 +215,7 @@ function draftsBetween(
     ]),
   );
   const verifyLag = WRITE_WINDOW_SECONDS * rate;
+  const serializeLag = SERIALIZE_SECONDS * rate;
   const shards = checkpointShards(stage);
   for (
     let at = Math.max(every, Math.floor((lo - verifyLag) / every) * every);
@@ -224,12 +223,13 @@ function draftsBetween(
     at += every
   ) {
     const loss = valLoss.get(at);
+    // Logged when serialisation finishes; the checkpoint table shows it uploading until verified.
     drafts.push({
       id: `ckpt-write:${at}`,
-      step: at,
+      step: at + serializeLag,
       severity: "info",
       kind: "checkpoint-written",
-      message: `Checkpoint ${checkpointName(at)} saved · ${run.checkpointSize} in ${shards} shards${
+      message: `Checkpoint ${checkpointName(at)} serialized · ${run.checkpointSize} in ${shards} shards, uploading${
         loss === undefined
           ? ""
           : ` · ${stage.id === "rl" ? "reward" : stage.id === "distillation" ? "val KL" : "val loss"} ${loss.toFixed(3)}`
@@ -577,7 +577,7 @@ export function checkpointLifecycle(
   });
 
   const bestStep = completed.reduce<(typeof completed)[number] | undefined>(
-    (low, item) => (!low || item.valLoss < low.valLoss ? item : low),
+    (top, item) => (!top || isBetter(stage, item.valLoss, top.valLoss) ? item : top),
     undefined,
   )?.step;
 

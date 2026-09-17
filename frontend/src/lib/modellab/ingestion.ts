@@ -15,6 +15,7 @@
 
 import { hashString } from "@/lib/canvas/engineering";
 
+import { evalLagSteps, lastEvalStep, measured } from "./evaluation";
 import { curveAt } from "./run";
 import { availability, type CorpusFacts } from "./samples";
 import type { CurveSpec, Stage } from "./stages";
@@ -113,7 +114,9 @@ function formatAgoShort(seconds: number): string {
     const m = Math.floor((seconds % 3600) / 60);
     return m ? `${h}h ${m}m ago` : `${h}h ago`;
   }
-  return `${Math.floor(seconds / 86400)}d ago`;
+  const days = Math.floor(seconds / 86400);
+  const hours = Math.floor((seconds % 86400) / 3600);
+  return hours ? `${days}d ${hours}h ago` : `${days}d ago`;
 }
 
 /**
@@ -495,27 +498,56 @@ export interface BatchReward {
   readonly value: number;
 }
 
-/** Weighted reward per contract row for the current batch of the simulated policy. */
+function stageCurve(stage: Stage, key: string): CurveSpec | undefined {
+  return stage.curves.flatMap((tab) => tab.curves).find((curve) => curve.key === key);
+}
+
+/**
+ * Weighted reward per contract row for the current batch of the simulated policy.
+ *
+ * The rows are one decomposition of the batch mean reward the curves plot, not a second
+ * estimate of it: the penalty row is the weight times the batch hallucination rate, and the
+ * positive rows share out the rest, each with its own fixed offset and per-batch jitter, so
+ * the column sums to the mean reward at this step.
+ */
 export function batchRewards(
   stage: Stage,
   step: number,
   progress: number,
 ): readonly BatchReward[] {
+  const rewards = stage.rewards ?? [];
+  const at = Math.max(0, step);
+  const bucket = Math.floor(at / 40);
   const t = ease(progress);
-  const bucket = Math.floor(Math.max(0, step) / 40);
-  return (stage.rewards ?? []).map((reward) => {
+  const meanCurve = stageCurve(stage, "reward");
+  const rateCurve = stageCurve(stage, "halluc");
+  const hallucination = Math.min(
+    1,
+    Math.max(0, rateCurve ? curveAt(rateCurve, at) : lerp(0.15, 0.035, t)),
+  );
+
+  const raw = rewards.map((reward) => {
+    if (reward.weight < 0) return hallucination;
     const jitter = (unit(`reward:${reward.name}:${bucket}`) * 2 - 1) * 0.03;
     const offset = (unit(`reward-offset:${reward.name}`) * 2 - 1) * 0.05;
+    return offset + jitter;
+  });
+  const positiveWeight =
+    rewards.reduce((sum, reward) => sum + Math.max(0, reward.weight), 0) || 1;
+  let penalty = 0;
+  let spread = 0;
+  rewards.forEach((reward, index) => {
+    if (reward.weight < 0) penalty += reward.weight * raw[index]!;
+    else spread += reward.weight * raw[index]!;
+  });
+  const mean = meanCurve ? curveAt(meanCurve, at) : lerp(0.18, 0.71, t);
+  // The common level of the positive scores that makes the weighted rows sum to `mean`.
+  const level = (mean - penalty - spread) / positiveWeight;
+
+  return rewards.map((reward, index) => {
     const score =
-      reward.weight < 0
-        ? Math.min(1, Math.max(0, lerp(0.15, 0.035, t) * (1 + jitter * 4)))
-        : Math.min(1, Math.max(0, lerp(0.42, 0.86, t) + offset + jitter));
-    return {
-      name: reward.name,
-      weight: reward.weight,
-      score,
-      value: reward.weight * score,
-    };
+      reward.weight < 0 ? raw[index]! : Math.min(1, Math.max(0, level + raw[index]!));
+    return { name: reward.name, weight: reward.weight, score, value: reward.weight * score };
   });
 }
 
@@ -539,12 +571,11 @@ export interface DeploymentTarget {
 }
 
 export interface DeploymentMeasurements {
-  /** Epoch whose end-of-epoch evaluation produced these numbers (0 = baseline). */
-  readonly epoch: number;
-  readonly epochs: number;
+  /** Step whose published evaluation produced these numbers (0 = baseline). */
+  readonly evalStep: number;
   /** Share of the run at which the measurement was taken. */
   readonly measuredProgress: number;
-  /** Epoch ms of the measurement, given the run's wall-clock length in seconds. */
+  /** Epoch ms the measurement was published. */
   readonly measuredAt: number;
   readonly targets: readonly DeploymentTarget[];
 }
@@ -559,6 +590,7 @@ interface TargetModel {
   readonly memory: readonly [number, number];
   readonly supportedAt?: number;
   readonly memoryBudgetGb?: number;
+  readonly tailFinal?: number;
 }
 
 const TARGET_MODELS: readonly TargetModel[] = [
@@ -601,35 +633,48 @@ const TARGET_MODELS: readonly TargetModel[] = [
     tail: [1.5, 1.12],
     tokens: [38, 52.7],
     memory: [18, 16],
+    tailFinal: 1.08,
   },
 ];
 
 /**
- * Latency, throughput and memory per deployment target from the quantisation-aware
- * evaluation the simulated run performs at the end of each epoch. Values improve with the
- * student's progress; each reading carries a small, fixed measurement scatter.
+ * Latency, throughput and memory per deployment target from the quantisation-aware pass of
+ * the stage's evaluation harness. The numbers change only when an evaluation publishes, at
+ * the step the metrics table reports. The local single-GPU profile reads latency, throughput
+ * and peak memory straight from those metrics; the other targets scale from the same
+ * progress with a small, fixed measurement scatter.
  *
  * The local profile is Ready exactly when its measured p95 is under one second.
  */
 export function deploymentMeasurements(
-  progress: number,
+  stage: Stage,
+  step: number,
   now: number,
-  epochs = 50,
-  runSeconds = 0,
 ): DeploymentMeasurements {
-  const p = Math.min(1, Math.max(0, progress));
-  const epoch = Math.min(epochs, Math.floor(p * epochs + 1e-9));
-  const measuredProgress = epoch / epochs;
+  const { run } = stage;
+  const evalStep = lastEvalStep(stage, step);
+  const measuredProgress = Math.min(1, evalStep / Math.max(1, run.totalSteps));
   const t = ease(measuredProgress);
+  const fromMetric = (prefix: string): number | undefined => {
+    const spec = stage.metrics.find((m) => m.label.startsWith(prefix));
+    return spec ? measured(spec, stage, evalStep) : undefined;
+  };
 
   const targets = TARGET_MODELS.map((model): DeploymentTarget => {
     const scatter = (key: string, size: number) =>
-      1 + (unit(`deploy:${model.id}:${key}:${epoch}`) * 2 - 1) * size;
-    const p50 = lerp(model.p50[0], model.p50[1], t) * scatter("p50", 0.02);
-    const p95 = p50 * lerp(model.tail[0], model.tail[1], t) * scatter("p95", 0.015);
+      1 + (unit(`deploy:${model.id}:${key}:${evalStep}`) * 2 - 1) * size;
+    const local = model.id === "local";
+    const p50 =
+      (local ? fromMetric("Latency per sample") : undefined) ??
+      lerp(model.p50[0], model.p50[1], t) * scatter("p50", 0.02);
+    const tail = lerp(model.tail[0], model.tailFinal ?? model.tail[1], t);
+    const p95 = p50 * tail * scatter("p95", 0.015);
     const tokensPerSecond =
+      (local ? fromMetric("Throughput") : undefined) ??
       lerp(model.tokens[0], model.tokens[1], t) * scatter("tok", 0.02);
-    const memoryGb = lerp(model.memory[0], model.memory[1], t) * scatter("mem", 0.005);
+    const memoryGb =
+      (local ? fromMetric("Peak VRAM") : undefined) ??
+      lerp(model.memory[0], model.memory[1], t) * scatter("mem", 0.005);
 
     let status: DeploymentStatus;
     let gate: string;
@@ -660,11 +705,12 @@ export function deploymentMeasurements(
     };
   });
 
+  const rate = run.stepsPerSecond > 0 ? run.stepsPerSecond : 1;
+  const lag = evalStep === 0 || evalStep >= run.totalSteps ? 0 : evalLagSteps(stage);
   return {
-    epoch,
-    epochs,
+    evalStep,
     measuredProgress,
-    measuredAt: now - Math.max(0, p - measuredProgress) * runSeconds * 1000,
+    measuredAt: now - (Math.max(0, step - evalStep - lag) / rate) * 1000,
     targets,
   };
 }

@@ -10,8 +10,18 @@ import {
   mixtureCounts,
   objectiveShares,
 } from "@/lib/modellab/ingestion";
+import { DEFAULT_CONFIG, runProfile } from "@/lib/modellab/config";
+import { lastEvalStep, metricAtEval } from "@/lib/modellab/evaluation";
+import { curveAt } from "@/lib/modellab/run";
 import { availability, corpusFacts } from "@/lib/modellab/samples";
-import { STAGES, stageById } from "@/lib/modellab/stages";
+import { STAGES, stageById, type Stage } from "@/lib/modellab/stages";
+
+/** A stage as the page runs it: the step rate of its default configuration. */
+function effective(id: "pretraining" | "sft" | "rl" | "distillation"): Stage {
+  const base = stageById(id)!;
+  const rate = runProfile(id, DEFAULT_CONFIG[id]).stepsPerSecond;
+  return { ...base, run: { ...base.run, stepsPerSecond: rate } };
+}
 
 /**
  * Live contract views mix real corpus counts with a simulated run. These tests pin that the
@@ -136,8 +146,13 @@ describe("deployment measurements", () => {
   it("marks the local profile Ready exactly when p95 is under one second", () => {
     let sawReady = false;
     let sawPending = false;
+    const stage = effective("distillation");
     for (let index = 0; index <= 200; index += 1) {
-      const measured = deploymentMeasurements(index / 200, NOW);
+      const measured = deploymentMeasurements(
+        stage,
+        (index / 200) * stage.run.totalSteps,
+        NOW,
+      );
       const localProfile = measured.targets.find((target) => target.id === "local")!;
       expect(localProfile.status === "Ready").toBe(localProfile.p95 < 1);
       if (localProfile.status === "Ready") sawReady = true;
@@ -150,13 +165,28 @@ describe("deployment measurements", () => {
     expect(sawPending).toBe(true);
   });
 
-  it("is deterministic and freezes within an epoch", () => {
-    expect(deploymentMeasurements(0.4312, NOW)).toEqual(
-      deploymentMeasurements(0.4312, NOW),
+  it("is deterministic and changes only when an evaluation publishes", () => {
+    const stage = effective("distillation");
+    expect(deploymentMeasurements(stage, 26_431, NOW)).toEqual(
+      deploymentMeasurements(stage, 26_431, NOW),
     );
-    const a = deploymentMeasurements(0.401, NOW).targets;
-    const b = deploymentMeasurements(0.419, NOW).targets;
-    expect(a).toEqual(b);
+    const a = deploymentMeasurements(stage, 26_500, NOW);
+    const b = deploymentMeasurements(stage, 26_900, NOW);
+    expect(lastEvalStep(stage, 26_500)).toBe(lastEvalStep(stage, 26_900));
+    expect(a.targets).toEqual(b.targets);
+  });
+
+  it("reports the local profile with the metrics table's numbers at the same evaluation", () => {
+    const stage = effective("distillation");
+    const step = stage.run.openingStep + 321;
+    const local = deploymentMeasurements(stage, step, NOW).targets.find(
+      (target) => target.id === "local",
+    )!;
+    const metric = (prefix: string) =>
+      metricAtEval(stage.metrics.find((m) => m.label.startsWith(prefix))!, stage, step);
+    expect(local.p50).toBeCloseTo(metric("Latency per sample"), 9);
+    expect(local.tokensPerSecond).toBeCloseTo(metric("Throughput"), 9);
+    expect(local.memoryGb).toBeCloseTo(metric("Peak VRAM"), 9);
   });
 });
 
@@ -165,6 +195,12 @@ describe("batch rewards", () => {
     const stage = stageById("rl")!;
     const rewards = batchRewards(stage, 53_556, 0.53);
     expect(rewards).toHaveLength(stage.rewards!.length);
+    // One decomposition of the plotted mean reward, not a second estimate of it.
+    const mean = curveAt(
+      stage.curves.flatMap((tab) => tab.curves).find((curve) => curve.key === "reward")!,
+      53_556,
+    );
+    expect(rewards.reduce((sum, reward) => sum + reward.value, 0)).toBeCloseTo(mean, 6);
     for (const reward of rewards) {
       expect(reward.score).toBeGreaterThanOrEqual(0);
       expect(reward.score).toBeLessThanOrEqual(1);

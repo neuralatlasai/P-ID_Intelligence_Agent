@@ -72,13 +72,11 @@ export function MixtureLiveCard({ step, now, config }: LiveCardProps) {
             textAnchor="middle"
             className={styles.donutValue}
           >
-            {focus ? `${Math.round(focus.share * 100)}%` : "100%"}
+            {focus ? `${Math.round(focus.share * 100)}%` : config.globalBatch}
           </text>
-          {focus && (
-            <text x={80} y={94} textAnchor="middle" className={styles.donutLabel}>
-              {focus.label.split(" ")[0]}
-            </text>
-          )}
+          <text x={80} y={focus ? 94 : 102} textAnchor="middle" className={styles.donutLabel}>
+            {focus ? focus.label.split(" ")[0] : "samples / batch"}
+          </text>
         </svg>
         <ul>
           {families.map((family, index) => (
