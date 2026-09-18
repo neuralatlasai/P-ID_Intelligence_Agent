@@ -2,8 +2,8 @@
 
 .batch {
   padding: 0 14px 12px;
-  border-top: 1px solid var(--line-soft);
-  padding-top: 8px;
+  border-top: 1px solid var(--rule-subtle);
+  padding-top: var(--space-2);
 }
 
 .batchHead {
@@ -11,37 +11,42 @@
   flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
-  gap: 2px 8px;
+  gap: 2px var(--space-2);
   margin-bottom: 5px;
 }
 
 .batchHead strong {
-  font-size: 12px;
-  font-weight: 650;
-  color: var(--ink);
+  font-size: var(--text-base);
+  font-weight: var(--weight-medium);
+  color: var(--text-primary);
 }
 
 .batchHead small {
-  font-size: 10.5px;
-  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
   font-variant-numeric: tabular-nums;
 }
 
 .stack {
   display: flex;
-  height: 12px;
-  border-radius: 4px;
-  background: var(--line-soft);
+  height: var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
   overflow: hidden;
 }
 
+/*
+ * Segments are separated by a hairline rule, not a white keyline: on a dark surface the
+ * separator is the darker of the two, so it reads as a joint rather than a highlight.
+ */
 .stack i {
   display: block;
   height: 100%;
-  box-shadow: inset -1px 0 0 #ffffff;
+  box-shadow: inset -1px 0 0 var(--bg-void);
   transition:
-    width 0.45s ease,
-    opacity 0.15s;
+    width var(--duration-slow) var(--easing-standard),
+    opacity var(--duration-fast) var(--easing-standard);
 }
 
 .stack i[data-dim] {
@@ -51,7 +56,7 @@
 .counts {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 4px;
+  gap: var(--space-1);
   margin: 6px 0 0;
   padding: 0;
   list-style: none;
@@ -60,32 +65,33 @@
 .counts li {
   display: flex;
   align-items: center;
-  gap: 4px;
-  font-size: 11.5px;
+  gap: var(--space-1);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
   font-variant-numeric: tabular-nums;
 }
 
 .counts i {
   flex: 0 0 8px;
-  width: 8px;
-  height: 8px;
-  border-radius: 2px;
+  width: var(--space-2);
+  height: var(--space-2);
+  border-radius: var(--radius-xs);
 }
 
 .counts b {
-  font-weight: 650;
-  color: var(--ink);
+  font-weight: var(--weight-medium);
+  color: var(--text-primary);
 }
 
 .counts small {
-  font-size: 10px;
-  color: var(--muted);
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
 }
 
 .note {
   margin: 6px 0 0;
-  font-size: 10.5px;
-  color: var(--muted);
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
 }
 
 @media (prefers-reduced-motion: reduce) {

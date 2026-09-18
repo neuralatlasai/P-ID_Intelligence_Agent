@@ -17,7 +17,13 @@ import { STAGES } from "@/lib/modellab/stages";
 const NOW = Date.UTC(2026, 8, 17, 16, 0, 0);
 const drawing: CanvasDrawing = { ...fixture, imagePath: "PID2Graph OPEN100/0.png" };
 const adjacency = buildAdjacency(drawing.nodes, drawing.edges, drawing.directed);
-const register = buildPlantRegister(drawing, adjacency, NOW, new Set(["tank67"]), fieldClassesFor(drawing));
+const register = buildPlantRegister(
+  drawing,
+  adjacency,
+  NOW,
+  new Set(["tank67"]),
+  fieldClassesFor(drawing),
+);
 const facts = corpusFacts(drawing, register, "demo", null, null, NOW);
 
 describe("architecture spec", () => {
@@ -54,9 +60,12 @@ describe("architecture spec", () => {
 
     it(`${stage.id}: ends with a checkpoint and names the applied backbone`, () => {
       expect(spec.chain.at(-1)?.symbol).toBe("checkpoint");
-      expect(`${spec.modelDetail} ${spec.model.flat().map((box) => box.detail).join(" ")}`).toContain(
-        runProfile(stage.id, config).backbone.name.slice(0, 10),
-      );
+      expect(
+        `${spec.modelDetail} ${spec.model
+          .flat()
+          .map((box) => box.detail)
+          .join(" ")}`,
+      ).toContain(runProfile(stage.id, config).backbone.name.slice(0, 10));
     });
   }
 

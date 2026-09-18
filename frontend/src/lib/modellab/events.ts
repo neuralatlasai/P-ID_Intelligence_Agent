@@ -18,6 +18,7 @@
 import { hashString, seededRandom } from "@/lib/canvas/engineering";
 
 import { EVAL_SECONDS, evalEvery, measured } from "./evaluation";
+import { incidentsBetween, rankOf } from "./incidents";
 import { checkpoints, curveAt, isBetter, learningRateAt } from "./run";
 import type { Stage } from "./stages";
 
@@ -84,11 +85,6 @@ const KIND_ORDER: readonly EventKind[] = [
 ];
 
 const number = (value: number) => Math.round(value).toLocaleString("en-US");
-
-/** Deterministic value in [0, 1) for a key. */
-function unit(key: string): number {
-  return hashString(key) / 4294967296;
-}
 
 function safeRate(stepsPerSecond: number): number {
   return Number.isFinite(stepsPerSecond) && stepsPerSecond > 0 ? stepsPerSecond : 1e-6;
@@ -168,7 +164,6 @@ function draftsBetween(
 ): Draft[] {
   const { run } = stage;
   const drafts: Draft[] = [];
-  const seed = `${stage.id}:${stage.experimentId}`;
   const metric = stage.metrics[0]!;
   const every = run.checkpointEvery;
 
@@ -284,77 +279,130 @@ function draftsBetween(
     });
   }
 
-  // Irregular warnings: at most one per bucket, placed by hash.
-  // Faults arrive per hour of wall-clock time, so the bucket spans at least 90 minutes of steps.
-  const bucket = Math.max(1, Math.round(every / 8), Math.round(5400 * rate));
-  const maxRecovery = 360 * rate;
+  // Incidents, read from the run's single timeline (incidents.ts) — the same one the curves,
+  // the step-time breakdown and the run console log read — so every warning here is visible
+  // in the charts at the step it names, with the value the chart shows.
   const nodes = Math.max(1, options.nodes ?? 1);
   const gpusPerNode = Math.max(1, options.gpusPerNode ?? 8);
+  const world = nodes * gpusPerNode;
+  const node = (rank: number) =>
+    `node-${String(Math.floor(rank / gpusPerNode) + 1).padStart(2, "0")}`;
+  const nominal = rate > 0 ? 1 / rate : 0;
   const { curve: spike, label: spikeLabel } = spikeCurve(stage);
-  for (
-    let index = Math.max(0, Math.floor((lo - maxRecovery) / bucket) - 1);
-    index * bucket <= Math.min(hi, run.totalSteps);
-    index += 1
-  ) {
-    const key = `${seed}:warn:${index}`;
-    if (unit(key) >= 0.3) continue;
-    const at = index * bucket + bucket * (0.15 + 0.7 * unit(`${key}:at`));
-    if (at <= run.warmupSteps / 4 || at >= run.totalSteps) continue;
-    const pick = unit(`${key}:kind`);
-    const a = unit(`${key}:a`);
-    const b = unit(`${key}:b`);
-    if (pick < 0.3) {
-      const mean = curveAt(spike, at);
-      const ratio = 2 + 1.5 * a;
-      const recoverySteps = Math.max(1, (120 + 240 * b) * rate);
-      const digits = mean < 0.1 ? 4 : 3;
-      drafts.push({
-        id: `spike:${index}`,
-        step: at,
-        severity: "warn",
-        kind: "loss-spike",
-        message:
-          stage.id === "rl"
-            ? `KL spike ${(mean * ratio).toFixed(4)} (${ratio.toFixed(1)}× rolling mean) · adaptive KL coefficient raised`
-            : `${spikeLabel} spike at step ${number(at)} · ${(mean * ratio).toFixed(digits)} vs rolling mean ${mean.toFixed(digits)} (${ratio.toFixed(1)}×)`,
-      });
-      drafts.push({
-        id: `recover:${index}`,
-        step: at + recoverySteps,
-        severity: "ok",
-        kind: "loss-recovered",
-        message: `${spikeLabel} recovered to ${curveAt(spike, at + recoverySteps).toFixed(digits)} automatically after ${number(Math.max(1, recoverySteps))} steps · no rollback`,
-      });
-    } else if (pick < 0.55) {
-      const clipped = 12 + Math.floor(a * 40);
-      drafts.push({
-        id: `clip:${index}`,
-        step: at,
-        severity: "warn",
-        kind: "grad-clip",
-        message: `Gradient-norm clip burst · ${clipped} of 64 micro-batches clipped at max-norm 1.0`,
-      });
-    } else if (pick < 0.8) {
-      const node = Math.floor(a * nodes);
-      const rank = node * gpusPerNode + Math.floor(b * gpusPerNode);
-      const lost = 20 + Math.floor(b * 50);
-      drafts.push({
-        id: `nccl:${index}`,
-        step: at,
-        severity: "warn",
-        kind: "nccl-retry",
-        message: `NCCL all-reduce timeout on node-${String(node).padStart(2, "0")} (rank ${rank}) · retried, ${lost} s lost`,
-      });
-    } else {
-      const worker = Math.floor(a * 16);
-      const waited = 15 + Math.floor(b * 45);
-      drafts.push({
-        id: `stall:${index}`,
-        step: at,
-        severity: "warn",
-        kind: "loader-stall",
-        message: `Data loader stall · worker ${worker} waited ${waited} s on shard read, prefetch refilled`,
-      });
+  const at = (curve: typeof spike, step: number) => curveAt(curve, step, stage);
+  const digits = (value: number) => (value < 0.1 ? 4 : 3);
+  for (const incident of incidentsBetween(
+    stage,
+    Math.max(1, Math.floor(lo) - 80),
+    Math.ceil(hi),
+  )) {
+    const step = incident.step;
+    const rank = rankOf(incident, world);
+    const id = `${incident.kind}:${step}`;
+    switch (incident.kind) {
+      case "loss-spike":
+      case "kl-excursion": {
+        const before = at(spike, step - 1);
+        const peak = at(spike, step);
+        drafts.push({
+          id,
+          step,
+          severity: "warn",
+          kind: "loss-spike",
+          message: `${spikeLabel} spike at step ${number(step)} · ${peak.toFixed(digits(peak))} from ${before.toFixed(digits(before))} (${(peak / Math.max(1e-12, before)).toFixed(2)}×)`,
+        });
+        const end = step + incident.duration;
+        const settled = at(spike, end);
+        drafts.push({
+          id: `${id}:recovered`,
+          step: end,
+          severity: "ok",
+          kind: "loss-recovered",
+          message: `${spikeLabel} back to ${settled.toFixed(digits(settled))} after ${number(incident.duration)} steps · no rollback`,
+        });
+        break;
+      }
+      case "grad-clip-burst":
+        drafts.push({
+          id,
+          step,
+          severity: "warn",
+          kind: "grad-clip",
+          message: `Gradient norm above max_norm 1.0 for ${incident.duration} consecutive steps (peak ${incident.magnitude.toFixed(2)}) · updates clipped`,
+        });
+        break;
+      case "nonfinite-skip":
+        drafts.push({
+          id,
+          step,
+          severity: "warn",
+          kind: "grad-clip",
+          message: `Non-finite gradient norm at step ${number(step)} · optimizer step skipped`,
+        });
+        break;
+      case "loader-stall":
+        drafts.push({
+          id,
+          step,
+          severity: "warn",
+          kind: "loader-stall",
+          message: `Input pipeline stall · rank ${rank} waited ${(incident.magnitude * nominal).toFixed(0)} s for its next batch; prefetch queue empty`,
+        });
+        break;
+      case "teacher-queue":
+        drafts.push({
+          id,
+          step,
+          severity: "warn",
+          kind: "loader-stall",
+          message: `Teacher forward behind · student waited ${(incident.magnitude * nominal * 0.5).toFixed(0)} s for teacher logits`,
+        });
+        break;
+      case "rollout-tail":
+        drafts.push({
+          id,
+          step,
+          severity: "warn",
+          kind: "loader-stall",
+          message: `Long-tail rollout · generation ran ${Math.round(incident.magnitude * 46)}% over typical while a few completions reached the length limit`,
+        });
+        break;
+      case "entropy-drop":
+        drafts.push({
+          id,
+          step,
+          severity: "warn",
+          kind: "loss-spike",
+          message: `Token entropy falling ${Math.round(incident.magnitude * 100)}% over ${incident.duration} steps · watching for collapse`,
+        });
+        break;
+      case "straggler":
+        drafts.push({
+          id,
+          step,
+          severity: "warn",
+          kind: "nccl-retry",
+          message: `Straggler rank ${rank} (${node(rank)}) · step time +${Math.round(incident.magnitude * 100)}% for ${incident.duration} steps while collectives waited`,
+        });
+        break;
+      case "slow-collective":
+        drafts.push({
+          id,
+          step,
+          severity: "warn",
+          kind: "nccl-retry",
+          message: `Slow reduce-scatter at step ${number(step)} · ${(incident.magnitude * nominal).toFixed(0)} s exposed on ${node(rank)} (InfiniBand errors rising)`,
+        });
+        break;
+      case "job-restart":
+        drafts.push({
+          id,
+          step,
+          severity: "warn",
+          kind: "nccl-retry",
+          message: `NCCL watchdog timeout on rank ${rank} (${node(rank)}, Xid 79) · job restarted from the step-${number(step - 1)} checkpoint, 1 step recomputed`,
+        });
+        break;
     }
   }
 

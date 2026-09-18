@@ -133,7 +133,11 @@ function SymbolCrop({
   };
   return (
     <figure className={styles.crop}>
-      <div style={style} role="img" aria-label="Symbol as drawn on the sheet" />
+      {/* The window carries the backdrop and the frame; the child inside it carries the
+          sheet and is the only thing normalised to ink-on-void. */}
+      <div className={styles.cropWindow}>
+        <div style={style} role="img" aria-label="Symbol as drawn on the sheet" />
+      </div>
       <figcaption>As drawn</figcaption>
     </figure>
   );
@@ -365,7 +369,12 @@ export function HierarchyPanel({
     source: "corpus" | "simulated";
     onClick?: (() => void) | undefined;
   }[] = [
-    { label: register.site, hint: "Open the source library", source: "corpus", onClick: onSite },
+    {
+      label: register.site,
+      hint: "Open the source library",
+      source: "corpus",
+      onClick: onSite,
+    },
     {
       label: `${register.area} · ${register.unit}`,
       hint: "List every tagged component in this unit",
@@ -735,12 +744,12 @@ export function FailureModes({ asset }: { readonly asset?: AssetRecord | undefin
 function Svg({ children }: { readonly children: ReactNode }) {
   return (
     <svg
-      width="14"
-      height="14"
+      width="16"
+      height="16"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth="2"
+      strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"

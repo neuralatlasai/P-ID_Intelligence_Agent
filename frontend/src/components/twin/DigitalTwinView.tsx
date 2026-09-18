@@ -132,8 +132,24 @@ function DrawingCrop({
       role="img"
       aria-label="The component as drawn on the P&ID"
     >
-      <rect x={0} y={0} width={drawing.width} height={drawing.height} fill="#ffffff" />
-      <image href={imageUrl} x={0} y={0} width={drawing.width} height={drawing.height} />
+      <rect
+        x={0}
+        y={0}
+        width={drawing.width}
+        height={drawing.height}
+        fill="var(--bg-void)"
+      />
+      {/* Normalised to ink-on-void like every other rendering of this sheet. The class goes
+          on the image alone, never the svg, so the detection marks above are not inverted
+          with it. */}
+      <image
+        className="engineeringRaster"
+        href={imageUrl}
+        x={0}
+        y={0}
+        width={drawing.width}
+        height={drawing.height}
+      />
       {nodes.map((node) => (
         <rect
           key={node.id}
@@ -142,8 +158,8 @@ function DrawingCrop({
           width={node.width + stroke * 4}
           height={node.height + stroke * 4}
           rx={stroke * 2}
-          fill="rgba(29, 78, 216, 0.1)"
-          stroke="#1d4ed8"
+          fill="var(--overlay-selected-bg)"
+          stroke="var(--overlay-selected)"
           strokeWidth={stroke}
         />
       ))}
@@ -190,11 +206,11 @@ function TrendChart({
         y={y(kpi.band[1])}
         width={W - 44}
         height={Math.max(0, y(kpi.band[0]) - y(kpi.band[1]))}
-        fill="#e8f6ef"
+        fill="var(--status-ready-bg)"
       />
       {[0, 6, 12, 18, 24].map((h) => (
         <g key={h}>
-          <line x1={x(h)} x2={x(h)} y1={10} y2={H - 20} stroke="#ebeef4" />
+          <line x1={x(h)} x2={x(h)} y1={10} y2={H - 20} stroke="var(--chart-grid)" />
           <text x={x(h)} y={H - 6} textAnchor="middle">
             {String(h).padStart(2, "0")}:00
           </text>
@@ -210,18 +226,18 @@ function TrendChart({
         <path
           d={path(baseline)}
           fill="none"
-          stroke="#9aa6b6"
+          stroke="var(--rule-strong)"
           strokeDasharray="4 4"
           strokeWidth={1.4}
         />
       )}
-      <path d={path(series)} fill="none" stroke="#1d4ed8" strokeWidth={2} />
+      <path d={path(series)} fill="none" stroke="var(--series-1)" strokeWidth={2} />
       <line
         x1={x(hour)}
         x2={x(hour)}
         y1={10}
         y2={H - 20}
-        stroke="#141d2b"
+        stroke="var(--chart-crosshair)"
         strokeWidth={1.2}
       />
     </svg>

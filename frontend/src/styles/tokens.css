@@ -1,89 +1,275 @@
 /*
- * Design tokens.
+ * Design tokens — industrial dark visual system.
  *
- * Every colour, radius, spacing step and duration used by the application is declared here.
- * Components reference tokens, never raw values, so a visual decision is made in one place
- * and a future dark mode is a matter of redefining this block rather than auditing the
- * component tree.
+ * Every colour, radius, spacing step, geometry constant and duration used by the
+ * application is declared here. Components reference tokens, never raw values, so a visual
+ * decision is made in one place.
  *
- * The palette is calibrated against the supplied product reference: a cool near-white
- * canvas, bright white content surfaces, low-contrast borders, one blue action accent, and
- * status colours reserved for semantic state. Foreground/background pairs used for text
- * meet the WCAG 2.2 AA contrast target.
+ * The system models an engineering workstation, not a dashboard: low-chroma surfaces
+ * separated by small, deliberate luminance steps; hierarchy carried by surface level and
+ * 1px borders rather than by shadow or colour; saturation reserved for semantic state.
+ *
+ * SURFACE LADDER
+ *   void < sunken < canvas < subtle(nav) < surface(panel) < surface-high < selected < hover
+ * Each step is a few points of luminance. Do not invent intermediate surfaces; if two
+ * regions need separating and no step fits, they want a border, not a new colour.
+ * (--bg-inverse sits outside the ladder: it is the one white fill, not a surface level.)
+ *
+ * CONTRAST
+ * Section 11 of the brief requires WCAG AA, so it is measured rather than asserted:
+ * `npm run check:contrast` reads this file and tests every text token against every
+ * surface in the ladder — not just the common one — because metadata also appears in
+ * hovered rows and table headers, where the margin is thinnest. Where the brief's
+ * approximate value failed there, the token is raised and the measured ratio recorded
+ * beside it.
+ *
+ * Semantic colours therefore come in pairs: a text-safe foreground, and a `-mark` variant
+ * at the brief's value for non-text use (dots, strokes, chart marks), which answers to the
+ * 3:1 threshold instead. Adding a text or mark token means adding it to that script's
+ * list — a token the audit does not name is a token nobody is checking.
  */
 
 :root {
-  color-scheme: light;
+  color-scheme: dark;
 
   /* -- Surfaces ------------------------------------------------------------ */
-  --bg-canvas: #f4f6fb;
-  --bg-surface: #ffffff;
-  --bg-subtle: #f7f9fc;
-  --bg-sunken: #eef2f8;
-  --bg-hover: #eff3fa;
-  --bg-selected: #e4ecfb;
-  --bg-inverse: #1b2333;
+  /* The deepest layer. Backs engineering artefacts — drawing canvases, the 3D scene —
+     so the artefact itself is the brightest thing in the frame. */
+  --bg-void: #0d0e10;
+  /* Wells: inputs, code blocks, inset regions within a panel. */
+  --bg-sunken: #131417;
+  /* Application background, behind the frame. */
+  --bg-canvas: #151619;
+  /* Navigation and secondary chrome. */
+  --bg-subtle: #191a1e;
+  /* Panels and cards — the default content surface. */
+  --bg-surface: #1c1d22;
+  /* The upper end of the panel range: nested cards, table headers, panel headers. */
+  --bg-surface-high: #202126;
+  /* Hover and raised state. */
+  --bg-hover: #27292e;
+  /* Selected rows. Deliberately close to --bg-surface: selection is carried by the left
+     indicator and brighter text, not by a bright fill. */
+  --bg-selected: #242529;
+  /* The single white-filled surface, for the one dominant action per view. */
+  --bg-inverse: #e8e8e6;
 
   /* -- Text ---------------------------------------------------------------- */
-  /* 15.6:1 on surface */
-  --text-primary: #15202e;
-  /* 7.2:1 on surface */
-  --text-secondary: #4a5668;
+  /* 12.1:1 on --bg-surface */
+  --text-primary: #e4e5e7;
+  /* 6.8:1 on --bg-surface */
+  --text-secondary: #a3a5aa;
   /*
-   * 5.1:1 on the lightest surface this is used on, and above 4.5:1 on every other.
-   * Metadata only, never body copy. The earlier value cleared 4.5:1 on pure white but
-   * failed on the subtle and sunken surfaces where most metadata actually sits.
+   * Metadata. The brief specifies #71747B, which measures 3.6:1 and fails AA for text.
+   * Raised here to the nearest neutral clearing 4.5:1 against --bg-hover, the lightest
+   * surface text ever sits on — metadata appears in hovered rows and table headers, so
+   * checking it against --bg-surface alone is not enough. #71747B survives as
+   * --rule-strong and --icon-muted, where the 3:1 non-text threshold applies.
+   * 5.3:1 on --bg-surface, 4.5:1 on --bg-hover
    */
-  --text-tertiary: #596374;
-  --text-inverse: #f7f9fc;
-  --text-link: #1c4fb5;
+  --text-tertiary: #8d9095;
+  /* Active/current item — the brightest text in the system. 13.5:1 */
+  --text-active: #f3f3f2;
+  /* On --bg-inverse only. */
+  --text-inverse: #131417;
+  /* 6.8:1 on --bg-surface; 4.6:1 on its own wash over --bg-hover */
+  --text-link: #88a6cc;
 
   /* -- Borders ------------------------------------------------------------- */
-  --border-subtle: #e3e9f2;
-  --border-default: #d3dbe8;
-  --border-strong: #b6c2d4;
-  --border-focus: #1f5fd0;
+  /* Almost all structural separation in the product is one of these two. */
+  --border-subtle: rgb(255 255 255 / 8%);
+  --border-default: rgb(255 255 255 / 8%);
+  --border-strong: rgb(255 255 255 / 13%);
+  --border-focus: #7a9cc6;
+  /* A seam drawn ON the white action fill — the split in a split-button, say. Every other
+     border token is a white alpha and vanishes there. */
+  --border-on-inverse: rgb(19 20 23 / 22%);
+  /* The ring that accompanies --border-focus where focus is shown as a halo rather than a
+     border, e.g. a field whose border is already carrying another meaning. */
+  --ring-focus: rgb(122 156 198 / 38%);
 
-  /* -- Accents ------------------------------------------------------------- */
-  --accent-action: #1f5fd0;
-  --accent-action-hover: #1a51b3;
-  --accent-action-active: #164494;
-  --accent-action-subtle: #e8eefc;
-  --accent-info: #3d6bb5;
+  /* Rules and hairlines inside diagrams and tables, where a border would be too heavy. */
+  --rule-subtle: rgb(255 255 255 / 6%);
+  --rule-strong: #71747b;
+
+  /* A subordinate icon — one accompanying a label that already carries the meaning. An
+     icon is not text, so it answers to 3:1 rather than 4.5:1 and can sit quieter than the
+     metadata beside it. An icon that is the ONLY carrier of meaning takes a text token. */
+  --icon-muted: #71747b;
+
+  /* -- Action -------------------------------------------------------------- */
+  /*
+   * There is one filled action per view and it is white. Everything else is a dark
+   * surface with a border. Blue is for links, focus and selection affordance — never a
+   * button fill.
+   */
+  --action-fill: #e8e8e6;
+  --action-fill-hover: #f3f3f2;
+  --action-fill-text: #131417;
+  --accent-action: #7a9cc6;
+  --accent-action-hover: #8fadd3;
+  --accent-action-active: #6a8ab4;
+  --accent-action-subtle: rgb(122 156 198 / 14%);
+  --accent-info: #7a9cc6;
 
   /* -- Status -------------------------------------------------------------- */
-  /* Each status has a text-safe foreground and a wash for its surface. */
-  --status-ready: #16703f;
-  --status-ready-bg: #e6f4ec;
-  --status-degraded: #8a5a0f;
-  --status-degraded-bg: #fdf3e0;
-  --status-down: #b3261e;
-  --status-down-bg: #fdecea;
-  --status-unknown: #596374;
-  --status-unknown-bg: #eef1f6;
+  /*
+   * The foregrounds are set against the worst case they are used in: text on its own wash,
+   * composited over the lightest surface in the ladder. A value that clears 4.5:1 on an
+   * opaque panel can fall to 3.9:1 on the wash of a status chip in a hovered row, which is
+   * exactly where status text sits. `npm run check:contrast` measures this.
+   *
+   * Each status carries three values: a text-safe foreground, a `-mark` for non-text
+   * marks at the brief's stated hue, and a wash for the surface behind it. Washes are
+   * alpha so they compose over any surface in the ladder.
+   */
+  --status-ready: #82ac91;
+  --status-ready-mark: #5f8f70;
+  --status-ready-bg: rgb(110 158 127 / 14%);
+  --status-degraded: #bda06b;
+  --status-degraded-mark: #b99a62;
+  --status-degraded-bg: rgb(185 154 98 / 14%);
+  /* A destructive label stays legible while its button is hovered — exactly when it is
+     about to be pressed — and on its own wash over the lightest surface. */
+  --status-down: #ce8b93;
+  --status-down-mark: #b6636d;
+  --status-down-bg: rgb(182 99 109 / 14%);
+  --status-unknown: #9d9fa6;
+  --status-unknown-mark: #71747b;
+  --status-unknown-bg: rgb(142 145 152 / 12%);
 
   /* -- Evidence classes ---------------------------------------------------- */
   /*
    * These mirror the backend's evidence vocabulary exactly. They are presentation only:
    * the frontend colours a claim the backend has already labelled, and never assigns a
-   * class of its own.
+   * class of its own. Each is separated from the others by hue at near-equal luminance,
+   * so the five remain distinguishable without any of them shouting.
    */
-  --evidence-observed: #16703f;
-  --evidence-observed-bg: #e6f4ec;
-  --evidence-corroborated: #1f5fd0;
-  --evidence-corroborated-bg: #e8eefc;
-  --evidence-inferred: #6b4fb8;
-  --evidence-inferred-bg: #efeafb;
-  --evidence-conflicting: #b3261e;
-  --evidence-conflicting-bg: #fdecea;
-  --evidence-unknown: #596374;
-  --evidence-unknown-bg: #eef1f6;
+  --evidence-observed: #82ac91;
+  --evidence-observed-bg: rgb(110 158 127 / 14%);
+  --evidence-corroborated: #88a6cc;
+  --evidence-corroborated-bg: rgb(122 156 198 / 14%);
+  --evidence-inferred: #a69dc8;
+  --evidence-inferred-bg: rgb(154 143 192 / 14%);
+  --evidence-conflicting: #ce8b93;
+  --evidence-conflicting-bg: rgb(182 99 109 / 14%);
+  --evidence-unknown: #9d9fa6;
+  --evidence-unknown-bg: rgb(142 145 152 / 12%);
+
+  /* -- Engineering ink ----------------------------------------------------- */
+  /*
+   * Diagram surfaces: P&ID drawings, architecture figures, flow diagrams. Geometry is
+   * near-white on the void; the dotted field and connector wires sit well below it so the
+   * drawing reads first and its substrate never competes.
+   */
+  --ink-primary: #e4e5e7;
+  --ink-secondary: #a3a5aa;
+  --ink-muted: #71747b;
+  --ink-wire: rgb(255 255 255 / 22%);
+  --ink-field: rgb(255 255 255 / 7%);
+  --ink-fill: #1c1d22;
+
+  /*
+   * Normalises a light-paper engineering scan to ink-on-void. Held as a token because two
+   * kinds of element need it — an <img>/<image>, via the .engineeringRaster class, and an
+   * element carrying the sheet as a background-image, which cannot use that class because
+   * it clears background. Both must agree, so the definition lives in one place.
+   *
+   * The contrast term lands the paper on roughly --bg-void instead of pure black, so the
+   * sheet reads as a sheet rather than as a hole cut in the workspace.
+   */
+  --raster-normalize: invert(1) hue-rotate(180deg) contrast(0.92);
+
+  /* -- Detection overlays -------------------------------------------------- */
+  /*
+   * Overlays drawn over an engineering artefact. Widths and opacities are fixed by the
+   * brief so that hover, selection and relationship are told apart by weight rather than
+   * by hue, and read identically on a P&ID, a photograph and a 3D view.
+   */
+  --overlay-hover: rgb(228 229 231 / 60%);
+  --overlay-hover-width: 1px;
+  /* Half the selected wash: a hover is a question, a selection is an answer. */
+  --overlay-hover-bg: rgb(243 243 242 / 4%);
+  --overlay-selected: #f3f3f2;
+  --overlay-selected-width: 2px;
+  --overlay-related: rgb(228 229 231 / 40%);
+  --overlay-related-width: 1px;
+  /* The wash inside a selected detection box. Kept very low: it marks the region without
+     obscuring the geometry underneath, which is the thing being detected. */
+  --overlay-selected-bg: rgb(243 243 242 / 8%);
+  --overlay-dimmed-opacity: 0.35;
+
+  /* -- Chart series -------------------------------------------------------- */
+  /*
+   * Ordered by preference. A chart with one series uses --series-1 and nothing else.
+   * All sit in a narrow luminance band so no series dominates by brightness alone, and
+   * all are desaturated enough to coexist on the panel surface.
+   */
+  --series-1: #7a9cc6;
+  --series-2: #b99a62;
+  --series-3: #6e9e7f;
+  --series-4: #9a8fc0;
+  --series-5: #c77a83;
+  --series-6: #7fa8a8;
+  /* Seven and eight exist because the reward catalogue reaches eight channels. They are
+     the last two gaps in the hue circle; a ninth category would not be tellable apart at
+     this luminance, so anything needing more wants grouping, not another colour. */
+  --series-7: #9ba36e;
+  --series-8: #b584ac;
+  --chart-grid: rgb(255 255 255 / 6%);
+  --chart-axis: rgb(255 255 255 / 13%);
+  --chart-crosshair: rgb(228 229 231 / 45%);
+  /* Event rules on a chart — an evaluation, a checkpoint write. Read as a vertical rule
+     behind the data, never as a series. */
+  --chart-event: rgb(255 255 255 / 18%);
+
+  /* -- Sequential scale ---------------------------------------------------- */
+  /*
+   * For magnitude, not category — heatmap cells, utilisation ramps, density.
+   *
+   * The series family above is deliberately near-equal in luminance so no category
+   * outranks another, which makes it exactly wrong for a quantity: five hues read as five
+   * kinds of thing, not as more and less. This ramp instead holds hue constant and varies
+   * only brightness, so the eye can order it at a glance, and follows the system's
+   * inversion — brighter means more.
+   *
+   * The steps are evenly spaced in contrast (~1.52 between neighbours) rather than evenly
+   * spaced in RGB, so the ramp looks regular to the eye instead of bunching at the dark
+   * end. An empty cell — a true zero, as opposed to the lowest measured value — is
+   * --bg-sunken, not --scale-1.
+   */
+  --scale-1: #3b3b3d;
+  --scale-2: #555659;
+  --scale-3: #717376;
+  --scale-4: #8f9196;
+  --scale-5: #b2b4ba;
+
+  /* -- 3D scene ------------------------------------------------------------ */
+  /* Technical, not cinematic: a near-black environment, neutral materials, restrained
+     metallic response. Selection brightens and outlines; it never tints. */
+  --scene-bg: #0c0d0f;
+  --scene-fog: #121316;
+  /*
+   * Three neutrals, not one. A CAD viewer separates pipe from body from fastener by
+   * value, and with a single material the only way to get that separation back is to
+   * outline everything — which reads as a diagram, not as geometry. Selection is a fourth
+   * step above all three.
+   */
+  --scene-material-low: #4c4f54;
+  --scene-material: #6e7176;
+  --scene-material-high: #878b91;
+  --scene-material-selected: #b6bac0;
+  --scene-outline: #f3f3f2;
+  --scene-key-light: #ffffff;
+  --scene-ambient: #6d7685;
 
   /* -- Radii --------------------------------------------------------------- */
-  --radius-xs: 4px;
-  --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
+  /* Controls 4–6px, floating surfaces 6–8px. Nothing in this product is more rounded. */
+  --radius-xs: 3px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  /* Status dots and other true circles only — never a container. */
   --radius-pill: 999px;
 
   /* -- Spacing ------------------------------------------------------------- */
@@ -99,6 +285,11 @@
   --space-12: 48px;
 
   /* -- Typography ---------------------------------------------------------- */
+  /*
+   * Two families. Sans carries human language; mono carries anything an engineer would
+   * read character by character — tag names, asset IDs, functional locations, units,
+   * timestamps, coordinates, run and checkpoint identifiers.
+   */
   --font-sans:
     ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial,
     "Noto Sans", sans-serif;
@@ -106,14 +297,14 @@
   --font-mono:
     ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
 
-  --text-xs: 11px;
-  --text-sm: 12px;
-  --text-base: 13px;
-  --text-md: 14px;
-  --text-lg: 15px;
-  --text-xl: 17px;
+  --text-xs: 10px;
+  --text-sm: 11px;
+  --text-base: 12px;
+  --text-md: 13px;
+  --text-lg: 14px;
+  --text-xl: 15px;
   --text-2xl: 20px;
-  --text-3xl: 26px;
+  --text-3xl: 24px;
 
   --leading-tight: 1.3;
   --leading-normal: 1.5;
@@ -123,32 +314,61 @@
   --weight-medium: 500;
   --weight-semibold: 600;
 
+  /* Tracking for the uppercase mono section labels (`01 ——— PROPERTIES`). */
+  --tracking-label: 0.12em;
+
   /* -- Elevation ----------------------------------------------------------- */
-  /* The reference relies on borders and spacing; shadows stay almost invisible. */
+  /*
+   * Hierarchy comes from the surface ladder and borders. Shadow is reserved for surfaces
+   * that genuinely float above the plane — menus, dialogs, drawers — and even there it
+   * only anchors; it never decorates.
+   */
   --shadow-none: none;
-  --shadow-xs: 0 1px 2px rgb(21 32 46 / 6%);
-  --shadow-sm: 0 1px 3px rgb(21 32 46 / 8%);
-  --shadow-md: 0 4px 12px rgb(21 32 46 / 10%);
-  --shadow-lg: 0 12px 32px rgb(21 32 46 / 14%);
+  --shadow-xs: none;
+  --shadow-sm: none;
+  --shadow-md: 0 4px 16px rgb(0 0 0 / 20%);
+  --shadow-lg: 0 8px 28px rgb(0 0 0 / 32%);
 
   /* -- Motion -------------------------------------------------------------- */
-  /* Functional only. Every consumer must honour prefers-reduced-motion. */
+  /*
+   * Motion communicates cause, never decoration. Entry uses ease-out; anything that
+   * moves through space uses ease-in-out. Every consumer must honour
+   * prefers-reduced-motion.
+   */
+  --duration-hover: 100ms;
   --duration-fast: 120ms;
   --duration-normal: 160ms;
   --duration-slow: 220ms;
+  --duration-panel: 240ms;
+  --duration-inspector: 220ms;
+  --duration-canvas: 360ms;
+  --duration-camera: 480ms;
   --easing-standard: cubic-bezier(0.2, 0, 0.2, 1);
+  --easing-spatial: cubic-bezier(0.4, 0, 0.2, 1);
 
   /* -- Layout -------------------------------------------------------------- */
-  --sidebar-width: 236px;
-  --rail-width: 316px;
-  --header-height: 52px;
-  --frame-max-width: 1560px;
+  --header-height: 46px;
+  --sidebar-width: 248px;
+  --sidebar-width-collapsed: 52px;
+  --context-width: 216px;
+  --rail-width: 360px;
+  --frame-max-width: none;
   --measure-max-width: 74ch;
   --touch-target-min: 44px;
+  --row-height: 30px;
+  --control-height-sm: 28px;
+  --control-height-md: 32px;
+  --control-height-lg: 36px;
+
+  /* Dims the surface behind a drawer or dialog. */
+  --scrim: rgb(0 0 0 / 62%);
 
   /* -- Z-index ------------------------------------------------------------- */
   --z-base: 0;
   --z-sticky: 10;
+  /* A menu or popover anchored to a control. Above sticky chrome so it is not clipped by
+     a header, below the scrim so a dialog still covers it. */
+  --z-popover: 20;
   /* The scrim sits *below* the drawer it dims. Above it, every tap inside the drawer
      would hit the scrim and dismiss it, which makes the drawer unusable. */
   --z-scrim: 30;
@@ -159,8 +379,13 @@
 
 @media (prefers-reduced-motion: reduce) {
   :root {
+    --duration-hover: 0ms;
     --duration-fast: 0ms;
     --duration-normal: 0ms;
     --duration-slow: 0ms;
+    --duration-panel: 0ms;
+    --duration-inspector: 0ms;
+    --duration-canvas: 0ms;
+    --duration-camera: 0ms;
   }
 }

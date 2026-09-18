@@ -69,6 +69,11 @@ const fmt = (value: number) => value.toLocaleString("en-US");
 const short = (text: string, max = 30) =>
   text.length > max ? `${text.slice(0, max - 1)}…` : text;
 
+/** Figure labels for encoders whose catalogue name is too long for a box. */
+const FIGURE_NAME: Record<string, string> = {
+  "gt-xl": "GPS graph transformer",
+};
+
 function sourcesFromContract(stage: Stage, facts: CorpusFacts): ArchBox[] {
   const available = availability(stage.id, facts);
   const symbolFor: Record<string, Symbol> = {
@@ -137,7 +142,9 @@ export function architectureSpec(
     {
       id: "enc-graph",
       title: "Graph encoder",
-      detail: graphOn ? short(profile.graph.name, 26) : "disabled · topology as text",
+      detail: graphOn
+        ? (FIGURE_NAME[profile.graph.id] ?? short(profile.graph.name, 26))
+        : "disabled · topology as text",
       symbol: "graph",
       absent: !graphOn,
     },
@@ -176,7 +183,7 @@ export function architectureSpec(
           {
             id: "sampler",
             title: "Group sampler",
-            detail: `${stage.run.rolloutsPerStep ?? 9} rollouts per step · temperature 1.0`,
+            detail: "G = 8 completions per prompt · temperature 1.0",
             symbol: "sampler",
           },
         ],
@@ -203,7 +210,7 @@ export function architectureSpec(
       figure: "FIGURE 03 · TEACHER → STUDENT TRANSFER",
       heading: "The teacher answers. The student learns to answer the same way.",
       description:
-        "The frozen stage-3 teacher produces logits, hidden states and attention on verified evidence. The student is trained against all of them, then exported for edge serving.",
+        "The frozen stage-3 teacher produces logits and selected hidden states on verified evidence. The student is trained against both, through a learned projection for the hidden states, then quantised for edge serving.",
       sourcesTitle: "Distillation contract",
       sources: sourcesFromContract(stage, facts),
       modelTitle: "Teacher and student",
@@ -217,22 +224,21 @@ export function architectureSpec(
           { id: "student", title: "Student πS", detail: `${short(backbone, 18)} · trainable`, symbol: "student" },
         ],
         [
-          { id: "targets", title: "Transfer targets", detail: "logits · hidden · attention", symbol: "project" },
+          { id: "targets", title: "Transfer targets", detail: "logits · selected hidden states", symbol: "project" },
         ],
       ],
       headsTitle: "Transfer losses",
       heads: [
-        { id: "l-kl", title: "Logit KL", detail: "KL(pT ‖ pS) · τ = 2", symbol: "head" },
-        { id: "l-feat", title: "Feature regression", detail: "‖W·hS − hT‖² per layer", symbol: "head" },
-        { id: "l-attn", title: "Attention transfer", detail: "selected heads · MSE", symbol: "head" },
+        { id: "l-kl", title: "Logit KL (forward)", detail: "KL(pT ‖ pS) · τ = 2", symbol: "head" },
+        { id: "l-hidden", title: "Hidden-state loss", detail: "‖W·hS − hT‖² · selected layers", symbol: "head" },
         { id: "l-ground", title: "Grounding loss", detail: "box + tag agreement", symbol: "head" },
-        { id: "l-trace", title: "Reward-trace imitation", detail: "verified stage-3 rollouts", symbol: "head" },
+        { id: "l-trace", title: "Verified-trace CE", detail: "verifier-passed stage-3 traces", symbol: "head" },
       ],
       aggregate: { id: "agg", title: "Σ Distillation loss", detail: "weighted sum · student only", symbol: "sigma" },
       chain: [
         { ...backward, detail: "∇θS · teacher frozen" },
         optimizer,
-        { id: "export", title: "Quantised export", detail: "INT8 / FP8 · TensorRT-LLM", symbol: "export" },
+        { id: "export", title: "Quantised export", detail: "INT8 W8A16 · TensorRT-LLM", symbol: "export" },
         checkpoint,
       ],
       trace: ["src-traces", "tmpl", "teacher", "targets", "l-kl", "agg", "backward", "optimizer", "export", "checkpoint"],
@@ -242,7 +248,7 @@ export function architectureSpec(
   const objectives = objectiveShares(stage, stage.run.openingStep);
   // Short engineering names for the boxes; the full objective name stays in the detail line.
   const HEAD_TITLE: Record<string, string> = {
-    mlm: "Masked modelling",
+    mlm: "Next-token prediction",
     contrastive: "Contrastive alignment",
     grounding: "Tag grounding",
     topology: "Topology prediction",

@@ -191,7 +191,7 @@ export function ProgressLiveCard({
         ),
       ],
       [
-        "Verifier pass@1",
+        "pass@1 (verifier-graded)",
         <>
           {metricAtEval(passMetric, stage, step).toFixed(2)}
           {evalNote}

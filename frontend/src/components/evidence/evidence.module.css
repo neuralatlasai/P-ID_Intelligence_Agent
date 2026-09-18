@@ -44,7 +44,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  margin-block-start: 2px;
+  margin-block-start: var(--space-1);
   color: var(--text-tertiary);
   font-size: var(--text-xs);
 }
@@ -90,7 +90,7 @@
 }
 
 .supportNote {
-  margin-block-start: 2px;
+  margin-block-start: var(--space-1);
   color: var(--text-tertiary);
   font-size: var(--text-xs);
   line-height: var(--leading-normal);
@@ -99,7 +99,7 @@
 .topology {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-1);
 }
 
 .topology li {
@@ -159,11 +159,13 @@
   line-height: var(--leading-relaxed);
 }
 
+/* A section label: uppercase mono at --tracking-label (§3). */
 .railHeading {
+  font-family: var(--font-mono);
   font-size: var(--text-sm);
-  font-weight: var(--weight-semibold);
+  font-weight: var(--weight-medium);
   color: var(--text-tertiary);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--tracking-label);
   padding-inline: var(--space-1);
 }

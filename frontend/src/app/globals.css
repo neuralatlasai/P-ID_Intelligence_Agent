@@ -153,6 +153,77 @@ ol {
   font-size: var(--text-sm);
 }
 
+/*
+ * The section label — `01 ——— PROPERTIES`. It marks a structural division within a panel
+ * and is numbered in document order, so a reader can refer to a region by number.
+ *
+ * Defined once, here, rather than per module: it is the most repeated piece of the visual
+ * grammar in the product, and five private copies of it is how a system stops being one
+ * system. See design-system.md §3.
+ */
+/*
+ * Typography only, deliberately: no `display`, so it can be applied to a span, a heading
+ * or a flex row without changing the element's box type. A consumer that needs to lay out
+ * a rule or a count beside the label adds that itself.
+ */
+.sectionLabel {
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+/*
+ * Any column of numbers. Digits share one advance width, so a changing value does not
+ * reflow the rows beside it — which matters on a surface where values update live.
+ */
+.tabularNums {
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * The dotted engineering field — the substrate a canvas, board or figure is drawn on.
+ *
+ * This is the one place a gradient function is permitted (design-system.md §6): there is
+ * no other way to paint a repeating field, and the gradient here is a texture at
+ * --ink-field, not a surface pretending to be depth.
+ */
+.engineeringField {
+  background-color: var(--bg-void);
+  background-image: radial-gradient(circle, var(--ink-field) 1px, transparent 1px);
+  background-size: 20px 20px;
+  background-position: -1px -1px;
+}
+
+/*
+ * Normalises a light-paper engineering scan to ink-on-void.
+ *
+ * Most P&ID rasters are black line-work on white paper. Dropped onto a dark workspace
+ * unchanged, the sheet becomes the brightest object on screen and every overlay drawn over
+ * it has to fight the substrate — which is why the overlay tokens assume ink on void.
+ *
+ * Inverting alone would also invert the drawing's meaningful colours; following it with a
+ * 180° hue rotation returns them to approximately their original hue, so a red trip line
+ * stays red while the paper becomes the void. That preserves the engineering meaning while
+ * putting the artefact on the same footing as every other surface.
+ *
+ * The slight contrast reduction is what lands the sheet on --bg-void rather than pure
+ * black: white paper inverts to #000, one step *below* the deepest surface, which makes
+ * the artefact read as a hole rather than as a sheet. Compressing the range lifts the
+ * paper to roughly the void and keeps the line-work near --ink-primary.
+ *
+ * A filter applies to the element's own background and border too, so those are cleared
+ * here rather than left to invert into a bright frame around the sheet. This class marks
+ * an element that *is* the artefact; to frame or inset one, wrap it.
+ */
+.engineeringRaster {
+  background: none;
+  border: 0;
+  filter: var(--raster-normalize);
+}
+
 /* -- Motion ---------------------------------------------------------------- */
 
 @media (prefers-reduced-motion: reduce) {

@@ -1,32 +1,47 @@
 /*
- * Live telemetry panel. Renders inside `.workspace` and uses its tokens. ISA-101 palette:
- * greys for normal operation, amber for H/L, red for HH/LL. Text ratios are against #ffffff.
+ * Live loop telemetry: an ISA-101 trend beside a faceplate.
+ *
+ * Chart colour follows §8. The pens are taken in series order — PV `--series-1`, SP
+ * `--series-2`, OP `--series-3` — the grid is `--chart-grid`, the crosshair
+ * `--chart-crosshair`, and every tick label, unit and timestamp is mono at `--text-sm` in
+ * `--text-tertiary`. Alarms are sparse marks at `--status-*-mark`: a short rule at each limit
+ * and a point at each activation. The excursion segments of the trace are told apart by
+ * weight, not by a second colour, so the pen stays one colour end to end.
+ *
+ * Nothing on this panel animates. A live scan is shown by the value changing.
  */
 
 .panel {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--space-3);
   min-width: 0;
-  padding: 12px 14px 14px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--card);
-  box-shadow: var(--shadow-sm);
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
 }
 
 .header {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--space-2);
 }
-.header h2 {
-  font-size: 13px;
-  font-weight: 650;
-  color: var(--ink);
-  text-transform: none;
-  letter-spacing: 0;
+/* This panel is a section of the inspector, so its title takes the numbered label form. */
+.panel .header h2 {
+  counter-increment: inspector-section;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+/* Empty alternative text: the marker is presentation, and the accessible name is unchanged. */
+.panel .header h2::before {
+  content: counter(inspector-section, decimal-leading-zero) " ——— " / "";
+  color: var(--text-tertiary);
 }
 .spacer {
   flex: 1;
@@ -34,137 +49,162 @@
 .live {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--ok);
+  gap: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--status-ready);
 }
 .live i {
   width: 7px;
   height: 7px;
-  border-radius: 50%;
-  background: #16a34a;
-  animation: pulse 1.8s ease-in-out infinite;
+  border-radius: var(--radius-pill);
+  background: var(--status-ready-mark);
 }
 .live[data-paused] {
-  color: var(--muted);
+  color: var(--text-tertiary);
 }
 .live[data-paused] i {
-  background: #94a3b8;
-  animation: none;
+  background: var(--status-unknown-mark);
 }
-@keyframes pulse {
-  50% {
-    opacity: 0.35;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .live i {
-    animation: none;
-  }
-}
+/* OPC UA status codes and NAMUR NE 107 device states: controlled terms, read as written. */
 .chip {
   padding: 2px 0;
-  font-size: 11.5px;
-  font-weight: 500;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-regular);
   white-space: nowrap;
-  color: var(--muted);
+  color: var(--text-tertiary);
 }
 .chip + .chip {
-  padding-left: 10px;
-  border-left: 1px solid var(--line);
+  padding-left: var(--space-3);
+  border-left: 1px solid var(--border-subtle);
 }
 .chip[data-state="warn"] {
-  padding: 2px 8px;
-  border-radius: 6px;
-  background: var(--warn-soft);
-  color: #6f4a0d;
-  font-weight: 650;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--status-degraded-bg);
+  color: var(--status-degraded);
+  font-weight: var(--weight-medium);
 }
 
 .toolbar {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 8px 12px;
+  gap: var(--space-2) var(--space-3);
 }
 .identity {
   flex: 1;
   min-width: 200px;
 }
-.identity strong {
+.panel .identity strong {
   display: block;
-  font-size: 12.5px;
-  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: var(--text-base);
+  font-weight: var(--weight-medium);
+  color: var(--text-primary);
 }
-.identity small {
+.panel .identity small {
   display: block;
-  font-size: 11px;
-  color: var(--muted);
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
 }
 .legend {
   display: flex;
-  gap: 6px;
+  gap: var(--space-2);
   align-items: center;
 }
 .pen,
 .panel .legend button {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 2px 8px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: #ffffff;
-  font-size: 10.5px;
-  font-weight: 650;
-  color: var(--body);
+  gap: var(--space-2);
+  padding: 2px var(--space-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface-high);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--text-secondary);
+  transition:
+    background-color var(--duration-hover) var(--easing-standard),
+    border-color var(--duration-hover) var(--easing-standard),
+    color var(--duration-hover) var(--easing-standard);
 }
+.panel .legend button:hover:not(:disabled) {
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
+  color: var(--text-active);
+}
+/* The key repeats each pen exactly: series colour, and the same weight and dash as the trace. */
 .pen::before,
 .panel .legend button::before {
   content: "";
   width: 14px;
   height: 0;
-  border-top: 2px solid #31405c;
+  border-top: 2px solid var(--series-1);
 }
 .panel .legend button[data-pen="sp"]::before {
-  border-top: 2px dashed #64748b;
+  border-top: 2px dashed var(--series-2);
 }
 .panel .legend button[data-pen="op"]::before {
-  border-top: 1.5px solid #9aa6b6;
+  border-top: 1.5px solid var(--series-3);
 }
 .panel .legend button[aria-pressed="false"] {
-  color: var(--muted);
+  color: var(--text-tertiary);
   text-decoration: line-through;
 }
 .segmented {
   display: flex;
-  border: 1px solid var(--line);
-  border-radius: 7px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
   overflow: hidden;
 }
 .panel .segmented button {
   border: 0;
   border-radius: 0;
-  padding: 3px 9px;
+  padding: var(--space-1) var(--space-3);
   background: transparent;
-  color: var(--muted);
-  font-size: 11px;
-  font-weight: 650;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  transition:
+    background-color var(--duration-hover) var(--easing-standard),
+    color var(--duration-hover) var(--easing-standard);
 }
-.panel .segmented button[aria-pressed="true"] {
-  background: var(--accent-soft);
-  color: var(--accent-deep);
+.panel .segmented button:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+.panel .segmented button[aria-pressed="true"]:not(:disabled) {
+  background: var(--accent-action-subtle);
+  color: var(--text-active);
 }
 .panel .pause {
-  padding: 3px 10px;
-  font-size: 11px;
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface-high);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  transition:
+    background-color var(--duration-hover) var(--easing-standard),
+    border-color var(--duration-hover) var(--easing-standard),
+    color var(--duration-hover) var(--easing-standard);
+}
+.panel .pause:hover:not(:disabled) {
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
+  color: var(--text-active);
 }
 
 .body {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 190px;
-  gap: 12px;
+  gap: var(--space-3);
   align-items: stretch;
 }
 @media (max-width: 720px) {
@@ -172,6 +212,8 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* ── the trend ────────────────────────────────────────────────────────────────────────── */
 
 .chart {
   position: relative;
@@ -181,155 +223,177 @@
 .chart svg {
   display: block;
 }
+/* The normal operating band: a region of the chart, so it takes a surface, not a colour. */
 .normal {
-  fill: #f1f4f8;
+  fill: var(--bg-surface-high);
 }
 .grid {
-  stroke: #e7ebf1;
+  stroke: var(--chart-grid);
   stroke-width: 1;
 }
 .axis {
-  font-size: 10.5px;
-  fill: #5d6b86;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  fill: var(--text-tertiary);
   font-variant-numeric: tabular-nums;
 }
+/* Each alarm limit is a short rule at the mark value — sparse, not a recoloured region. */
 .hLine {
-  stroke: #b7791f;
+  stroke: var(--status-degraded-mark);
   stroke-width: 1;
   stroke-dasharray: 5 4;
 }
 .hhLine {
-  stroke: #b91c1c;
+  stroke: var(--status-down-mark);
   stroke-width: 1;
   stroke-dasharray: 5 4;
 }
 .hText {
-  font-size: 10.5px;
-  font-weight: 650;
-  fill: #8a5a0f; /* 5.3:1 */
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  font-variant-numeric: tabular-nums;
+  fill: var(--status-degraded);
 }
 .hhText {
-  font-size: 10.5px;
-  font-weight: 650;
-  fill: #a4212b; /* 7.4:1 */
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  font-variant-numeric: tabular-nums;
+  fill: var(--status-down);
 }
 .pv {
   fill: none;
-  stroke: #31405c;
+  stroke: var(--series-1);
   stroke-width: 1.8;
   stroke-linejoin: round;
 }
+/*
+ * The stretches of PV outside H/L. Same pen, drawn heavier: an excursion is told by weight,
+ * the way the detection overlays are, and the alarm itself is marked at its activation point.
+ */
 .pvAlarm {
   fill: none;
-  stroke: #c2410c;
-  stroke-width: 2.4;
+  stroke: var(--series-1);
+  stroke-width: 2.8;
   stroke-linejoin: round;
 }
 .sp {
   fill: none;
-  stroke: #64748b;
+  stroke: var(--series-2);
   stroke-width: 1.4;
   stroke-dasharray: 6 4;
 }
 .op {
   fill: none;
-  stroke: #b4bfce;
+  stroke: var(--series-3);
   stroke-width: 1.2;
 }
+/* Alarm activations: the sparse marks. The halo is the surface behind them, not a colour. */
 .eventHigh {
-  fill: #b91c1c;
-  stroke: #ffffff;
+  fill: var(--status-down-mark);
+  stroke: var(--bg-surface);
   stroke-width: 1.5;
 }
 .eventMedium {
-  fill: #b7791f;
-  stroke: #ffffff;
+  fill: var(--status-degraded-mark);
+  stroke: var(--bg-surface);
   stroke-width: 1.5;
 }
 .head {
-  fill: #141d2b;
-  stroke: #ffffff;
+  fill: var(--text-active);
+  stroke: var(--bg-surface);
   stroke-width: 1.5;
 }
 .cursor {
-  stroke: #141d2b;
+  stroke: var(--chart-crosshair);
   stroke-width: 1;
   stroke-dasharray: 2 3;
 }
 .tooltip {
   position: absolute;
-  top: 8px;
+  top: var(--space-2);
   display: grid;
   gap: 1px;
   min-width: 150px;
-  padding: 6px 9px;
-  border-radius: 7px;
-  background: rgba(15, 23, 36, 0.92);
-  color: #ffffff;
-  font-size: 11px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface-high);
+  box-shadow: var(--shadow-md);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
   font-variant-numeric: tabular-nums;
   pointer-events: none;
 }
 .tooltip time {
-  color: #cbd5e1;
-  font-size: 10.5px;
+  color: var(--text-tertiary);
+  font-size: var(--text-sm);
 }
+
+/* ── faceplate ────────────────────────────────────────────────────────────────────────── */
 
 .faceplate {
   display: grid;
   grid-template-columns: 1fr 22px;
   grid-template-rows: auto 1fr;
-  gap: 8px 10px;
-  padding: 10px 12px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #f8fafc;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface-high);
 }
 .faceplate[data-alarm="medium"] {
-  border-color: #e3b25c;
-  background: #fffaf0;
+  border-color: var(--status-degraded);
+  background: var(--status-degraded-bg);
 }
 .faceplate[data-alarm="high"] {
-  border-color: #e5a0a6;
-  background: #fff5f5;
+  border-color: var(--status-down);
+  background: var(--status-down-bg);
 }
 .pvBlock {
   grid-column: 1;
 }
-.pvBlock small {
-  font-size: 10px;
-  font-weight: 700;
-  color: var(--muted);
-  letter-spacing: 0.06em;
+.panel .pvBlock small {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  color: var(--text-tertiary);
+  letter-spacing: var(--tracking-label);
 }
-.pvBlock strong {
+.panel .pvBlock strong {
   display: block;
-  font-size: 26px;
-  line-height: 1.1;
-  font-weight: 700;
-  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xl);
+  line-height: var(--leading-tight);
+  font-weight: var(--weight-medium);
+  color: var(--text-primary);
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.02em;
 }
-.pvBlock strong span {
-  margin-left: 4px;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--muted);
+.panel .pvBlock strong span {
+  margin-left: var(--space-1);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--text-tertiary);
 }
+/* The active alarm level. A wash and a label, never a saturated fill. */
 .pvBlock em {
   display: inline-block;
-  margin-top: 3px;
-  padding: 1px 7px;
-  border-radius: 4px;
+  margin-top: var(--space-1);
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-sm);
   font-style: normal;
-  font-size: 10.5px;
-  font-weight: 800;
-  color: #ffffff;
-  background: #b91c1c;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--tracking-label);
+  color: var(--status-down);
+  background: var(--status-down-bg);
 }
 .faceplate[data-alarm="medium"] .pvBlock em {
-  background: #8a5a0f;
+  color: var(--status-degraded);
+  background: var(--status-degraded-bg);
 }
 .bar {
   grid-column: 2;
@@ -337,24 +401,24 @@
   position: relative;
   width: 12px;
   justify-self: center;
-  border-radius: 3px;
-  background: #e2e8f0;
+  border-radius: var(--radius-xs);
+  background: var(--bg-sunken);
 }
 .barNormal {
   position: absolute;
   left: 0;
   right: 0;
-  background: #cbd5e1;
+  background: var(--bg-hover);
 }
 .bar b {
   position: absolute;
   left: -4px;
   right: -4px;
   height: 2px;
-  background: #b7791f;
+  background: var(--status-degraded-mark);
 }
 .bar b[data-priority="High"] {
-  background: #b91c1c;
+  background: var(--status-down-mark);
 }
 .bar u {
   position: absolute;
@@ -364,27 +428,28 @@
   margin-bottom: -5px;
   border-top: 5px solid transparent;
   border-bottom: 5px solid transparent;
-  border-left: 7px solid #141d2b;
+  border-left: 7px solid var(--text-active);
 }
 .faceplate dl {
   grid-column: 1;
   display: grid;
-  gap: 3px;
+  gap: var(--space-1);
   align-content: end;
 }
 .faceplate dl div {
   display: flex;
   justify-content: space-between;
-  gap: 8px;
-  font-size: 11.5px;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
 }
 .faceplate dt {
-  color: var(--muted);
-  font-weight: 600;
+  color: var(--text-tertiary);
+  font-weight: var(--weight-medium);
 }
 .faceplate dd {
-  color: var(--ink);
-  font-weight: 650;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-weight: var(--weight-medium);
   font-variant-numeric: tabular-nums;
 }
 
@@ -392,92 +457,116 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
   gap: 1px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
   overflow: hidden;
-  background: var(--line);
+  background: var(--border-subtle);
 }
 .stats div {
-  padding: 6px 10px;
-  background: #ffffff;
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg-surface-high);
 }
 .stats dt {
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--muted);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-regular);
+  color: var(--text-tertiary);
 }
 .stats dd {
-  font-size: 12.5px;
-  font-weight: 650;
-  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: var(--text-base);
+  font-weight: var(--weight-medium);
+  color: var(--text-primary);
   font-variant-numeric: tabular-nums;
 }
+
+/* ── alarm configuration and journal ──────────────────────────────────────────────────── */
 
 .lower {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 14px;
+  gap: var(--space-4);
+  counter-reset: telemetry-section;
 }
 @media (max-width: 860px) {
   .lower {
     grid-template-columns: minmax(0, 1fr);
   }
 }
-.lower h3 {
+.panel .lower h3 {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 6px;
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--ink);
+  gap: var(--space-2);
+  margin: 0 0 var(--space-2);
+  counter-increment: telemetry-section;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+.panel .lower h3::before {
+  content: counter(telemetry-section, decimal-leading-zero) " ——— " / "";
+  color: var(--text-tertiary);
 }
 .table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 11.5px;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
   font-variant-numeric: tabular-nums;
 }
 .table th {
   text-align: left;
-  padding: 4px 8px;
-  font-size: 10px;
-  font-weight: 650;
-  color: var(--muted);
-  background: var(--sunken);
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  background: var(--bg-surface-high);
 }
 .table td {
-  padding: 4px 8px;
-  border-top: 1px solid var(--line-soft);
-  color: var(--ink);
+  padding: var(--space-1) var(--space-2);
+  border-top: 1px solid var(--rule-subtle);
+  color: var(--text-primary);
 }
+/* The limit that is currently in alarm. The level chip beside it carries the severity. */
 .table tr[data-active] td {
-  background: #fff5f5;
+  background: var(--bg-selected);
 }
 .level {
   display: inline-block;
   min-width: 26px;
-  padding: 0 5px;
-  border-radius: 4px;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-xs);
   text-align: center;
-  font-size: 10px;
-  font-weight: 800;
-  color: #ffffff;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--tracking-label);
+  color: var(--text-secondary);
+  background: var(--bg-surface-high);
 }
 .limitHigh {
-  background: #b91c1c;
+  color: var(--status-down);
+  background: var(--status-down-bg);
 }
 .limitMedium {
-  background: #8a5a0f;
+  color: var(--status-degraded);
+  background: var(--status-degraded-bg);
 }
 .journalState {
-  font-size: 10.5px;
-  font-weight: 650;
-  color: var(--ok);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--status-ready);
 }
 .journalState[data-active] {
-  color: var(--bad);
+  color: var(--status-down);
 }
 .journal {
   list-style: none;
@@ -485,43 +574,49 @@
   padding: 0;
   max-height: 132px;
   overflow-y: auto;
-  border: 1px solid var(--line);
-  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
 }
 .journal li {
   display: grid;
   grid-template-columns: 96px 30px 1fr auto;
-  gap: 8px;
+  gap: var(--space-2);
   align-items: center;
-  padding: 4px 8px;
-  border-top: 1px solid var(--line-soft);
-  font-size: 11px;
+  padding: var(--space-1) var(--space-2);
+  border-top: 1px solid var(--rule-subtle);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
   font-variant-numeric: tabular-nums;
 }
 .journal li:first-child {
   border-top: 0;
 }
 .journal time {
-  color: var(--muted);
+  color: var(--text-tertiary);
 }
 .journal b {
-  color: var(--ink);
+  color: var(--text-primary);
 }
 .quiet {
-  color: var(--muted);
-  font-size: 11.5px;
-  padding: 4px 0;
+  color: var(--text-tertiary);
+  font-size: var(--text-sm);
+  padding: var(--space-1) 0;
 }
 .panel .ask {
-  margin-top: 8px;
-  padding: 5px 11px;
-  font-size: 11.5px;
-  color: #ffffff;
-  background: #1d4ed8;
-  border-color: #1b45bd;
+  margin-top: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  background: var(--bg-surface-high);
+  transition:
+    background-color var(--duration-hover) var(--easing-standard),
+    border-color var(--duration-hover) var(--easing-standard),
+    color var(--duration-hover) var(--easing-standard);
 }
 .panel .ask:hover:not(:disabled) {
-  color: #ffffff;
-  background: #1f52e4;
-  border-color: #1b45bd;
+  color: var(--text-active);
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
 }

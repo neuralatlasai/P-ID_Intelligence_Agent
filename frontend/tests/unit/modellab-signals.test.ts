@@ -47,7 +47,7 @@ describe("training signal projections", () => {
     for (const [index, signal] of snapshot.signals.entries()) {
       expect(signal.weight).toBeUndefined();
       expect(signal.contribution).toBeUndefined();
-      expect(signal.value).toBe(curveAt(stage.curves[0]!.curves[index]!, 400));
+      expect(signal.value).toBe(curveAt(stage.curves[0]!.curves[index]!, 400, stage));
     }
   });
 

@@ -6,9 +6,6 @@ import { type CanvasDrawing, type DrawingNode } from "@/lib/canvas/model";
 import { objectClass } from "@/lib/canvas/taxonomy";
 import styles from "./IndustrialWorkspace.module.css";
 
-/** The selected marker's colour. Warm, so it separates from every class hue. */
-const SELECTED = "#b8320c";
-
 /** Stage padding, per the stylesheet. The left side clears the floating palette. */
 const STAGE_PAD_LEFT = 84;
 const STAGE_PAD_TOP = 26;
@@ -20,6 +17,68 @@ const CAPTION_HEIGHT = 22;
 /** The detail card's footprint. The stylesheet caps it at exactly these dimensions. */
 const CARD_WIDTH = 344;
 const CARD_HEIGHT = 420;
+
+/** Corner radius of a detection box, in the drawing's own coordinates. */
+const MARKER_RADIUS = 5;
+/** The selection callout, in the drawing's own coordinates. */
+const CALLOUT_TEXT = 22;
+const CALLOUT_HEIGHT = 32;
+const CALLOUT_PAD = 11;
+
+interface OverlayPalette {
+  /**
+   * Detection overlays: one hue at three weights, which are three strengths of "related to
+   * the selection" rather than three input modalities. This canvas selects on click, so the
+   * middle level marks what the traversal has reached.
+   */
+  readonly hover: string;
+  readonly hoverWidth: number;
+  readonly selected: string;
+  readonly selectedWidth: number;
+  readonly related: string;
+  readonly relatedWidth: number;
+  readonly dimmed: number;
+  /** The wash inside a selected box. Alpha, so the geometry under it still reads. */
+  readonly selectedFill: string;
+  /** Connector wires drawn over the sheet, well below the drawing's own geometry. */
+  readonly wire: string;
+  /** Text on the selection callout, which is filled with the selected overlay. */
+  readonly calloutText: string;
+  readonly mono: string;
+}
+
+/**
+ * The overlay palette, read from the stylesheet once for the life of the document.
+ *
+ * `getComputedStyle` forces a style recalculation, so it is never called from the draw
+ * loop: at one call per shape a pan would stall. The tokens do not change at runtime, so a
+ * single read serves every frame.
+ */
+let cachedPalette: OverlayPalette | null = null;
+
+function overlayPalette(): OverlayPalette {
+  if (cachedPalette) return cachedPalette;
+  const root = getComputedStyle(document.documentElement);
+  const token = (name: string): string => root.getPropertyValue(name).trim();
+  const size = (name: string, fallback: number): number => {
+    const parsed = Number.parseFloat(token(name));
+    return Number.isFinite(parsed) ? parsed : fallback;
+  };
+  cachedPalette = {
+    hover: token("--overlay-hover"),
+    hoverWidth: size("--overlay-hover-width", 1),
+    selected: token("--overlay-selected"),
+    selectedWidth: size("--overlay-selected-width", 2),
+    related: token("--overlay-related"),
+    relatedWidth: size("--overlay-related-width", 1),
+    dimmed: size("--overlay-dimmed-opacity", 1),
+    selectedFill: token("--overlay-selected-bg"),
+    wire: token("--ink-wire"),
+    calloutText: token("--text-inverse"),
+    mono: token("--font-mono"),
+  };
+  return cachedPalette;
+}
 
 function clamp(value: number, low: number, high: number): number {
   return Math.min(Math.max(value, low), high);
@@ -39,19 +98,34 @@ function markerBox(node: DrawingNode): MarkerBox {
   return { x: node.x - width / 2, y: node.y - height / 2, width, height };
 }
 
+/**
+ * One detection box.
+ *
+ * Hover, selection and relationship are told apart by the width the tokens fix for each, not
+ * by hue — so the same three weights read identically here, on a photograph and in the 3D
+ * view. Only the selected box carries a wash, and that wash is alpha, so the geometry it
+ * sits over still reads: the drawing is the thing this screen exists for.
+ */
 function paintMarker(
   context: CanvasRenderingContext2D,
   box: MarkerBox,
   stroke: string,
-  emphasised: boolean,
+  width: number,
+  opacity: number,
+  fill?: string,
 ): void {
-  context.strokeStyle = stroke;
-  context.fillStyle = `${stroke}${emphasised ? "2e" : "12"}`;
-  context.lineWidth = emphasised ? 6 : 2.5;
+  context.save();
+  context.globalAlpha = opacity;
   context.beginPath();
-  context.roundRect(box.x, box.y, box.width, box.height, 5);
-  context.fill();
+  context.roundRect(box.x, box.y, box.width, box.height, MARKER_RADIUS);
+  if (fill) {
+    context.fillStyle = fill;
+    context.fill();
+  }
+  context.strokeStyle = stroke;
+  context.lineWidth = width;
   context.stroke();
+  context.restore();
 }
 
 interface Props {
@@ -77,9 +151,9 @@ interface Props {
 /**
  * The drawing stage.
  *
- * The sheet floats on a dotted field, the way a drawing sits on a drafting table, and the
- * overlay is one fixed-resolution canvas rather than several hundred positioned elements —
- * O(V + E) per update, with memory bounded by the raster's own size.
+ * The sheet sits on the void, the way a drawing sits on a drafting table, and the overlay is
+ * one fixed-resolution canvas rather than several hundred positioned elements — O(V + E) per
+ * update, with memory bounded by the raster's own size.
  *
  * The overlay is `aria-hidden` and the sheet carries no interactive semantics of its own.
  * Everything selectable here is also a button in the object list beside it, which is what a
@@ -147,7 +221,7 @@ export function DrawingSurface({
     const observer = new ResizeObserver(() => {
       // 100% means the width of the stage, not the whole sheet scaled to fit inside it.
       // A P&ID is wider than it is tall and a workspace pane is wider still, so fitting the
-      // height would leave the sheet a postage stamp in a field of grey with every
+      // height would leave the sheet a postage stamp on the drafting field with every
       // annotation illegible. Filling the width and scrolling is how a drawing is read.
       setFitWidth(Math.max(1, element.clientWidth - STAGE_GUTTER));
     });
@@ -155,9 +229,40 @@ export function DrawingSurface({
     return () => observer.disconnect();
   }, [drawing]);
 
+  const sheetWidth = (fitWidth * zoom) / 100;
+  /** Drawing pixels to CSS pixels. Overlay weights are specified in the latter. */
+  const scale = sheetWidth / drawing.width;
+
   useEffect(() => {
-    const context = canvas.current?.getContext("2d");
-    if (!context) return;
+    const element = canvas.current;
+    const context = element?.getContext("2d");
+    if (!element || !context || !scale) return;
+
+    const palette = overlayPalette();
+    /** A width the tokens give in CSS pixels, in the drawing's own coordinates. */
+    const weight = (css: number) => css / scale;
+
+    // The backing buffer follows the device, not the markup, so the overlay is not soft on
+    // a high-DPI display. It is capped at the raster's own resolution: past that the
+    // drawing underneath is what limits sharpness, and an unbounded buffer at 300% zoom
+    // would cost hundreds of megabytes for no visible gain.
+    const ratio = window.devicePixelRatio || 1;
+    const bufferWidth = clamp(Math.round(sheetWidth * ratio), 1, drawing.width);
+    const bufferHeight = Math.max(
+      1,
+      Math.round((bufferWidth * drawing.height) / drawing.width),
+    );
+    if (element.width !== bufferWidth) element.width = bufferWidth;
+    if (element.height !== bufferHeight) element.height = bufferHeight;
+    // Everything below is expressed in the drawing's coordinates, as the geometry is.
+    context.setTransform(
+      bufferWidth / drawing.width,
+      0,
+      0,
+      bufferHeight / drawing.height,
+      0,
+      0,
+    );
     context.clearRect(0, 0, drawing.width, drawing.height);
 
     if (showConnections) {
@@ -168,9 +273,9 @@ export function DrawingSurface({
           continue;
         const distance = connected.get(start.id);
         const active = distance !== undefined && distance <= step;
-        // Reached edges are opaque and thick; the rest stay faint, so the traversal front
-        // is readable without burying the drawing underneath it.
-        context.strokeStyle = active ? "#6d28d9" : "#2563eb2e";
+        // Reached edges are opaque and thick; the rest sit at wire weight, so the traversal
+        // front is readable without burying the drawing underneath it.
+        context.strokeStyle = active ? palette.hover : palette.wire;
         context.lineWidth = active ? 5 : 2;
         context.lineCap = "round";
         // A dashed source line is drawn dashed here too, rather than redrawn as a solid
@@ -196,30 +301,49 @@ export function DrawingSurface({
           selectedNode = node;
           continue;
         }
-        // The hue restates the class already named in the list beside the drawing, and the
-        // legend above the stage spells each one out.
-        paintMarker(context, markerBox(node), type.colour, false);
+        // Three states, one hue. An object the traversal has reached carries the emphasised
+        // weight; anything else joined to the selection carries the relationship weight; an
+        // object on another part of the graph is out of context and is dimmed to it. The
+        // class is named in the list beside the drawing and in the key above it, so nothing
+        // here has to be told apart by colour.
+        const depth = connected.get(node.id);
+        const reached = depth !== undefined && depth <= step;
+        paintMarker(
+          context,
+          markerBox(node),
+          reached ? palette.hover : palette.related,
+          weight(reached ? palette.hoverWidth : palette.relatedWidth),
+          depth === undefined ? palette.dimmed : 1,
+        );
       }
       if (selectedNode) {
         const box = markerBox(selectedNode);
-        paintMarker(context, box, SELECTED, true);
+        paintMarker(
+          context,
+          box,
+          palette.selected,
+          weight(palette.selectedWidth),
+          1,
+          palette.selectedFill,
+        );
         // A callout carrying whatever the object is currently called. Before the tags are
         // read that is its class; afterwards it is the designation printed on the sheet,
-        // which is the only label an engineer can act on.
+        // which is the only label an engineer can act on — and a designation is read
+        // character by character, so the callout is set in mono.
         const text = labelFor(selectedNode);
-        context.font = "600 22px ui-sans-serif, system-ui, sans-serif";
-        const width = context.measureText(text).width + 22;
+        context.font = `500 ${CALLOUT_TEXT}px ${palette.mono}`;
+        const width = context.measureText(text).width + CALLOUT_PAD * 2;
         const x = Math.min(
           Math.max(0, selectedNode.x - width / 2),
           Math.max(0, drawing.width - width),
         );
         const y = Math.max(0, box.y - 40);
-        context.fillStyle = SELECTED;
+        context.fillStyle = palette.selected;
         context.beginPath();
-        context.roundRect(x, y, width, 32, 6);
+        context.roundRect(x, y, width, CALLOUT_HEIGHT, MARKER_RADIUS);
         context.fill();
-        context.fillStyle = "#ffffff";
-        context.fillText(text, x + 11, y + 23);
+        context.fillStyle = palette.calloutText;
+        context.fillText(text, x + CALLOUT_PAD, y + 23);
       }
     }
   }, [
@@ -232,10 +356,9 @@ export function DrawingSurface({
     drawing,
     nodeById,
     labelFor,
+    scale,
+    sheetWidth,
   ]);
-
-  const sheetWidth = (fitWidth * zoom) / 100;
-  const scale = sheetWidth / drawing.width;
 
   useEffect(() => {
     const element = stage.current;
@@ -297,6 +420,7 @@ export function DrawingSurface({
               {/* The corpus raster is the drawing itself; no screenshot stands in for it. */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
+                className="engineeringRaster"
                 src={imageUrl}
                 alt={`P&ID source drawing: ${drawing.imagePath}`}
                 onError={() => setImageFailed(true)}

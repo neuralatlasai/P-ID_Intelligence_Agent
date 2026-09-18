@@ -15,13 +15,19 @@ import type { LiveCardProps } from "./live";
 
 export type HardwareCardProps = LiveCardProps;
 
-/** Sequential utilisation scale; the legend and the text alternatives carry the same bands. */
+/*
+ * Sequential utilisation scale; the legend and the text alternatives carry the same bands.
+ * Utilisation is a magnitude, not a category, so the scale is one ordered luminance ramp
+ * off the engineering-ink ladder — dim is idle, bright is saturated — rather than five
+ * hues. That leaves saturation free for the sparse anomaly marks (a hot GPU takes a
+ * --status-down-mark ring), which is the only colour in the map.
+ */
 const BANDS = [
-  { max: 25, colour: "#e2e8f0", label: "<25" },
-  { max: 50, colour: "#bfdbfe", label: "25–50" },
-  { max: 75, colour: "#60a5fa", label: "50–75" },
-  { max: 90, colour: "#2563eb", label: "75–90" },
-  { max: Infinity, colour: "#1e3a8a", label: "≥90 %" },
+  { max: 25, colour: "var(--ink-field)", label: "<25" },
+  { max: 50, colour: "var(--ink-wire)", label: "25–50" },
+  { max: 75, colour: "var(--ink-muted)", label: "50–75" },
+  { max: 90, colour: "var(--ink-secondary)", label: "75–90" },
+  { max: Infinity, colour: "var(--ink-primary)", label: "≥90 %" },
 ] as const;
 
 const bandColour = (util: number) =>

@@ -243,15 +243,19 @@ export function ProductMark({ size = 22, ...rest }: IconProps) {
       focusable="false"
       {...rest}
     >
+      {/* rx is a geometry attribute and does not resolve var(); the mark's corner is part
+          of the logo, not of the control radius scale. */}
       <rect x="2.5" y="2.5" width="19" height="19" rx="5" fill="var(--accent-action)" />
+      {/* Dark glyph on the accent square: the accent sits high enough in luminance that a
+          white glyph would read as a smudge. */}
       <path
         d="M7 15.5h3.2m3.6 0H17M12 8.2v4.1"
-        stroke="#fff"
+        stroke="var(--action-fill-text)"
         strokeWidth="1.6"
         strokeLinecap="round"
       />
-      <circle cx="12" cy="15.5" r="2" stroke="#fff" strokeWidth="1.6" />
-      <circle cx="12" cy="7.4" r="1.5" fill="#fff" />
+      <circle cx="12" cy="15.5" r="2" stroke="var(--action-fill-text)" strokeWidth="1.6" />
+      <circle cx="12" cy="7.4" r="1.5" fill="var(--action-fill-text)" />
     </svg>
   );
 }

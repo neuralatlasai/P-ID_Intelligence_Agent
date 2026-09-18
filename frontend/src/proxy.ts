@@ -20,7 +20,16 @@ import { SESSION_ID_PATTERN } from "@/lib/session/ids";
  * narrowed, the page must still refuse rather than open a session on a bad identifier.
  */
 
-/** The dead-end page. Deliberately minimal — it is an error, not a product surface. */
+/**
+ * The dead-end page. Deliberately minimal — it is an error, not a product surface.
+ *
+ * This is served from the edge with no stylesheet, so it cannot reference the design
+ * tokens and is the one place besides the theme-colour meta tag where colour literals are
+ * unavoidable. The values below are --bg-canvas, --text-primary, --text-secondary and
+ * --text-link; keep them in step with src/styles/tokens.css. `color-scheme: dark` matters
+ * here too — without it the browser paints the scrollbar and any form chrome light, which
+ * on a page this sparse is most of what is visible.
+ */
 const NOT_FOUND_PAGE = `<!doctype html>
 <html lang="en">
   <head>
@@ -29,17 +38,18 @@ const NOT_FOUND_PAGE = `<!doctype html>
     <meta name="robots" content="noindex" />
     <title>Session address not found</title>
     <style>
+      :root { color-scheme: dark; }
       body {
         margin: 0;
         padding: 3rem 1.5rem;
-        background: #f4f6fb;
-        color: #15202e;
+        background: #151619;
+        color: #e4e5e7;
         font: 16px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
       }
       main { max-width: 60ch; margin-inline: auto; }
       h1 { font-size: 1.25rem; margin: 0 0 0.75rem; }
-      p { color: #4a5668; margin: 0 0 1.5rem; }
-      a { color: #1c4fb5; }
+      p { color: #a3a5aa; margin: 0 0 1.5rem; }
+      a { color: #7a9cc6; }
     </style>
   </head>
   <body>

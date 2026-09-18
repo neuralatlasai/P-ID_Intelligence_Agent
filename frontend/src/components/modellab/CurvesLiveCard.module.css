@@ -1,4 +1,7 @@
-/* Live training curves card. Colour tokens come from the model lab's .app scope. */
+/*
+ * Live training curves card. Traces take --series-* in order; the furniture around them —
+ * grid, axis, event rules, readout — is chart and rule tokens, never a hue.
+ */
 
 .aside {
   display: inline-flex;
@@ -9,15 +12,15 @@
 
 .simulated {
   padding: 1px 7px;
-  border: 1px solid var(--line, #e3e8f0);
-  border-radius: 999px;
-  background: var(--line-soft, #eef2f7);
-  color: var(--body, #334155);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface-high);
+  color: var(--text-secondary);
   font-weight: 600;
 }
 
 .stepNote {
-  color: var(--muted, #5b6b82);
+  color: var(--text-tertiary);
   font-variant-numeric: tabular-nums;
 }
 
@@ -32,7 +35,7 @@
   gap: 4px 12px;
   padding: 0 14px 6px;
   font-size: 11.5px;
-  color: var(--body, #334155);
+  color: var(--text-secondary);
 }
 
 .control {
@@ -47,26 +50,26 @@
   width: 14px;
   height: 14px;
   margin: 0;
-  accent-color: var(--blue, #2563eb);
+  accent-color: var(--accent-action);
 }
 
 .slider {
   width: 120px;
   min-height: 24px;
   margin: 0 0 0 -6px;
-  accent-color: var(--blue, #2563eb);
+  accent-color: var(--accent-action);
 }
 
 .sliderValue {
   min-width: 2.2em;
-  color: var(--ink, #0f172a);
+  color: var(--text-primary);
   font-variant-numeric: tabular-nums;
 }
 
 .chart {
   position: relative;
   min-width: 0;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
 }
 
 .chart svg {
@@ -75,22 +78,22 @@
 }
 
 .chart:focus-visible {
-  outline: 2px solid var(--blue, #2563eb);
+  outline: 2px solid var(--accent-action);
   outline-offset: 2px;
 }
 
+/* Two event rules, told apart by weight: an evaluation sits at axis level, a checkpoint
+   write — the rarer, heavier event — at hairline strength above it. */
 .evalMarker {
-  stroke: #94a3b8;
+  stroke: var(--chart-axis);
   stroke-width: 1;
   stroke-dasharray: 1 3;
-  opacity: 0.55;
 }
 
 .checkpointMarker {
-  stroke: #475569;
+  stroke: var(--rule-strong);
   stroke-width: 1;
   stroke-dasharray: 1 3;
-  opacity: 0.6;
 }
 
 .pulse {
@@ -117,9 +120,11 @@
   display: grid;
   gap: 2px;
   padding: 6px 8px;
-  border-radius: 6px;
-  background: rgba(15, 23, 42, 0.94);
-  color: #ffffff;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface-high);
+  box-shadow: var(--shadow-md);
+  color: var(--text-primary);
   font-size: 10.5px;
   font-variant-numeric: tabular-nums;
   pointer-events: none;
@@ -136,7 +141,7 @@
   flex: none;
   width: 7px;
   height: 7px;
-  border-radius: 50%;
+  border-radius: var(--radius-pill);
 }
 
 .tipLabel {
@@ -151,14 +156,14 @@
 }
 
 .tipMuted {
-  color: #cbd5e1;
+  color: var(--text-tertiary);
 }
 
 .tipMarker {
   margin-top: 2px;
   padding-top: 3px;
-  border-top: 1px solid rgba(255, 255, 255, 0.2);
-  color: #e2e8f0;
+  border-top: 1px solid var(--rule-subtle);
+  color: var(--text-secondary);
 }
 
 .legend button {
@@ -168,13 +173,13 @@
 .readout {
   margin-left: auto;
   padding-left: 10px;
-  color: var(--ink, #0f172a);
+  color: var(--text-primary);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 
 .legend button[aria-pressed="false"] .readout {
-  color: #64748b;
+  color: var(--text-tertiary);
 }
 
 .markerKey {
@@ -182,7 +187,7 @@
   gap: 12px;
   margin-top: 4px;
   font-size: 10.5px;
-  color: var(--muted, #5b6b82);
+  color: var(--text-tertiary);
 }
 
 .markerKey span {
@@ -195,11 +200,11 @@
   display: inline-block;
   width: 0;
   height: 12px;
-  border-left: 1px dotted #94a3b8;
+  border-left: 1px dotted var(--chart-axis);
 }
 
 .markerKey i[data-kind="checkpoint"] {
-  border-left-color: #475569;
+  border-left-color: var(--rule-strong);
 }
 
 @media (prefers-reduced-motion: reduce) {

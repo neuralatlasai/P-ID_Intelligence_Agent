@@ -1,19 +1,18 @@
+/*
+ * The training signal workbench. Channel identity is carried by the ordered chart series
+ * (--signal, set per card from --series-*); everything else is surface, border and mono type.
+ */
+
 .root {
-  --text: #202d3b;
-  --muted: #5c6876;
-  --edge: #dde3e8;
-  border: 1px solid var(--edge);
-  border-radius: 5px;
-  background: #fff;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
   min-width: 0;
-  color: var(--text);
+  color: var(--text-primary);
 }
 .kicker {
-  color: #626e7a;
-  font:
-    10px/1.6 ui-monospace,
-    Consolas,
-    monospace;
+  color: var(--text-tertiary);
+  font: 10px/1.6 var(--font-mono);
   letter-spacing: 0.085em;
 }
 .tokenFlow {
@@ -22,10 +21,10 @@
   align-items: center;
   gap: 22px;
   padding: 22px 28px;
-  border-bottom: 1px solid var(--edge);
+  border-bottom: 1px solid var(--border-subtle);
 }
 .tokenFlow p {
-  color: var(--muted);
+  color: var(--text-secondary);
   font-size: 11px;
   margin: 6px 0 0;
 }
@@ -39,27 +38,25 @@
 .tokenFlow li {
   flex: 1;
   padding: 10px 12px;
-  background: #f0f3f6;
-  border-top: 2px solid #a9b9c6;
+  background: var(--bg-surface-high);
+  border-top: 2px solid var(--border-strong);
   min-width: 0;
 }
+/* The span the loss is taken on is the active one: selected surface, accent indicator. */
 .tokenFlow li[data-target="true"] {
-  background: #eaf3ef;
-  border-color: #6a9181;
+  background: var(--bg-selected);
+  border-color: var(--accent-action);
 }
 .tokenFlow strong {
-  font:
-    9px/1.5 ui-monospace,
-    Consolas,
-    monospace;
-  color: #41566b;
+  font: 9px/1.5 var(--font-mono);
+  color: var(--text-primary);
   letter-spacing: 0.04em;
 }
 .tokenFlow small {
   display: block;
   margin-top: 5px;
   font-size: 10px;
-  color: #526374;
+  color: var(--text-secondary);
 }
 .composition {
   padding: 24px 28px 0;
@@ -84,13 +81,10 @@
 }
 .total > span {
   font-size: 10px;
-  color: var(--muted);
+  color: var(--text-secondary);
 }
 .total strong {
-  font:
-    24px/1.25 ui-monospace,
-    Consolas,
-    monospace;
+  font: 24px/1.25 var(--font-mono);
   letter-spacing: -0.04em;
   font-variant-numeric: tabular-nums;
 }
@@ -99,7 +93,7 @@
   gap: 16px;
   justify-content: space-between;
   font-size: 10px;
-  color: var(--muted);
+  color: var(--text-secondary);
   margin-bottom: 9px;
 }
 /* Each segment is a control: 24 px is the smallest target, so a 3 % share still gets one. */
@@ -123,18 +117,18 @@
 .penalty,
 .unweighted {
   font-size: 11px;
-  color: var(--muted);
+  color: var(--text-secondary);
   line-height: 1.7;
   margin: 12px 0;
 }
 .penalty span {
   padding: 0 5px;
-  color: #965252;
+  color: var(--text-tertiary);
 }
 .unweighted {
   padding: 12px 14px;
-  background: #f6f7f8;
-  border-left: 2px solid #9daebd;
+  background: var(--bg-sunken);
+  border-left: 2px solid var(--border-strong);
 }
 .signals {
   display: grid;
@@ -146,15 +140,15 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  background: #fff;
-  border: 1px solid var(--edge);
+  background: var(--bg-surface-high);
+  border: 1px solid var(--border-subtle);
   padding: 13px 14px 11px;
   text-align: left;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
 }
 .signal[aria-pressed="true"] {
   border-color: var(--signal);
-  background: #fafbfc;
+  background: var(--bg-selected);
   box-shadow: inset 0 2px var(--signal);
 }
 .signalHeading {
@@ -170,11 +164,8 @@
   background: var(--signal);
 }
 .signalHeading > span {
-  color: #667583;
-  font:
-    9px/1.5 ui-monospace,
-    Consolas,
-    monospace;
+  color: var(--text-tertiary);
+  font: 9px/1.5 var(--font-mono);
 }
 .signalHeading strong {
   font-weight: 500;
@@ -186,19 +177,17 @@
   align-items: baseline;
   gap: 7px;
   margin: 10px 0 4px;
-  font:
-    24px/1.4 ui-monospace,
-    Consolas,
-    monospace;
+  font: 24px/1.4 var(--font-mono);
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.045em;
 }
+/* A unit beside a value: mono, --text-sm, --text-tertiary. */
 .signalValue small {
-  color: #647382;
-  font:
-    10px/1.5 ui-monospace,
-    Consolas,
-    monospace;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-regular);
+  line-height: 1.5;
   letter-spacing: 0;
 }
 .microChart {
@@ -209,7 +198,7 @@
 }
 .gridLine {
   fill: none;
-  stroke: #e4e9ed;
+  stroke: var(--chart-grid);
   stroke-width: 0.6;
 }
 .signalMeta {
@@ -217,17 +206,17 @@
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 4px;
-  border-top: 1px solid #e7ebef;
+  border-top: 1px solid var(--rule-subtle);
   padding-top: 10px;
   font-size: 9px;
-  color: #5b6a79;
+  color: var(--text-tertiary);
 }
 .inspection {
   display: grid;
   grid-template-columns: 5px minmax(140px, 0.6fr) minmax(0, 2fr);
   gap: 12px;
   align-items: center;
-  background: #f6f8fa;
+  background: var(--bg-sunken);
   padding: 14px 16px;
   margin: 16px 0 0;
 }
@@ -241,7 +230,7 @@
 }
 .inspection p {
   font-size: 11px;
-  color: var(--muted);
+  color: var(--text-secondary);
   line-height: 1.7;
   margin: 0;
 }
@@ -251,24 +240,22 @@
   align-items: center;
   gap: 8px 16px;
   padding: 16px 0;
-  color: var(--muted);
+  color: var(--text-tertiary);
   font-size: 10px;
 }
 .chartNote > span {
-  font:
-    9px/1.5 ui-monospace,
-    Consolas,
-    monospace;
+  font: 9px/1.5 var(--font-mono);
   letter-spacing: 0.04em;
 }
 .chartNote code {
+  font-family: var(--font-mono);
   font-size: 10px;
 }
 .chartNote p {
   margin: 0 0 0 auto;
 }
 .root :focus-visible {
-  outline: 2px solid #285d83;
+  outline: 2px solid var(--accent-action);
   outline-offset: 3px;
 }
 @media (max-width: 1100px) {
@@ -323,11 +310,12 @@
     margin-left: 0;
   }
 }
+/* Last in the file, so it outranks the rules above on order alone. */
 @media (prefers-reduced-motion: reduce) {
   .root *,
   .root *::before,
   .root *::after {
-    animation: none !important;
-    transition: none !important;
+    animation: none;
+    transition: none;
   }
 }

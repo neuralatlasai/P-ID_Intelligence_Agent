@@ -1,6 +1,11 @@
 "use client";
 
-import { deploymentMeasurements, type DeploymentStatus } from "@/lib/modellab/ingestion";
+import {
+  deploymentMeasurements,
+  LOCAL_ANSWER_TOKENS,
+  LOCAL_P95_TARGET_S,
+  type DeploymentStatus,
+} from "@/lib/modellab/ingestion";
 
 import { Card } from "./Cards";
 import local from "./DeploymentLiveCard.module.css";
@@ -46,7 +51,10 @@ export function DeploymentLiveCard({ stage, step, now }: LiveCardProps) {
             <tr>
               <th scope="col">Target</th>
               <th scope="col">Status</th>
-              <th scope="col" title="Seconds per sample, median / 95th percentile">
+              <th
+                scope="col"
+                title={`Seconds per request (4K-token prompt, ${LOCAL_ANSWER_TOKENS}-token answer), median / 95th percentile`}
+              >
                 p50 / p95
               </th>
               <th scope="col">Tokens/s</th>
@@ -72,7 +80,7 @@ export function DeploymentLiveCard({ stage, step, now }: LiveCardProps) {
                   <span
                     className={
                       target.id === "local"
-                        ? target.p95 < 1
+                        ? target.p95 < LOCAL_P95_TARGET_S
                           ? styles.good
                           : styles.warn
                         : undefined

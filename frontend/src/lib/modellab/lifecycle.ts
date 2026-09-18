@@ -29,8 +29,8 @@ export const LIFECYCLE: Record<StageId, LifecycleSpec> = {
     purpose: "Align industrial evidence in a shared representation space.",
     input: "Linked image, drawing, topology and document records",
     output: "Domain adapters, projectors and alignment heads",
-    supervision: "Paired evidence + masked targets + known graph relations",
-    equation: "L = λmask Lmask + λalign Lalign + λocr Locr + λgraph Lgraph + λreg Lreg",
+    supervision: "Paired evidence + next-token targets + known graph relations",
+    equation: "L = λntp Lntp + λalign Lalign + λocr Locr + λgraph Lgraph + λreg Lreg",
     equationNote:
       "Weighted multitask objective. The recipe below supplies the planned weights; unavailable modalities require masked loss terms.",
     blocks: [

@@ -17,9 +17,10 @@
  * disappearing never reflows the text the user is reading.
  *
  * Floating over prose means it lands on top of a line of text, which is unreadable for
- * both. The scrim below it fades the last strip of transcript out, so the control sits on
- * a surface rather than on a sentence — and the fade also signals that there is more below,
- * which is the thing the control exists to say.
+ * both. It therefore carries its own raised surface, a border and the shadow reserved for
+ * things that genuinely float: the control separates itself from the sentence beneath by
+ * being a solid object on top of it, rather than by fading the transcript out behind it.
+ * The wrapper itself is inert, so the strip of transcript around the control stays live.
  */
 .jumpWrap {
   position: absolute;
@@ -29,27 +30,15 @@
   justify-content: center;
   align-items: flex-end;
   padding-block-end: var(--space-3);
-  block-size: 92px;
   pointer-events: none;
-  background: linear-gradient(
-    to bottom,
-    rgb(from var(--bg-surface) r g b / 0) 0%,
-    rgb(from var(--bg-surface) r g b / 0.82) 46%,
-    var(--bg-surface) 100%
-  );
 }
 
 .jumpWrap > * {
   pointer-events: auto;
-  border-radius: 999px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface-high);
+  border-color: var(--border-strong);
   box-shadow: var(--shadow-md);
-}
-
-/* Without relative-colour support the scrim is a plain fade to the canvas colour. */
-@supports not (color: rgb(from white r g b / 1)) {
-  .jumpWrap {
-    background: linear-gradient(to bottom, transparent 0%, var(--bg-surface) 78%);
-  }
 }
 
 .historyError {

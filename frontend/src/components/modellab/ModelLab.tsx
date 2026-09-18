@@ -33,7 +33,9 @@ import {
   freshSession,
   lineageOf,
   loadSession,
+  replaySpeedOf,
   resumeFromCheckpoint,
+  setReplaySpeed,
   stopRun,
   type LabSession,
 } from "@/lib/modellab/session";
@@ -42,10 +44,12 @@ import { HEAT_EXCHANGER_SCENE, resolveAnchor } from "@/lib/twin/scene";
 
 import { ArtifactsRow, RewardBreakdownCard, TeacherStudentRuntimeCard } from "./Cards";
 import { CheckpointsLiveCard } from "./CheckpointsLiveCard";
+import { RunConsole } from "./console/RunConsole";
 import { ContractLiveCard } from "./ContractLiveCard";
 import { CurvesLiveCard } from "./CurvesLiveCard";
 import { DeploymentLiveCard } from "./DeploymentLiveCard";
 import { HardwareCard } from "./HardwareCard";
+import { ExecutionMonitor } from "./ExecutionMonitor";
 import {
   ExecutionArchitecture,
   InputConversion,
@@ -505,6 +509,27 @@ export function ModelLab({
           <LineageBanner lineage={lineage} stage={stage} />
 
           <Stepper current={stage.id} session={session} effective={effective} now={now} />
+
+          <RunConsole
+            key={`console:${stage.id}:${stage.experimentId}`}
+            stage={stage}
+            profile={profile}
+            config={config}
+            control={control}
+            now={now}
+            running={running}
+            blocked={blocked}
+            speed={replaySpeedOf(session)}
+            onSpeed={(speed) => act((current, at) => setReplaySpeed(current, speed, at))}
+          />
+
+          <ExecutionMonitor
+            key={`${stage.id}:${stage.experimentId}`}
+            {...liveProps}
+            samples={samples}
+            sourceId={drawing.source}
+            blocked={blocked}
+          />
 
           <LifecycleOverview stage={stage} />
 

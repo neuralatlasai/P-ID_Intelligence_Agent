@@ -19,7 +19,7 @@
   font-size: 9.5px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
-  color: #15803d;
+  color: var(--text-secondary);
 }
 .countdown svg {
   position: absolute;
@@ -31,10 +31,11 @@
   stroke-width: 2.5;
 }
 .countdownTrack {
-  stroke: #e3e8f0;
+  stroke: var(--rule-subtle);
 }
+/* The arc is the running affordance, not a status: it moves only while the stage runs. */
 .countdownArc {
-  stroke: #16a34a;
+  stroke: var(--accent-action);
   transition: stroke-dashoffset 0.9s linear;
 }
 @media (prefers-reduced-motion: reduce) {
@@ -50,46 +51,47 @@
   gap: 2px 8px;
   margin: -2px 14px 6px;
   font-size: 10.5px;
-  color: #5b6b82;
+  color: var(--text-tertiary);
   font-variant-numeric: tabular-nums;
 }
 .provenance code {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 10.5px;
-  color: #334155;
+  color: var(--text-primary);
 }
+/* Train and val are categories of sample, not states, so they take the categorical family. */
 .split {
   padding: 0 6px;
-  border-radius: 4px;
-  background: #eef4ff;
-  color: #1e40af;
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface-high);
+  color: var(--series-1);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.02em;
 }
 .split[data-split="val"] {
-  background: #fef3c7;
-  color: #854d0e;
+  color: var(--series-2);
 }
 .sep {
-  color: #94a3b8;
+  color: var(--text-tertiary);
 }
 
-.overallFail {
-  background: #fef2f2 !important;
+/* Doubled so it outranks the shared .overall rule on specificity alone. */
+.overallFail.overallFail {
+  background: var(--status-down-bg);
 }
 
 .rollout {
   margin-top: 6px;
   padding-top: 5px;
-  border-top: 1px solid #eef2f7;
+  border-top: 1px solid var(--rule-subtle);
   font-size: 10.5px;
   line-height: 1.4;
-  color: #334155;
+  color: var(--text-secondary);
 }
 .rollout strong {
   font-weight: 650;
-  color: #0f172a;
+  color: var(--text-primary);
 }
 .findings {
   display: grid;
@@ -107,12 +109,12 @@
   content: "✕";
   flex: none;
   font-size: 9px;
-  color: #b91c1c;
+  color: var(--status-down);
 }
 .findings li[data-caught]::before {
   content: "✓";
-  color: #15803d;
+  color: var(--status-ready);
 }
 .clean {
-  color: #15803d;
+  color: var(--status-ready);
 }

@@ -5,6 +5,10 @@
  * metrics it is judged on and the artifacts it must emit. None of it claims a run happened.
  * What is live — how far the run has got, what the corpus can supply today, which samples
  * pass verification — is computed elsewhere and joined to this plan on the page.
+ *
+ * No row here carries a colour. Chart series are taken in order, so a row's series is its
+ * position in its list and the component reads it from the index: the order below is the
+ * visual order, and there is no second value anyone has to keep in step with it.
  */
 
 export type StageId = "pretraining" | "sft" | "rl" | "distillation";
@@ -18,7 +22,6 @@ export interface KeyValue {
 export interface ContractRow {
   readonly id: string;
   readonly name: string;
-  readonly colour: string;
   readonly format: string;
   /** Samples the contract calls for. */
   readonly target: number;
@@ -29,7 +32,6 @@ export interface ContractRow {
 
 export interface RewardRow {
   readonly name: string;
-  readonly colour: string;
   readonly weight: number;
   readonly source: string;
   readonly notes: string;
@@ -49,19 +51,52 @@ export interface MetricSpec {
   /** Stage 3 shows the SFT baseline; stage 4 shows the teacher. Undefined when absent. */
   readonly reference?: number | string;
   readonly format?: "percent-delta" | "absolute-delta" | "ratio";
+  /**
+   * Share of the run before which the metric does not move. For a quantity that changes
+   * with a discrete event rather than with training — a serving measurement that improves
+   * when the quantised export first exists — the change is a step at that point, not a
+   * curve from the first evaluation.
+   */
+  readonly from?: number;
 }
 
 export interface CurveSpec {
   readonly key: string;
   readonly label: string;
-  readonly colour: string;
   /** Value at step 0 and the level it settles to. */
   readonly start: number;
   readonly end: number;
   /** Steps over which most of the change happens. */
   readonly tau: number;
+  /**
+   * Relative noise. Training-time signals get per-step sampling noise plus a slow wander;
+   * held-out signals, measured on a fixed set, get only the wander.
+   */
   readonly noise: number;
   readonly dashed?: boolean;
+  /**
+   * How the signal reacts to the run's incidents (see incidents.ts). A training loss spikes
+   * when the timeline has a loss spike; a held-out metric, measured after the run has
+   * recovered, does not. Omitted: the signal is not a per-step training measurement.
+   */
+  readonly response?: "loss" | "reward" | "kl" | "entropy" | "length";
+  /**
+   * `epochs`: in training, the loss steps down at each epoch boundary — the memorisation
+   * signature of multi-epoch fine-tuning. Measured on held-out data the same objective does
+   * the opposite: it stops improving in the final epoch and turns up.
+   */
+  readonly shape?: "epochs";
+  /**
+   * Measured on a held-out split rather than the training batch: no per-step sampling noise,
+   * no training incidents, the generalisation gap applied, and the held-out trajectory of an
+   * `epochs` curve.
+   */
+  readonly evaluation?: boolean;
+  /**
+   * The curve is a weighted sum of other curves in the stage — a total objective. Computed,
+   * not modelled, so `L = Σ λᵢ Lᵢ` holds exactly at every step, including during an incident.
+   */
+  readonly sumOf?: readonly { readonly key: string; readonly weight: number }[];
 }
 
 export interface CurveTab {
@@ -150,13 +185,6 @@ export interface Stage {
   readonly sampleNodes: readonly string[];
 }
 
-const BLUE = "#2563eb";
-const RED = "#dc2626";
-const PURPLE = "#7c3aed";
-const GREEN = "#16a34a";
-const ORANGE = "#f59e0b";
-const CYAN = "#06b6d4";
-
 export const STAGES: readonly Stage[] = [
   {
     id: "pretraining",
@@ -169,8 +197,8 @@ export const STAGES: readonly Stage[] = [
     recipe: [
       { key: "Backbone VLM", value: "Qwen3-VL-32B" },
       { key: "3D encoder", value: "Point Transformer V3 + Uni3D bridge" },
-      { key: "Graph encoder", value: "Graph Transformer (GT-XL)" },
-      { key: "Context window", value: "128K+" },
+      { key: "Graph encoder", value: "Graph transformer (GPS layers, 480M)" },
+      { key: "Context window", value: "256K" },
       { key: "Precision", value: "BF16" },
       {
         key: "Trainable modules",
@@ -179,7 +207,7 @@ export const STAGES: readonly Stage[] = [
       {
         key: "Objectives",
         value: [
-          "Masked multimodal modeling",
+          "Next-token prediction (interleaved image–text)",
           "Contrastive alignment",
           "OCR / tag grounding",
           "Topology prediction",
@@ -193,7 +221,6 @@ export const STAGES: readonly Stage[] = [
       {
         id: "pid",
         name: "P&ID drawings",
-        colour: BLUE,
         format: "PDF / PNG",
         target: 12430,
         targetLabel: "12,430",
@@ -203,7 +230,6 @@ export const STAGES: readonly Stage[] = [
       {
         id: "graph",
         name: "GraphML topology",
-        colour: RED,
         format: "GraphML",
         target: 12430,
         targetLabel: "12,430 graphs",
@@ -213,7 +239,6 @@ export const STAGES: readonly Stage[] = [
       {
         id: "images",
         name: "Field images (RGB)",
-        colour: PURPLE,
         format: "JPG / PNG",
         target: 1_200_000,
         targetLabel: "1.2M",
@@ -223,7 +248,6 @@ export const STAGES: readonly Stage[] = [
       {
         id: "3d",
         name: "3D CAD / point clouds",
-        colour: GREEN,
         format: "STEP / E57",
         target: 8340,
         targetLabel: "8,340",
@@ -233,7 +257,6 @@ export const STAGES: readonly Stage[] = [
       {
         id: "ts",
         name: "Telemetry / time-series",
-        colour: GREEN,
         format: "Parquet",
         target: 320,
         targetLabel: "320 tags",
@@ -243,7 +266,6 @@ export const STAGES: readonly Stage[] = [
       {
         id: "docs",
         name: "Manuals / work orders",
-        colour: ORANGE,
         format: "PDF / TXT / JSON",
         target: 54200,
         targetLabel: "54,200",
@@ -255,14 +277,17 @@ export const STAGES: readonly Stage[] = [
     runtime: [
       { key: "Vision-language model", value: "Qwen3-VL-32B" },
       { key: "3D spatial encoder", value: ["Point Transformer V3", "+ Uni3D bridge"] },
-      { key: "Graph encoder", value: "Graph Transformer (GT-XL)" },
-      { key: "Tokenizer / context", value: "128K+ (multimodal)" },
-      { key: "Training framework", value: "PyTorch + DeepSpeed" },
+      { key: "Graph encoder", value: "Graph transformer (GPS layers, 480M)" },
+      { key: "Tokenizer / context", value: "Qwen3-VL tokenizer · model context 256K" },
+      {
+        key: "Training framework",
+        value: "PyTorch FSDP2 (full shard) · activation checkpointing",
+      },
       { key: "Precision", value: "BF16 (mixed)" },
       { key: "Hardware", value: "8 × H100 80GB (per node)" },
       { key: "Cluster status", value: "cluster" },
       { key: "Global batch size", value: "256" },
-      { key: "Sequence length", value: "128K" },
+      { key: "Sequence length", value: "4,096 (packed) · model context 256K" },
       { key: "Throughput", value: "throughput" },
       { key: "Checkpoint cadence", value: "Every 2,000 steps" },
       { key: "Experiment ID", value: "exp-2025-09-16-001" },
@@ -289,7 +314,7 @@ export const STAGES: readonly Stage[] = [
         digits: 2,
       },
       {
-        label: "Grounding pre-score mAP@[.50:.95]",
+        label: "Grounding mAP@[.50:.95] (linear probe)",
         direction: "up",
         target: 0.5,
         start: 0.05,
@@ -326,7 +351,7 @@ export const STAGES: readonly Stage[] = [
         target: 0.05,
         start: 0.21,
         final: 0.035,
-        digits: 2,
+        digits: 3,
       },
     ],
     curves: [
@@ -336,49 +361,71 @@ export const STAGES: readonly Stage[] = [
         log: true,
         curves: [
           {
+            // Computed from its terms with the objective weights, so the figure's
+            // L = Σ λᵢ Lᵢ holds at every step, spikes included.
             key: "total",
-            label: "Total loss",
-            colour: "#1d4ed8",
-            start: 12,
-            end: 0.021,
-            tau: 900,
-            noise: 0.05,
+            label: "Total objective (Σ λᵢ Lᵢ)",
+            start: 1.95,
+            end: 0.87,
+            tau: 1500,
+            noise: 0,
+            response: "loss",
+            sumOf: [
+              { key: "mlm", weight: 0.35 },
+              { key: "contrastive", weight: 0.25 },
+              { key: "grounding", weight: 0.2 },
+              { key: "topology", weight: 0.15 },
+              { key: "registration", weight: 0.05 },
+            ],
           },
           {
+            // Continued pretraining from a strong base: domain text and drawings start well
+            // above the base model's general-domain loss and settle near 1.5 nats.
             key: "mlm",
-            label: "MLM loss",
-            colour: PURPLE,
-            start: 7,
-            end: 0.012,
-            tau: 800,
-            noise: 0.06,
+            label: "Next-token loss",
+            start: 2.28,
+            end: 1.47,
+            tau: 1500,
+            noise: 0.012,
+            response: "loss",
           },
           {
+            // InfoNCE over the batch; chance level is ln(batch). Starts below it because the
+            // projectors are warm-started.
             key: "contrastive",
-            label: "Contrastive loss",
-            colour: "#a855f7",
-            start: 4,
-            end: 0.0085,
+            label: "Contrastive (InfoNCE)",
+            start: 3.1,
+            end: 0.92,
             tau: 1100,
-            noise: 0.07,
+            noise: 0.02,
+            response: "loss",
           },
           {
             key: "grounding",
-            label: "Grounding loss",
-            colour: GREEN,
-            start: 3,
-            end: 0.0045,
-            tau: 1300,
-            noise: 0.08,
+            label: "Grounding (L1 + GIoU)",
+            start: 1.35,
+            end: 0.52,
+            tau: 2200,
+            noise: 0.022,
+            response: "loss",
           },
           {
             key: "topology",
-            label: "Topology loss",
-            colour: ORANGE,
-            start: 2.5,
-            end: 0.0065,
-            tau: 1000,
-            noise: 0.07,
+            label: "Topology edge BCE",
+            start: 0.61,
+            end: 0.19,
+            tau: 1800,
+            noise: 0.02,
+            response: "loss",
+          },
+          {
+            key: "registration",
+            label: "Registration (smooth L1)",
+            start: 0.28,
+            end: 0.061,
+            tau: 2600,
+            noise: 0.025,
+            response: "loss",
           },
         ],
       },
@@ -390,20 +437,20 @@ export const STAGES: readonly Stage[] = [
           {
             key: "r1",
             label: "Retrieval R@1",
-            colour: "#1d4ed8",
             start: 0.08,
             end: 0.71,
-            tau: 14000,
+            tau: 3400,
             noise: 0.012,
+            evaluation: true,
           },
           {
             key: "r5",
             label: "Retrieval R@5",
-            colour: GREEN,
             start: 0.21,
             end: 0.94,
-            tau: 11000,
+            tau: 2600,
             noise: 0.01,
+            evaluation: true,
           },
         ],
       },
@@ -414,21 +461,21 @@ export const STAGES: readonly Stage[] = [
         curves: [
           {
             key: "map",
-            label: "Grounding mAP",
-            colour: "#1d4ed8",
+            label: "Grounding mAP (probe)",
             start: 0.05,
             end: 0.6,
-            tau: 16000,
+            tau: 3800,
             noise: 0.012,
+            evaluation: true,
           },
           {
             key: "ocr",
             label: "Tag OCR F1",
-            colour: PURPLE,
             start: 0.41,
             end: 0.95,
-            tau: 9000,
+            tau: 2200,
             noise: 0.008,
+            evaluation: true,
           },
         ],
       },
@@ -440,11 +487,11 @@ export const STAGES: readonly Stage[] = [
           {
             key: "edge",
             label: "Graph edge F1",
-            colour: ORANGE,
             start: 0.33,
             end: 0.9,
-            tau: 12000,
+            tau: 3000,
             noise: 0.01,
+            evaluation: true,
           },
         ],
       },
@@ -456,24 +503,28 @@ export const STAGES: readonly Stage[] = [
           {
             key: "rmse",
             label: "2D ↔ 3D RMSE (m)",
-            colour: GREEN,
             start: 0.62,
             end: 0.07,
-            tau: 15000,
+            tau: 3600,
             noise: 0.03,
+            evaluation: true,
           },
         ],
       },
     ],
     run: {
-      totalSteps: 100_000,
-      openingStep: 68_240,
-      // Planning estimate at the default configuration: 8.9 samples/s at a batch of 256.
-      stepsPerSecond: 8.89 / 256,
-      checkpointEvery: 2000,
-      checkpointSize: "64 GB",
-      learningRate: 1e-5,
-      warmupSteps: 2000,
+      // 24,000 steps × 256 sequences × 4,096 tokens ≈ 25B tokens: several passes over the
+      // domain corpus with general-domain replay mixed in against forgetting.
+      totalSteps: 24_000,
+      openingStep: 16_420,
+      // Superseded by the applied configuration's planning estimate (see session.ts).
+      stepsPerSecond: 0.085,
+      checkpointEvery: 1000,
+      // LoRA adapters (0.50B) and both encoders (0.63B) train; each trainable parameter
+      // carries BF16 weights, an FP32 master copy and two FP32 AdamW moments (14 bytes).
+      checkpointSize: "15.7 GB",
+      learningRate: 1e-4,
+      warmupSteps: 500,
     },
     outputsTitle: "Expected stage output (artifacts emitted)",
     outputs: [
@@ -534,7 +585,7 @@ export const STAGES: readonly Stage[] = [
       { key: "Base checkpoint", value: "Stage-1 aligned multimodal foundation model" },
       { key: "Backbone VLM", value: "Qwen3-VL-32B" },
       { key: "3D bridge", value: "Point Transformer V3 + Uni3D" },
-      { key: "Graph encoder", value: "Graph Transformer (GT-XL)" },
+      { key: "Graph encoder", value: "Graph transformer (GPS layers, 480M)" },
       {
         key: "Trainable modules",
         value: "projector, LoRA adapters, grounding heads, tool router",
@@ -560,7 +611,6 @@ export const STAGES: readonly Stage[] = [
       {
         id: "packages",
         name: "Linked investigation packages",
-        colour: BLUE,
         format: "MM (img+doc)",
         target: 52418,
         targetLabel: "52,418",
@@ -570,7 +620,6 @@ export const STAGES: readonly Stage[] = [
       {
         id: "alignment",
         name: "Field-to-P&ID alignment tasks",
-        colour: RED,
         format: "Image + P&ID",
         target: 38206,
         targetLabel: "38,206",
@@ -580,7 +629,6 @@ export const STAGES: readonly Stage[] = [
       {
         id: "procedural",
         name: "Procedural QA pairs",
-        colour: GREEN,
         format: "Text / MM",
         target: 120531,
         targetLabel: "120,531",
@@ -590,7 +638,6 @@ export const STAGES: readonly Stage[] = [
       {
         id: "topology",
         name: "Topology explanation traces",
-        colour: PURPLE,
         format: "Graph + text",
         target: 28904,
         targetLabel: "28,904",
@@ -600,7 +647,6 @@ export const STAGES: readonly Stage[] = [
       {
         id: "anomaly",
         name: "Anomaly review dialogues",
-        colour: ORANGE,
         format: "Dialogue (MM)",
         target: 41772,
         targetLabel: "41,772",
@@ -610,7 +656,6 @@ export const STAGES: readonly Stage[] = [
       {
         id: "telemetry",
         name: "Telemetry-conditioned prompts",
-        colour: CYAN,
         format: "TS + text",
         target: 60125,
         targetLabel: "60,125",
@@ -621,12 +666,14 @@ export const STAGES: readonly Stage[] = [
     runtimeTitle: "Model stack / runtime",
     runtime: [
       { key: "Vision-language model", value: "Qwen3-VL-32B" },
-      { key: "Generative reasoner", value: "Qwen3.5-style long-context assistant" },
       { key: "3D spatial encoder", value: "Point Transformer V3 + Uni3D bridge" },
-      { key: "Graph / topology encoder", value: "Graph Transformer (GT-XL)" },
-      { key: "Context length", value: "128K" },
+      { key: "Graph / topology encoder", value: "Graph transformer (GPS layers, 480M)" },
+      { key: "Sequence length", value: "3,072 (packed) · model context 256K" },
       { key: "Precision", value: "BF16" },
-      { key: "Training framework", value: "PyTorch + DeepSpeed" },
+      {
+        key: "Training framework",
+        value: "PyTorch FSDP2 (full shard) · activation checkpointing",
+      },
       { key: "Serving target", value: "vLLM" },
       { key: "Cluster status", value: "cluster" },
     ],
@@ -644,7 +691,7 @@ export const STAGES: readonly Stage[] = [
         digits: 2,
       },
       {
-        label: "Grounding Acc@0.5",
+        label: "Grounding Acc@IoU≥0.5",
         direction: "up",
         target: 0.85,
         start: 0.74,
@@ -700,7 +747,7 @@ export const STAGES: readonly Stage[] = [
         digits: 2,
       },
       {
-        label: "Calibration ECE (↓)",
+        label: "Calibration ECE",
         direction: "down",
         target: 0.05,
         start: 0.11,
@@ -708,7 +755,7 @@ export const STAGES: readonly Stage[] = [
         digits: 3,
       },
       {
-        label: "Unsupported assertion rate (↓)",
+        label: "Unsupported claim rate",
         direction: "down",
         target: 0.03,
         start: 0.09,
@@ -720,52 +767,81 @@ export const STAGES: readonly Stage[] = [
       {
         id: "loss",
         label: "Loss",
-        log: true,
+        log: false,
         curves: [
           {
             key: "total",
-            label: "Total loss",
-            colour: "#1d4ed8",
-            start: 9,
-            end: 0.022,
-            tau: 120,
-            noise: 0.05,
+            label: "Train loss (response tokens)",
+            start: 1.24,
+            end: 0.52,
+            tau: 600,
+            noise: 0,
+            response: "loss",
+            sumOf: [
+              { key: "language", weight: 0.4 },
+              { key: "grounding", weight: 0.25 },
+              { key: "tool", weight: 0.2 },
+              { key: "extraction", weight: 0.15 },
+            ],
+          },
+          {
+            // The same objective on the held-out split: it tracks training loss through two
+            // epochs, then turns up in the third while training loss keeps stepping down.
+            key: "eval-loss",
+            label: "Eval loss (held-out)",
+            start: 1.24,
+            end: 0.52,
+            tau: 600,
+            noise: 0,
+            dashed: true,
+            evaluation: true,
+            sumOf: [
+              { key: "language", weight: 0.4 },
+              { key: "grounding", weight: 0.25 },
+              { key: "tool", weight: 0.2 },
+              { key: "extraction", weight: 0.15 },
+            ],
           },
           {
             key: "language",
-            label: "Language loss",
-            colour: PURPLE,
-            start: 5,
-            end: 0.013,
-            tau: 107,
-            noise: 0.06,
+            label: "Grounded dialogue",
+            start: 1.28,
+            end: 0.58,
+            tau: 600,
+            noise: 0.02,
+            response: "loss",
+            shape: "epochs",
           },
           {
             key: "grounding",
-            label: "Grounding loss",
-            colour: "#ec4899",
-            start: 3.5,
-            end: 0.009,
-            tau: 147,
-            noise: 0.07,
+            label: "Spatial grounding",
+            start: 1.46,
+            end: 0.66,
+            tau: 700,
+            noise: 0.022,
+            response: "loss",
+            shape: "epochs",
           },
+          // Tool calls are schema-constrained, so their token loss falls furthest.
           {
             key: "tool",
-            label: "Tool-use loss",
-            colour: GREEN,
-            start: 2.2,
-            end: 0.0055,
-            tau: 160,
-            noise: 0.08,
+            label: "Tool-call formatting",
+            start: 0.94,
+            end: 0.21,
+            tau: 450,
+            noise: 0.025,
+            response: "loss",
+            shape: "epochs",
           },
           {
             key: "extraction",
-            label: "Extraction loss",
-            colour: "#ea580c",
-            start: 2.8,
-            end: 0.007,
-            tau: 133,
-            noise: 0.07,
+            label: "Structured extraction",
+            start: 1.12,
+            end: 0.34,
+            tau: 520,
+            noise: 0.022,
+            response: "loss",
+            shape: "epochs",
           },
         ],
       },
@@ -776,44 +852,44 @@ export const STAGES: readonly Stage[] = [
         curves: [
           {
             key: "map",
-            label: "Grounding mAP",
-            colour: "#1d4ed8",
+            label: "Grounding mAP@[.50:.95]",
             start: 0.52,
             end: 0.66,
-            tau: 2000,
-            noise: 0.006,
+            tau: 900,
+            noise: 0.008,
+            evaluation: true,
           },
         ],
       },
       {
-        id: "reasoning",
-        label: "Reasoning",
+        id: "citation",
+        label: "Citation",
         log: false,
         curves: [
           {
             key: "cite",
-            label: "Citation precision",
-            colour: PURPLE,
+            label: "Evidence citation precision",
             start: 0.52,
             end: 0.88,
-            tau: 1733,
+            tau: 700,
             noise: 0.008,
+            evaluation: true,
           },
         ],
       },
       {
-        id: "tool-use",
-        label: "Tool-use",
+        id: "extraction",
+        label: "Extraction",
         log: false,
         curves: [
           {
             key: "extract",
-            label: "Extraction exact match",
-            colour: GREEN,
+            label: "Structured extraction exact match",
             start: 0.48,
             end: 0.75,
-            tau: 1867,
-            noise: 0.008,
+            tau: 800,
+            noise: 0.01,
+            evaluation: true,
           },
         ],
       },
@@ -825,11 +901,11 @@ export const STAGES: readonly Stage[] = [
           {
             key: "ece",
             label: "Calibration ECE",
-            colour: ORANGE,
             start: 0.11,
             end: 0.038,
-            tau: 2133,
-            noise: 0.003,
+            tau: 900,
+            noise: 0.02,
+            evaluation: true,
           },
         ],
       },
@@ -837,13 +913,15 @@ export const STAGES: readonly Stage[] = [
     run: {
       // Three passes over the 341,956-sample contract at a global batch of 128.
       totalSteps: 8_000,
-      openingStep: 1_216,
-      stepsPerSecond: 6_784 / (20 * 3600 + 21 * 60),
+      // Opens a fifth of the way into the second epoch, so the first epoch-boundary drop
+      // in training loss is already on the chart.
+      openingStep: 3_140,
+      stepsPerSecond: 0.114,
       checkpointEvery: 500,
-      checkpointSize: "66 GB",
+      checkpointSize: "15.7 GB",
       epochs: 3,
-      learningRate: 2e-5,
-      warmupSteps: 100,
+      learningRate: 1e-4,
+      warmupSteps: 80,
     },
     outputsTitle: "Expected stage output",
     outputs: [
@@ -909,10 +987,16 @@ export const STAGES: readonly Stage[] = [
         key: "Verifier stack",
         value: "grounded parser + topology validator + citation checker + simulator critic",
       },
-      { key: "Reward strategy", value: "GRPO / PPO-style policy optimization" },
+      {
+        key: "Policy optimization",
+        value:
+          "GRPO · group size 8 · group-normalised advantages · no value model · KL to frozen reference (k3 estimator, β = 0.001)",
+      },
+      { key: "Training framework", value: "verl (FSDP2 actor · vLLM rollout)" },
       {
         key: "Trainable modules",
-        value: "policy head, selected adapters, tool router, abstention head",
+        value:
+          "LoRA adapters (rank 64) on attention and MLP projections; vision tower and encoders frozen",
       },
       {
         key: "Rollout sources",
@@ -931,49 +1015,42 @@ export const STAGES: readonly Stage[] = [
     rewards: [
       {
         name: "Grounding consistency reward",
-        colour: BLUE,
         weight: 0.2,
         source: "Grounded parser",
         notes: "Entity, tag, spatial, attribute match",
       },
       {
         name: "Topology validity reward",
-        colour: PURPLE,
         weight: 0.15,
         source: "Topology validator",
         notes: "Graph constraints, connectivity",
       },
       {
         name: "2D ↔ 3D registration agreement",
-        colour: GREEN,
         weight: 0.1,
         source: "Vision-geometry matcher",
         notes: "P&ID ↔ 3D alignment (IoU)",
       },
       {
         name: "Citation faithfulness reward",
-        colour: ORANGE,
         weight: 0.15,
         source: "Citation checker",
         notes: "Claims supported by retrieved docs",
       },
       {
         name: "Simulator outcome reward",
-        colour: BLUE,
         weight: 0.2,
         source: "Process simulator",
         notes: "Matches expected process behavior",
       },
       {
         name: "Abstention correctness reward",
-        colour: GREEN,
         weight: 0.1,
         source: "Verifier + GT labels",
         notes: "Correctly abstains on unknowns",
       },
       {
         name: "Hallucination penalty",
-        colour: RED,
         weight: -0.2,
         source: "Verifier ensemble",
         notes: "Unsupported or fabricated content",
@@ -984,11 +1061,14 @@ export const STAGES: readonly Stage[] = [
       { key: "Policy model", value: "Qwen3-VL-32B" },
       { key: "Verifier model", value: "Multi-head verifier (7B)" },
       { key: "Reward evaluator", value: "Rule-based + LLM + simulator" },
-      { key: "Context length", value: "128K (multimodal)" },
+      { key: "Sequence length", value: "prompt + response ≤ 9,216 · model context 256K" },
       { key: "Precision", value: "BF16 (mixed)" },
-      { key: "Serving target", value: "vLLM (tensor parallel)" },
+      { key: "Training framework", value: "verl (FSDP2 actor · vLLM rollout)" },
       { key: "Online rollout workers", value: "32 × A100 80GB" },
-      { key: "Experience buffer", value: "1.2M trajectories" },
+      {
+        key: "Rollout batch",
+        value: "64 prompts × 8 completions (on-policy; no replay buffer)",
+      },
       { key: "Status", value: "status" },
       { key: "Checkpoint cadence", value: "Every 5,000 steps" },
       { key: "Experiment ID", value: "exp-0325-rl-001" },
@@ -999,7 +1079,7 @@ export const STAGES: readonly Stage[] = [
     metricColumns: ["Metric", "SFT baseline", "Current policy", "Trend"],
     metrics: [
       {
-        label: "Verifier pass@1",
+        label: "pass@1 (verifier-graded)",
         direction: "up",
         reference: 0.62,
         start: 0.62,
@@ -1015,7 +1095,7 @@ export const STAGES: readonly Stage[] = [
         digits: 2,
       },
       {
-        label: "Grounded answer faithfulness",
+        label: "Attributable claim rate (NLI-verified)",
         direction: "up",
         reference: 0.68,
         start: 0.68,
@@ -1023,15 +1103,15 @@ export const STAGES: readonly Stage[] = [
         digits: 2,
       },
       {
-        label: "Unsupported assertion rate ↓",
+        label: "Unsupported claim rate",
         direction: "down",
-        reference: 0.18,
-        start: 0.18,
-        final: 0.04,
-        digits: 2,
+        reference: 0.15,
+        start: 0.15,
+        final: 0.035,
+        digits: 3,
       },
       {
-        label: "Calibrated abstention AUC",
+        label: "Abstention AUROC",
         direction: "up",
         reference: 0.71,
         start: 0.71,
@@ -1047,7 +1127,7 @@ export const STAGES: readonly Stage[] = [
         digits: 2,
       },
       {
-        label: "Tool-use success@1",
+        label: "Tool-call exact match",
         direction: "up",
         reference: 0.64,
         start: 0.64,
@@ -1055,7 +1135,7 @@ export const STAGES: readonly Stage[] = [
         digits: 2,
       },
       {
-        label: "Simulation consistency score",
+        label: "Simulator outcome agreement",
         direction: "up",
         reference: 0.69,
         start: 0.69,
@@ -1063,19 +1143,21 @@ export const STAGES: readonly Stage[] = [
         digits: 2,
       },
       {
-        label: "Hallucination rate ↓",
-        direction: "down",
-        reference: 0.15,
-        start: 0.15,
-        final: 0.035,
+        label: "Tool-call schema validity",
+        direction: "up",
+        target: 0.97,
+        reference: 0.86,
+        start: 0.86,
+        final: 0.98,
         digits: 2,
       },
       {
-        label: "Risk-coverage AUC",
-        direction: "up",
-        reference: 0.62,
-        start: 0.62,
-        final: 0.88,
+        label: "AURC (risk–coverage)",
+        direction: "down",
+        target: 0.15,
+        reference: 0.31,
+        start: 0.31,
+        final: 0.12,
         digits: 2,
       },
     ],
@@ -1083,115 +1165,110 @@ export const STAGES: readonly Stage[] = [
       {
         id: "reward",
         label: "Reward",
-        log: true,
+        log: false,
         curves: [
           {
+            // critic/score/mean: the verifier-weighted reward of the batch's completions.
             key: "reward",
-            label: "Mean reward (↑)",
-            colour: "#1d4ed8",
-            start: 0.18,
-            end: 0.71,
-            tau: 9000,
+            label: "Mean reward",
+            start: 0.41,
+            end: 0.74,
+            tau: 140,
+            noise: 0.03,
+            response: "reward",
+          },
+          {
+            key: "pass",
+            label: "Verifier pass rate (held-out)",
+            start: 0.62,
+            end: 0.9,
+            tau: 200,
+            noise: 0.01,
+            evaluation: true,
+          },
+          {
+            key: "halluc",
+            label: "Unsupported claim rate",
+            start: 0.15,
+            end: 0.035,
+            tau: 220,
             noise: 0.02,
-          },
-          {
-            key: "pass",
-            label: "Verifier pass rate (↑)",
-            colour: GREEN,
-            start: 0.62,
-            end: 0.9,
-            tau: 20000,
-            noise: 0.008,
-          },
-          {
-            key: "halluc",
-            label: "Hallucination rate (↓)",
-            colour: RED,
-            start: 0.15,
-            end: 0.035,
-            tau: 22000,
-            noise: 0.004,
-          },
-          {
-            key: "kl",
-            label: "KL vs init",
-            colour: PURPLE,
-            start: 0.0005,
-            end: 0.024,
-            tau: 25000,
-            noise: 0.0006,
-          },
-        ],
-      },
-      {
-        id: "pass",
-        label: "Verifier pass rate",
-        log: false,
-        curves: [
-          {
-            key: "pass",
-            label: "Verifier pass rate",
-            colour: GREEN,
-            start: 0.62,
-            end: 0.9,
-            tau: 20000,
-            noise: 0.008,
-          },
-        ],
-      },
-      {
-        id: "halluc",
-        label: "Hallucination penalty",
-        log: false,
-        curves: [
-          {
-            key: "halluc",
-            label: "Hallucination rate",
-            colour: RED,
-            start: 0.15,
-            end: 0.035,
-            tau: 22000,
-            noise: 0.004,
           },
         ],
       },
       {
         id: "kl",
-        label: "KL divergence",
+        label: "KL to reference",
         log: false,
         curves: [
+          // k3 estimator against the frozen SFT reference; rises from zero as the policy moves.
           {
             key: "kl",
-            label: "KL (policy vs init)",
-            colour: PURPLE,
-            start: 0.0005,
+            label: "KL to reference (k3)",
+            start: 0,
             end: 0.024,
-            tau: 25000,
-            noise: 0.0006,
+            tau: 260,
+            noise: 0.05,
+            response: "kl",
           },
           {
-            key: "klt",
-            label: "KL target",
-            colour: "#64748b",
-            start: 0.02,
-            end: 0.02,
+            key: "kl-alert",
+            label: "Alert threshold",
+            start: 0.035,
+            end: 0.035,
             tau: 1,
             noise: 0,
             dashed: true,
           },
         ],
       },
+      {
+        id: "entropy",
+        label: "Entropy",
+        log: false,
+        curves: [
+          {
+            key: "entropy",
+            label: "Token entropy",
+            start: 0.62,
+            end: 0.33,
+            tau: 380,
+            noise: 0.02,
+            response: "entropy",
+          },
+        ],
+      },
+      {
+        id: "length",
+        label: "Response length",
+        log: false,
+        curves: [
+          // Verifiable-reward RL lengthens responses as the policy learns to show its checks.
+          {
+            key: "response-length",
+            label: "Mean response length (tokens)",
+            start: 640,
+            end: 1180,
+            tau: 300,
+            noise: 0.03,
+            response: "length",
+          },
+        ],
+      },
     ],
     run: {
-      totalSteps: 100_000,
-      openingStep: 53_556,
-      stepsPerSecond: 46_444 / (16 * 3600 + 28 * 60),
-      checkpointEvery: 5000,
-      checkpointSize: "4.2 GB",
-      rolloutsPerStep: 9,
-      rolloutsTotal: 900_000,
-      learningRate: 5e-7,
-      warmupSteps: 500,
+      // 1,200 GRPO steps × 64 prompts × 8 completions ≈ 614K rollouts.
+      totalSteps: 1_200,
+      openingStep: 612,
+      // ~215 s per step: generation dominates, then two reference passes and the update.
+      stepsPerSecond: 0.00465,
+      checkpointEvery: 50,
+      // LoRA rank 64 on every attention and MLP projection: 0.54B parameters plus AdamW state.
+      checkpointSize: "7.5 GB",
+      rolloutsPerStep: 8,
+      rolloutsTotal: 614_400,
+      learningRate: 1e-5,
+      warmupSteps: 10,
     },
     outputsTitle: "Stage outputs & artifacts (after RL training)",
     outputs: [
@@ -1199,7 +1276,7 @@ export const STAGES: readonly Stage[] = [
         id: "policy",
         title: "RL policy checkpoint",
         subtitle: "rl-policy-step-100k",
-        detail: "4.2 GB • Safetensors",
+        detail: "LoRA adapter (rank 64) + optimizer state · 4.2 GB · safetensors",
         icon: "cube",
         readyAt: 1,
         download: "weights",
@@ -1224,16 +1301,16 @@ export const STAGES: readonly Stage[] = [
       },
       {
         id: "hallucination",
-        title: "Reduced hallucination rate",
-        subtitle: "hallucination",
-        detail: "relative reduction",
+        title: "Hallucination evaluation report",
+        subtitle: "hallucination-eval-report.json",
+        detail: "JSON · updated at each evaluation",
         icon: "chart",
         readyAt: 0,
       },
       {
         id: "candidate",
         title: "Deployment candidate",
-        subtitle: "Full-capacity industrial assistant",
+        subtitle: "Stage 4 teacher candidate · merged BF16 export ≈ 66 GB",
         detail: "Ready for Stage 4",
         icon: "rocket",
         readyAt: 1,
@@ -1260,15 +1337,16 @@ export const STAGES: readonly Stage[] = [
     recipe: [
       { key: "Teacher source", value: "Stage-3 verifier-aligned multimodal teacher" },
       { key: "Teacher model", value: "Qwen3-VL-32B + industrial reasoning adapters" },
-      { key: "Student model", value: "Qwen3-VL-8B (or equivalent compact multimodal)" },
+      { key: "Student model", value: "Qwen3-VL-8B" },
       {
         key: "Transfer targets",
-        value: "Logits, hidden states, attention maps, grounding heads, tool policies",
+        value:
+          "Logits (forward KL), selected hidden states, grounding heads, tool-call policy",
       },
       {
         key: "Distillation losses",
         value:
-          "KL divergence, feature regression, attention transfer, grounding loss, reward-trace imitation",
+          "Forward KL on logits, hidden-state MSE via projection, grounding loss, CE on verified traces",
       },
       { key: "Trainable modules", value: "Full student + compact adapters" },
       {
@@ -1283,27 +1361,24 @@ export const STAGES: readonly Stage[] = [
       {
         id: "traces",
         name: "Teacher reasoning traces",
-        colour: BLUE,
         format: "JSONL",
         target: 520418,
         targetLabel: "520,418",
         volume: "1.8 TB",
-        notes: "Step-by-step chains w/ tool calls",
+        notes: "Reasoning traces with tool calls",
       },
       {
         id: "rollouts",
         name: "Verified rollouts (Stage 3)",
-        colour: RED,
         format: "Trajectories",
         target: 248903,
         targetLabel: "248,903",
         volume: "920 GB",
-        notes: "High-quality, verified episodes",
+        notes: "Verifier-passed episodes",
       },
       {
         id: "correspondences",
         name: "Field → P&ID correspondences",
-        colour: GREEN,
         format: "Image + JSON",
         target: 312665,
         targetLabel: "312,665",
@@ -1313,7 +1388,6 @@ export const STAGES: readonly Stage[] = [
       {
         id: "simulation",
         name: "Simulation summaries",
-        colour: PURPLE,
         format: "Text / tables",
         target: 184327,
         targetLabel: "184,327",
@@ -1323,7 +1397,6 @@ export const STAGES: readonly Stage[] = [
       {
         id: "extraction",
         name: "Structured extraction outputs",
-        colour: ORANGE,
         format: "JSONL",
         target: 1_024_115,
         targetLabel: "1,024,115",
@@ -1333,7 +1406,6 @@ export const STAGES: readonly Stage[] = [
       {
         id: "dialogues",
         name: "Long-context industrial dialogues",
-        colour: CYAN,
         format: "Conversation",
         target: 356901,
         targetLabel: "356,901",
@@ -1344,14 +1416,15 @@ export const STAGES: readonly Stage[] = [
     runtimeTitle: "Teacher vs student runtime",
     runtime: [],
     teacherStudent: [
-      ["Parameters", "32B", "8B"],
-      ["Context length", "128K", "32K"],
-      ["Precision (train)", "BF16", "BF16"],
-      ["Precision (deploy)", "FP16 / INT8", "INT8 / FP8"],
-      ["VRAM footprint", "~ 64 GB", "~ 16 GB"],
-      ["Throughput (tokens/s)", "12.4", "52.7"],
-      ["Latency (per sample)", "4.8 s", "0.9 s"],
-      ["Deployment target", "Datacenter (A100/H100)", "Edge GPU / plant server"],
+      ["Parameters", "33B", "8.8B"],
+      ["Context window", "256K", "256K"],
+      ["Serving precision", "BF16", "INT8 weight-only (W8A16)"],
+      ["Weights in memory", "66 GB", "9.4 GB"],
+      ["Weights + KV cache @ 32K", "74.6 GB", "14.2 GB"],
+      ["Decode throughput, batch 1 (H100)", "38 tok/s", "158 tok/s"],
+      ["Time to first token p50, 4K prompt (H100)", "480 ms", "140 ms"],
+      ["Time per output token p95 (H100)", "29 ms", "7.1 ms"],
+      ["Deployment target", "H100 80GB (TP=1)", "L40S 48GB or L4 24GB"],
     ],
     sampleTitle: "Knowledge transfer sample (multimodal distillation)",
     progressTitle: "Distillation progress",
@@ -1359,79 +1432,96 @@ export const STAGES: readonly Stage[] = [
     metricColumns: ["Metric", "Teacher", "Student", "Δ / target"],
     metrics: [
       {
-        label: "Teacher retention score ↑",
+        // Student macro-accuracy ÷ teacher macro-accuracy on the held-out task suite.
+        label: "Task accuracy retained vs teacher",
         direction: "up",
         reference: 1,
         start: 0.62,
         final: 0.93,
         digits: 3,
-        format: "absolute-delta",
+        format: "ratio",
       },
       {
-        label: "Grounding delta vs teacher ↑",
+        label: "Grounding mAP retained",
         direction: "up",
         reference: 1,
         start: 0.58,
         final: 0.92,
         digits: 3,
-        format: "absolute-delta",
+        format: "ratio",
       },
       {
-        label: "Topology F1 delta ↑",
+        // Student topology F1 ÷ teacher topology F1 (0.962).
+        label: "Topology F1 retained",
         direction: "up",
-        reference: 0.962,
-        start: 0.55,
-        final: 0.905,
+        reference: 1,
+        start: 0.572,
+        final: 0.941,
         digits: 3,
-        format: "absolute-delta",
+        format: "ratio",
       },
       {
-        label: "Citation precision delta ↑",
+        // Student citation precision ÷ teacher citation precision (0.978).
+        label: "Citation precision retained",
         direction: "up",
-        reference: 0.978,
-        start: 0.57,
-        final: 0.918,
+        reference: 1,
+        start: 0.583,
+        final: 0.939,
         digits: 3,
-        format: "absolute-delta",
+        format: "ratio",
       },
+      // Serving measurements, all on one H100 80GB at batch 1 with a 4K-token prompt. Values
+      // move from the BF16 student to the INT8 W8A16 student once quantisation-aware
+      // fine-tuning lands.
       {
-        label: "Latency per sample (s) ↓",
+        label: "Time to first token p50, 4K prompt, H100 (ms)",
+        // Quantisation-aware fine-tuning begins at 70 % of the run.
+        from: 0.7,
         direction: "down",
-        reference: 4.8,
-        start: 1.4,
-        final: 0.9,
-        digits: 2,
-        format: "percent-delta",
-      },
-      {
-        label: "Throughput (tokens/s) ↑",
-        direction: "up",
-        reference: 12.4,
-        start: 38,
-        final: 52.7,
-        digits: 1,
-        format: "percent-delta",
-      },
-      {
-        label: "Peak VRAM (GB) ↓",
-        direction: "down",
-        reference: 64,
-        start: 18,
-        final: 16,
+        target: 200,
+        reference: 480,
+        start: 190,
+        final: 140,
         digits: 0,
         format: "percent-delta",
       },
       {
-        label: "Edge deployability score ↑",
+        label: "Decode throughput, batch 1, H100 (tok/s)",
+        // Quantisation-aware fine-tuning begins at 70 % of the run.
+        from: 0.7,
         direction: "up",
-        reference: 0.28,
-        start: 0.61,
-        final: 0.93,
-        digits: 2,
-        format: "absolute-delta",
+        reference: 38,
+        start: 118,
+        final: 158,
+        digits: 0,
+        format: "percent-delta",
       },
       {
-        label: "Calibration drift ↓",
+        // BF16 weights 17.6 + KV 4.8 → INT8 weights 9.4 + KV 4.8; teacher 66 + 8.6.
+        label: "Serving memory, weights + KV @ 32K (GB)",
+        // Quantisation-aware fine-tuning begins at 70 % of the run.
+        from: 0.7,
+        direction: "down",
+        reference: 74.6,
+        start: 22.4,
+        final: 14.2,
+        digits: 1,
+        format: "percent-delta",
+      },
+      {
+        label: "Time per output token p95, batch 1, H100 (ms)",
+        // Quantisation-aware fine-tuning begins at 70 % of the run.
+        from: 0.7,
+        direction: "down",
+        target: 10,
+        reference: 29,
+        start: 9.4,
+        final: 7.1,
+        digits: 1,
+        format: "percent-delta",
+      },
+      {
+        label: "ECE drift vs teacher",
         direction: "down",
         target: 0.05,
         reference: "-",
@@ -1442,114 +1532,110 @@ export const STAGES: readonly Stage[] = [
     ],
     curves: [
       {
-        id: "kl",
-        label: "Teacher-Student KL",
+        id: "distillation",
+        label: "Distillation loss",
         log: true,
         curves: [
           {
-            key: "kl",
-            label: "Teacher-Student KL",
-            colour: "#1d4ed8",
-            start: 3.5,
-            end: 0.21,
-            tau: 1400,
-            noise: 0.03,
+            key: "total",
+            label: "Total (0.7·KL + 0.2·CE + 0.1·hidden)",
+            start: 1.9,
+            end: 0.56,
+            tau: 2500,
+            noise: 0,
+            response: "loss",
+            sumOf: [
+              { key: "kd-kl", weight: 0.7 },
+              { key: "kd-ce", weight: 0.2 },
+              { key: "hidden", weight: 0.1 },
+            ],
           },
           {
-            key: "retention-loss",
-            label: "Feature regression loss",
-            colour: GREEN,
-            start: 0.35,
-            end: 0.0105,
-            tau: 2600,
-            noise: 0.05,
+            key: "kd-kl",
+            label: "Forward KL (teacher ‖ student)",
+            start: 1.9,
+            end: 0.34,
+            tau: 2500,
+            noise: 0.015,
+            response: "loss",
           },
           {
-            key: "grounding-loss",
-            label: "Grounding loss",
-            colour: ORANGE,
-            start: 1.2,
-            end: 0.045,
-            tau: 2000,
-            noise: 0.05,
+            key: "kd-ce",
+            label: "CE on verified traces",
+            start: 2.6,
+            end: 1.55,
+            tau: 2200,
+            noise: 0.014,
+            response: "loss",
           },
           {
-            key: "attention-loss",
-            label: "Attention transfer loss",
-            colour: PURPLE,
-            start: 2.4,
-            end: 0.075,
-            tau: 1800,
-            noise: 0.04,
+            key: "hidden",
+            label: "Hidden-state MSE (projected)",
+            start: 0.42,
+            end: 0.09,
+            tau: 3000,
+            noise: 0.02,
+            response: "loss",
+          },
+        ],
+      },
+      {
+        id: "agreement",
+        label: "Agreement",
+        log: false,
+        curves: [
+          {
+            key: "top1",
+            label: "Top-1 agreement with teacher",
+            start: 0.52,
+            end: 0.83,
+            tau: 6000,
+            noise: 0.006,
           },
         ],
       },
       {
         id: "retention",
-        label: "Retention score",
+        label: "Capability retained",
         log: false,
         curves: [
           {
-            key: "retention",
-            label: "Teacher retention",
-            colour: GREEN,
+            key: "retained",
+            label: "Task accuracy retained",
             start: 0.62,
             end: 0.93,
-            tau: 16000,
+            tau: 9000,
             noise: 0.006,
+            evaluation: true,
           },
-        ],
-      },
-      {
-        id: "grounding",
-        label: "Grounding retention",
-        log: false,
-        curves: [
           {
-            key: "grounding",
-            label: "Grounding vs teacher",
-            colour: ORANGE,
+            key: "grounding-retained",
+            label: "Grounding mAP retained",
             start: 0.58,
             end: 0.92,
-            tau: 17000,
+            tau: 9000,
             noise: 0.006,
-          },
-        ],
-      },
-      {
-        id: "latency",
-        label: "Latency target",
-        log: false,
-        curves: [
-          {
-            key: "latency",
-            label: "Latency per sample (s)",
-            colour: PURPLE,
-            start: 1.4,
-            end: 0.9,
-            tau: 12000,
-            noise: 0.01,
+            evaluation: true,
           },
           {
-            key: "target",
-            label: "Target < 1 s",
-            colour: "#334155",
-            start: 1,
-            end: 1,
-            tau: 1,
-            noise: 0,
-            dashed: true,
+            key: "topology-retained",
+            label: "Topology F1 retained",
+            start: 0.57,
+            end: 0.94,
+            tau: 8000,
+            noise: 0.006,
+            evaluation: true,
           },
         ],
       },
     ],
     run: {
-      // Three passes over the 2.65M-sample distillation contract at a global batch of 128.
       totalSteps: 62_000,
-      openingStep: 12_000,
-      stepsPerSecond: 50_000 / (82 * 3600),
-      checkpointEvery: 1000,
-      checkpointSize: "2.4 GB",
+      openingStep: 21_500,
+      stepsPerSecond: 0.093,
+      checkpointEvery: 2000,
+      // Full fine-tune of the 8.9B student: BF16 weights, FP32 master and AdamW moments.
+      checkpointSize: "125 GB",
       epochs: 3,
       learningRate: 3e-5,
       warmupSteps: 800,
@@ -1560,7 +1646,7 @@ export const STAGES: readonly Stage[] = [
         id: "student",
         title: "Distilled student checkpoint",
         subtitle: "Qwen3-VL-8B-distill",
-        detail: "2.4 GB • safetensors",
+        detail: "17.6 GB · BF16 safetensors",
         icon: "cube",
         readyAt: 1,
         download: "weights",
@@ -1585,16 +1671,16 @@ export const STAGES: readonly Stage[] = [
       },
       {
         id: "quant",
-        title: "Quantization-ready package",
+        title: "INT8 W8A16 package",
         subtitle: "student-int8-package.tar.gz",
-        detail: "1.1 GB • TAR.GZ",
+        detail: "INT8 W8A16 · 9.4 GB",
         icon: "box",
         readyAt: 0.9,
         download: "weights",
       },
       {
         id: "profile",
-        title: "Approved plant inference profile",
+        title: "Plant inference profile (pending sign-off)",
         subtitle: "plant-profile-v1.0.json",
         detail: "JSON",
         icon: "shield",

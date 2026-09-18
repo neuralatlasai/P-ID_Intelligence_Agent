@@ -13,20 +13,22 @@
   flex: none;
 }
 
+/* Marks, not text: these take the `-mark` variants, which answer to the 3:1 non-text
+   contrast threshold rather than 4.5:1. */
 .ready {
-  background: var(--status-ready);
+  background: var(--status-ready-mark);
 }
 
 .degraded {
-  background: var(--status-degraded);
+  background: var(--status-degraded-mark);
 }
 
 .down {
-  background: var(--status-down);
+  background: var(--status-down-mark);
 }
 
 .checking {
-  background: var(--status-unknown);
+  background: var(--status-unknown-mark);
 }
 
 /*

@@ -68,10 +68,9 @@ export function SelectionCard({
         ) : null}
         <div>
           <dt>Class</dt>
-          <dd>
-            <i style={{ background: type.colour }} />
-            {type.name}
-          </dd>
+          {/* The class is named in full here, so a colour swatch beside it carried no
+              information — it only asked the reader to learn a key. */}
+          <dd>{type.name}</dd>
         </div>
         <div>
           <dt>Source id</dt>

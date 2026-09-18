@@ -646,7 +646,7 @@ export function IndustrialWorkspace({
                   setClassFilter((current) => (current === group.id ? null : group.id))
                 }
               >
-                <i style={{ background: group.colour }} aria-hidden="true" />
+                <i aria-hidden="true" />
                 <span>{group.short}</span>
                 <b>{count}</b>
               </button>
@@ -689,7 +689,7 @@ export function IndustrialWorkspace({
                     onClick={() => select(node.id)}
                     title={`${label(node)} · source node ${node.id}`}
                   >
-                    <i style={{ background: group.colour }} aria-hidden="true" />
+                    <i aria-hidden="true" />
                     <span>
                       <strong>{label(node)}</strong>
                       <small>{nameOf(node)}</small>
@@ -756,7 +756,10 @@ export function IndustrialWorkspace({
                 connections · {drawing.directed ? "directed" : "undirected"} graph
               </p>
             </div>
-            <span className={styles.sourceState} data-offline={sourceMode !== "backend" || undefined}>
+            <span
+              className={styles.sourceState}
+              data-offline={sourceMode !== "backend" || undefined}
+            >
               <i aria-hidden="true" />
               {sourceMode === "backend" ? "Parsed and indexed" : "Offline fixture"}
               {namedCount > 0 ? ` · ${namedCount} tags read` : ""}
@@ -788,16 +791,17 @@ export function IndustrialWorkspace({
                         })
                       }
                     >
-                      <i
-                        style={{ "--swatch": type.colour } as CSSProperties}
-                        aria-hidden="true"
-                      />
+                      {/* The class is named in type beside the marker, so the marker
+                          carries the on/off state and nothing else. */}
+                      <i aria-hidden="true" />
                       {LEGEND_NAMES[type.label] ?? type.name}
                     </button>
                   ))}
                 <span className={styles.legendSelected}>
+                  {/* Selection is a state, so this one marker takes the overlay token the
+                      selected box on the sheet is painted with. */}
                   <i
-                    style={{ "--swatch": "#b8320c" } as CSSProperties}
+                    style={{ "--swatch": "var(--overlay-selected)" } as CSSProperties}
                     aria-hidden="true"
                   />
                   Selected
@@ -868,7 +872,7 @@ export function IndustrialWorkspace({
                   : "The graph is undirected, so it establishes connection but not flow direction."}
               </p>
               <div className={styles.assetFocus}>
-                <i style={{ background: selectedType.colour }} aria-hidden="true" />
+                <i aria-hidden="true" />
                 <div>
                   <h3>{label(selectedNode)}</h3>
                   <span>
@@ -896,7 +900,7 @@ export function IndustrialWorkspace({
                   const type = objectClass(neighbour?.kind ?? "");
                   return (
                     <button key={id} onClick={() => select(id)}>
-                      <i style={{ background: type.colour }} aria-hidden="true" />
+                      <i aria-hidden="true" />
                       <span>
                         <strong>{neighbour ? label(neighbour) : id}</strong>
                         <small>{type.name}</small>
@@ -1136,7 +1140,7 @@ export function IndustrialWorkspace({
 
             <h3>Selected asset</h3>
             <div className={styles.selectedCard}>
-              <i style={{ background: selectedType.colour }} aria-hidden="true" />
+              <i aria-hidden="true" />
               <strong>{label(selectedNode)}</strong>
               <p>{nameOf(selectedNode)}</p>
               {selectedAsset ? (

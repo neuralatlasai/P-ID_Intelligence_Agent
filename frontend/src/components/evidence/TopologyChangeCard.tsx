@@ -31,7 +31,7 @@ export function TopologyChangeCard({ steps }: TopologyChangeCardProps) {
             <span className={styles.topologyNode}>{step.label}</span>
             {index < steps.length - 1 ? (
               <span className={styles.topologyArrow} aria-hidden="true">
-                &#8595;
+                ↓
               </span>
             ) : null}
           </li>

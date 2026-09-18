@@ -12,6 +12,7 @@ import type { ArtifactSpec, Stage } from "@/lib/modellab/stages";
 
 import { Icon, type IconName } from "./icons";
 import styles from "./ModelLab.module.css";
+import { seriesColour } from "@/lib/series";
 
 /** Technical panel labels avoid assigning unrelated pictograms to model operations. */
 const PANEL_LABELS: Partial<Record<IconName, string>> = {
@@ -70,11 +71,21 @@ const MEASURED_STUDENT_ROWS: Record<
   string,
   { metric: string; format: (v: number) => string }
 > = {
-  "VRAM footprint": { metric: "Peak VRAM", format: (v) => `${v.toFixed(1)} GB` },
-  "Throughput (tokens/s)": { metric: "Throughput", format: (v) => v.toFixed(1) },
-  "Latency (per sample)": {
-    metric: "Latency per sample",
-    format: (v) => `${v.toFixed(2)} s`,
+  "Weights + KV cache @ 32K": {
+    metric: "Serving memory",
+    format: (v) => `${v.toFixed(1)} GB`,
+  },
+  "Decode throughput, batch 1 (H100)": {
+    metric: "Decode throughput",
+    format: (v) => `${v.toFixed(0)} tok/s`,
+  },
+  "Time to first token p50, 4K prompt (H100)": {
+    metric: "Time to first token p50",
+    format: (v) => `${v.toFixed(0)} ms`,
+  },
+  "Time per output token p95 (H100)": {
+    metric: "Time per output token p95",
+    format: (v) => `${v.toFixed(1)} ms`,
   },
 };
 
@@ -210,14 +221,15 @@ export function RewardBreakdownCard({
             </tr>
           </thead>
           <tbody>
-            {rows.map(({ reward, value, live }) => {
+            {rows.map(({ reward, value, live }, index) => {
               const share = Math.abs(value) / total;
+              const colour = seriesColour(index);
               return (
                 <tr key={reward.name}>
                   <td>
                     <i
                       className={styles.dot}
-                      style={{ background: reward.colour }}
+                      style={{ background: colour }}
                       aria-hidden="true"
                     />
                     {reward.name.replace(/ reward$/, "")}
@@ -227,7 +239,7 @@ export function RewardBreakdownCard({
                       <i
                         style={{
                           width: `${(share * 100).toFixed(1)}%`,
-                          background: reward.colour,
+                          background: colour,
                         }}
                       />
                     </span>
@@ -385,10 +397,6 @@ export function ArtifactsRow({
     anchor.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
-  const hallucination = stage.metrics.find((metric) =>
-    metric.label.startsWith("Hallucination rate"),
-  );
-
   // Rolling checkpoint writes: where the current shard write is, and when the next one lands.
   const lastCheckpoint = Math.floor(step / run.checkpointEvery) * run.checkpointEvery;
   const toNext = Math.min(run.totalSteps, lastCheckpoint + run.checkpointEvery) - step;
@@ -435,12 +443,6 @@ export function ArtifactsRow({
           let detail = spec.detail;
           if (spec.subtitle === "experiment") {
             subtitle = `Ready for SFT · ${stage.experimentId}`;
-          }
-          if (spec.subtitle === "hallucination" && hallucination) {
-            // The value the metrics table shows: the last published evaluation.
-            const value = metricAtEval(hallucination, stage, step);
-            subtitle = `${Math.round(hallucination.start * 100)}% → ${(value * 100).toFixed(1)}%`;
-            detail = `↓ ${((1 - value / hallucination.start) * 100).toFixed(1)}% relative reduction`;
           }
           if (spec.id === "candidate") {
             detail =

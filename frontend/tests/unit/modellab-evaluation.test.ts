@@ -28,8 +28,12 @@ describe("evaluation cadence", () => {
       stage("pretraining").run.checkpointEvery / 2,
     );
     expect(evalEvery(stage("sft"))).toBe(stage("sft").run.checkpointEvery / 2);
-    expect(evalEvery(stage("rl"))).toBe(2500);
-    expect(evalEvery(stage("distillation"))).toBe(stage("distillation").run.checkpointEvery);
+    // A 1,200-step GRPO run evaluates every 25 steps; a fixed 2,500 would never fire.
+    expect(evalEvery(stage("rl"))).toBe(stage("rl").run.checkpointEvery / 2);
+    expect(evalEvery(stage("rl"))).toBeLessThan(stage("rl").run.totalSteps / 10);
+    expect(evalEvery(stage("distillation"))).toBe(
+      stage("distillation").run.checkpointEvery,
+    );
   });
 
   it("reports the last and next evaluation around a step", () => {
@@ -39,11 +43,15 @@ describe("evaluation cadence", () => {
       run: { ...stage(id).run, stepsPerSecond: 0 },
     });
     const pre = instant("pretraining");
-    expect(lastEvalStep(pre, 68_240.7)).toBe(68_000);
-    expect(nextEvalStep(pre, 68_240.7)).toBe(69_000);
-    expect(lastEvalStep(pre, 999.99)).toBe(0);
-    expect(lastEvalStep(pre, 1000)).toBe(1000);
-    expect(lastEvalStep(instant("rl"), 53_556)).toBe(52_500);
+    const every = evalEvery(pre);
+    const boundary = every * 32;
+    expect(lastEvalStep(pre, boundary + every * 0.48)).toBe(boundary);
+    expect(nextEvalStep(pre, boundary + every * 0.48)).toBe(boundary + every);
+    expect(lastEvalStep(pre, every - 0.01)).toBe(0);
+    expect(lastEvalStep(pre, every)).toBe(every);
+    const rl = instant("rl");
+    const rlEvery = evalEvery(rl);
+    expect(lastEvalStep(rl, rlEvery * 24 + 12)).toBe(rlEvery * 24);
     expect(lastEvalStep(pre, pre.run.totalSteps + 50)).toBe(pre.run.totalSteps);
     expect(nextEvalStep(pre, pre.run.totalSteps)).toBeUndefined();
   });
@@ -55,7 +63,7 @@ describe("evaluation publication", () => {
     const lag = evalLagSteps(pre);
     expect(lag).toBeCloseTo(EVAL_SECONDS * pre.run.stepsPerSecond, 9);
     const every = evalEvery(pre);
-    const boundary = 68_000;
+    const boundary = every * 32;
     expect(lastEvalStep(pre, boundary + lag * 0.5)).toBe(boundary - every);
     expect(lastEvalStep(pre, boundary + lag + 0.01)).toBe(boundary);
   });
@@ -89,16 +97,26 @@ describe("metricAtEval", () => {
     const rl = instantStage("rl");
     for (const metric of rl.metrics) {
       expect(metricAtEval(metric, rl, 10)).toBe(metric.start);
-      const value = metricAtEval(metric, rl, 60_000);
+      // An evaluation boundary about 60 % of the way through the run.
+      const every = evalEvery(rl);
+      const at = Math.round((rl.run.totalSteps * 0.6) / every) * every;
+      const value = metricAtEval(metric, rl, at);
       const range = Math.abs(metric.final - metric.start);
-      expect(Math.abs(value - metricAt(metric, 0.6))).toBeLessThanOrEqual(range * 0.021);
+      expect(
+        Math.abs(value - metricAt(metric, at / rl.run.totalSteps)),
+      ).toBeLessThanOrEqual(range * 0.021);
     }
   });
 
   it("is deterministic", () => {
     const pre = stage("pretraining");
     const metric = pre.metrics[0]!;
-    expect(metricAtEval(metric, pre, 68_240)).toBe(metricAtEval(metric, pre, 68_999));
+    // Two readings inside one publication window report the same evaluation.
+    const every = evalEvery(pre);
+    const published = every * 32 + evalLagSteps(pre) + 1;
+    expect(metricAtEval(metric, pre, published)).toBe(
+      metricAtEval(metric, pre, published + every * 0.5),
+    );
   });
 });
 
@@ -106,18 +124,28 @@ describe("metricHistory", () => {
   it("returns past evaluations oldest first, ending at the last one", () => {
     const pre = stage("pretraining");
     const metric = pre.metrics[0]!;
-    const history = metricHistory(metric, pre, 68_240, 12);
+    const at = pre.run.openingStep;
+    const every = evalEvery(pre);
+    const last = lastEvalStep(pre, at);
+    const history = metricHistory(metric, pre, at, 12);
     expect(history).toHaveLength(12);
     expect(history.map((point) => point.step)).toEqual(
-      Array.from({ length: 12 }, (_, index) => 57_000 + index * 1000),
+      Array.from({ length: 12 }, (_, index) => last - (11 - index) * every),
     );
-    expect(history.at(-1)!.value).toBe(metricAtEval(metric, pre, 68_240));
+    expect(history.at(-1)!.value).toBe(metricAtEval(metric, pre, at));
   });
 
   it("is shorter early in the run", () => {
     const pre = stage("pretraining");
-    const history = metricHistory(pre.metrics[0]!, pre, 2500, 12);
-    expect(history.map((point) => point.step)).toEqual([0, 1000, 2000]);
+    const every = evalEvery(pre);
+    // Two and a half evaluation intervals in, plus the publication lag.
+    const history = metricHistory(
+      pre.metrics[0]!,
+      pre,
+      every * 2.5 + evalLagSteps(pre),
+      12,
+    );
+    expect(history.map((point) => point.step)).toEqual([0, every, every * 2]);
   });
 });
 

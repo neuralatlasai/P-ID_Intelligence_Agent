@@ -44,8 +44,6 @@ export interface ObjectClass {
   readonly abbreviation: string;
   /** What the symbol represents, in one line. */
   readonly description: string;
-  /** Overlay colour. Decoration only — the name is always shown alongside. */
-  readonly colour: string;
   /**
    * Whether the class is process equipment rather than drafting apparatus.
    *
@@ -61,7 +59,6 @@ const UNKNOWN: ObjectClass = {
   name: "Unrecognised symbol",
   abbreviation: "UNK",
   description: "A class this build does not recognise. Shown as extracted, uninterpreted.",
-  colour: "#94a3b8",
   equipment: false,
 };
 
@@ -78,7 +75,6 @@ const CLASSES: Readonly<Record<string, ObjectClass>> = {
     name: "Valve",
     abbreviation: "VLV",
     description: "Isolation, control or relief element in a process line.",
-    colour: "#1d4ed8",
     equipment: true,
   },
   instrumentation: {
@@ -86,7 +82,6 @@ const CLASSES: Readonly<Record<string, ObjectClass>> = {
     name: "Instrument",
     abbreviation: "INST",
     description: "Measurement, indication or control device — an ISA balloon or symbol.",
-    colour: "#6d28d9",
     equipment: true,
   },
   pump: {
@@ -94,7 +89,6 @@ const CLASSES: Readonly<Record<string, ObjectClass>> = {
     name: "Pump",
     abbreviation: "PMP",
     description: "Rotating equipment that moves fluid, shown with its driver.",
-    colour: "#b45309",
     equipment: true,
   },
   tank: {
@@ -102,7 +96,6 @@ const CLASSES: Readonly<Record<string, ObjectClass>> = {
     name: "Vessel or tank",
     abbreviation: "VES",
     description: "Storage or process vessel, drum, or tank.",
-    colour: "#0f6b41",
     equipment: true,
   },
   "inlet/outlet": {
@@ -110,7 +103,6 @@ const CLASSES: Readonly<Record<string, ObjectClass>> = {
     name: "Inlet or outlet",
     abbreviation: "I/O",
     description: "Where a line enters or leaves the sheet — an off-page connection.",
-    colour: "#0e7490",
     equipment: true,
   },
   connector: {
@@ -118,7 +110,6 @@ const CLASSES: Readonly<Record<string, ObjectClass>> = {
     name: "Line connector",
     abbreviation: "CONN",
     description: "A junction between line segments. Drafting apparatus, not equipment.",
-    colour: "#64748b",
     equipment: false,
   },
   crossing: {
@@ -126,7 +117,6 @@ const CLASSES: Readonly<Record<string, ObjectClass>> = {
     name: "Line crossing",
     abbreviation: "XING",
     description: "Two lines that cross the page without joining.",
-    colour: "#94a3b8",
     equipment: false,
   },
   arrow: {
@@ -134,7 +124,6 @@ const CLASSES: Readonly<Record<string, ObjectClass>> = {
     name: "Flow arrow",
     abbreviation: "ARR",
     description: "Direction marker drawn on a line.",
-    colour: "#a16207",
     equipment: false,
   },
   general: {
@@ -142,7 +131,6 @@ const CLASSES: Readonly<Record<string, ObjectClass>> = {
     name: "Unclassified symbol",
     abbreviation: "GEN",
     description: "A symbol the extractor detected but did not classify.",
-    colour: "#94a3b8",
     equipment: false,
   },
   background: {
@@ -150,7 +138,6 @@ const CLASSES: Readonly<Record<string, ObjectClass>> = {
     name: "Drawing frame",
     abbreviation: "FRM",
     description: "Border, grid reference or title block.",
-    colour: "#cbd5e1",
     equipment: false,
   },
 };

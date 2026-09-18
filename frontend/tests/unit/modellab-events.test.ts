@@ -150,11 +150,12 @@ describe("runEvents", () => {
 
 describe("nextEvents", () => {
   it("schedules the next checkpoint and evaluation with ETAs from the rate", () => {
-    const step = 68_500;
+    const every = slow.run.checkpointEvery;
+    const step = every * 16 + every / 2;
     const upcoming = nextEvents(slow, step, NOW, 0.036);
     const checkpoint = upcoming.find((item) => item.kind === "checkpoint")!;
-    expect(checkpoint.step).toBe(70_000);
-    expect(checkpoint.etaSeconds).toBeCloseTo(1500 / 0.036, 6);
+    expect(checkpoint.step).toBe(every * 17);
+    expect(checkpoint.etaSeconds).toBeCloseTo((every * 17 - step) / 0.036, 6);
     const evaluation = upcoming.find((item) => item.kind === "eval")!;
     expect(evaluation.etaSeconds).toBeGreaterThan(0);
     for (let index = 1; index < upcoming.length; index += 1) {
@@ -169,11 +170,13 @@ describe("nextEvents", () => {
 describe("checkpointLifecycle", () => {
   it("keeps the writing window at five wall-clock minutes whatever the step rate", () => {
     for (const rate of [0.036, 1.6, 6]) {
+      // Checkpoints far enough apart that the fastest rate cannot reach the next one inside
+      // the window: this test is about the window, not the cadence.
       const stage: Stage = {
         ...pretraining,
-        run: { ...pretraining.run, stepsPerSecond: rate },
+        run: { ...pretraining.run, stepsPerSecond: rate, checkpointEvery: 4000 },
       };
-      const boundary = 68_000;
+      const boundary = 16_000;
       const at = (seconds: number) =>
         checkpointLifecycle(stage, boundary + seconds * rate, rate, NOW);
       expect(at(1).writing?.step).toBe(boundary);
@@ -187,18 +190,22 @@ describe("checkpointLifecycle", () => {
   });
 
   it("describes completed checkpoints with status, URI and a simulated digest", () => {
-    const life = checkpointLifecycle(slow, 68_000 + 3600 * 0.036, 0.036, NOW);
+    const every = slow.run.checkpointEvery;
+    const boundary = every * 16;
+    const life = checkpointLifecycle(slow, boundary + 3600 * 0.036, 0.036, NOW);
     const newest = life.records[0]!;
-    expect(newest.uri).toBe(`s3://pid-lab/${slow.experimentId}/step-068000/`);
-    expect(checkpointUri(slow, 68_000)).toBe(newest.uri);
+    expect(newest.uri).toBe(
+      `s3://pid-lab/${slow.experimentId}/step-${String(boundary).padStart(6, "0")}/`,
+    );
+    expect(checkpointUri(slow, boundary)).toBe(newest.uri);
     expect(newest.digest).toMatch(/^[0-9a-f]{64}$/);
-    expect(checkpointDigest(slow, 68_000)).toBe(newest.digest);
+    expect(checkpointDigest(slow, boundary)).toBe(newest.digest);
     expect(newest.evalScore).toBeDefined();
     expect(life.records.filter((record) => record.best)).toHaveLength(1);
     expect(life.best?.status).toBe("Best");
-    expect(life.next?.step).toBe(70_000);
+    expect(life.next?.step).toBe(boundary + every);
 
-    const fresh = checkpointLifecycle(slow, 68_000 + 400 * 0.036, 0.036, NOW).records[0]!;
+    const fresh = checkpointLifecycle(slow, boundary + 400 * 0.036, 0.036, NOW).records[0]!;
     expect(fresh.evalScore).toBeUndefined();
     expect(["Verified", "Best"]).toContain(fresh.status);
   });

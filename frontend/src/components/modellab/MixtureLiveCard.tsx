@@ -8,6 +8,7 @@ import { Card } from "./Cards";
 import type { LiveCardProps } from "./live";
 import local from "./MixtureLiveCard.module.css";
 import styles from "./ModelLab.module.css";
+import { seriesColour } from "@/lib/series";
 
 const number = (value: number) => value.toLocaleString("en-US");
 
@@ -60,7 +61,7 @@ export function MixtureLiveCard({ step, now, config }: LiveCardProps) {
             <path
               key={family.id}
               d={d}
-              fill={family.colour}
+              fill={seriesColour(index)}
               opacity={active === undefined || active === index ? 1 : 0.35}
               onPointerEnter={() => setActive(index)}
               onPointerLeave={() => setActive(undefined)}
@@ -74,7 +75,12 @@ export function MixtureLiveCard({ step, now, config }: LiveCardProps) {
           >
             {focus ? `${Math.round(focus.share * 100)}%` : config.globalBatch}
           </text>
-          <text x={80} y={focus ? 94 : 102} textAnchor="middle" className={styles.donutLabel}>
+          <text
+            x={80}
+            y={focus ? 94 : 102}
+            textAnchor="middle"
+            className={styles.donutLabel}
+          >
             {focus ? focus.label.split(" ")[0] : "samples / batch"}
           </text>
         </svg>
@@ -88,7 +94,7 @@ export function MixtureLiveCard({ step, now, config }: LiveCardProps) {
                   setActive((current) => (current === index ? undefined : index))
                 }
               >
-                <i style={{ background: family.colour }} aria-hidden="true" />
+                <i style={{ background: seriesColour(index) }} aria-hidden="true" />
                 <span>
                   {family.label} ({Math.round(family.share * 100)}%)
                 </span>
@@ -121,19 +127,19 @@ export function MixtureLiveCard({ step, now, config }: LiveCardProps) {
               key={family.id}
               style={{
                 width: `${mixture.batchSize ? (family.lastBatch / mixture.batchSize) * 100 : 0}%`,
-                background: family.colour,
+                background: seriesColour(index),
               }}
               data-dim={(active !== undefined && active !== index) || undefined}
             />
           ))}
         </div>
         <ul className={local.counts} aria-hidden="true">
-          {families.map((family) => {
+          {families.map((family, index) => {
             const expected = mixture.batchSize * family.share;
             const delta = family.lastBatch - expected;
             return (
               <li key={family.id}>
-                <i style={{ background: family.colour }} />
+                <i style={{ background: seriesColour(index) }} />
                 <b>{family.lastBatch}</b>
                 <small>
                   {delta >= 0.5 ? "+" : delta <= -0.5 ? "−" : "±"}

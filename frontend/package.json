@@ -22,7 +22,8 @@
     "test:coverage": "node ./node_modules/vitest/vitest.mjs run --coverage",
     "test:e2e": "node ./node_modules/@playwright/test/cli.js test",
     "test:e2e:install": "node ./node_modules/@playwright/test/cli.js install --with-deps chromium",
-    "gate": "npm run format:check && npm run lint && npm run typecheck && npm run test && npm run build"
+    "check:contrast": "node scripts/check-contrast.mjs",
+    "gate": "npm run format:check && npm run lint && npm run typecheck && npm run check:contrast && npm run test && npm run build"
   },
   "dependencies": {
     "eventsource-parser": "4.1.0",

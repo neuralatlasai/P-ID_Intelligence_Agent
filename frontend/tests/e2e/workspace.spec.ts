@@ -178,7 +178,11 @@ test.describe("asking a question", () => {
         hasText: "First session question about FCV-2201.",
       }),
     ).toHaveCount(0);
-    await expect(page.getByRole("heading", { name: "P&ID Intelligence" })).toBeVisible();
+    // An empty session shows the empty state. The product name is its eyebrow, not a
+    // heading; the heading is the empty state's own question.
+    await expect(
+      page.getByRole("heading", { name: "What would you like to analyse?" }),
+    ).toBeVisible();
 
     await page.goto(first);
     await expect(
@@ -248,7 +252,11 @@ test.describe("session management", () => {
         hasText: "A question that will be cleared.",
       }),
     ).toHaveCount(0, { timeout: 20_000 });
-    await expect(page.getByRole("heading", { name: "P&ID Intelligence" })).toBeVisible();
+    // An empty session shows the empty state. The product name is its eyebrow, not a
+    // heading; the heading is the empty state's own question.
+    await expect(
+      page.getByRole("heading", { name: "What would you like to analyse?" }),
+    ).toBeVisible();
   });
 
   test("lists visited sessions and says the list is local", async ({ page }) => {

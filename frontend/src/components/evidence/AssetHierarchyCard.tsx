@@ -32,7 +32,7 @@ export function AssetHierarchyCard({ rows }: AssetHierarchyCardProps) {
           >
             {row.depth > 0 ? (
               <span className={styles.hierarchyRail} aria-hidden="true">
-                &#9492;
+                └
               </span>
             ) : null}
             <span>{row.label}</span>

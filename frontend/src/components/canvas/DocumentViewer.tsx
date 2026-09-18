@@ -244,7 +244,11 @@ function Block({
   }
 }
 
-/** The real sheet around a component, the component ringed in blue and its connections in grey. */
+/**
+ * The real sheet around a component: a detection overlay, so the component and its connections
+ * are ringed with the `--overlay-*` family. The two states are told apart by the weight the
+ * tokens fix — selected at twice the related ring — rather than by hue.
+ */
 function SheetCrop({
   node,
   neighbours,
@@ -267,7 +271,9 @@ function SheetCrop({
   const cx = (x0 + x1) / 2;
   const cy = (y0 + y1) / 2;
   const stroke = width / 260;
-  const ring = (n: DrawingNode, colour: string, weight: number) => (
+  // `weight` mirrors --overlay-related-width : --overlay-selected-width, scaled into the
+  // sheet's own units so a ring keeps its weight at any crop size.
+  const ring = (n: DrawingNode, overlay: string, weight: number) => (
     <rect
       key={n.id}
       x={n.x - n.width / 2 - stroke * 3}
@@ -276,7 +282,7 @@ function SheetCrop({
       height={n.height + stroke * 6}
       rx={stroke * 3}
       fill="none"
-      stroke={colour}
+      stroke={overlay}
       strokeWidth={stroke * weight}
     />
   );
@@ -292,11 +298,18 @@ function SheetCrop({
         y={cy - height / 2}
         width={width}
         height={height}
-        fill="#ffffff"
+        fill="var(--bg-void)"
       />
-      <image href={imageUrl} width={drawing.width} height={drawing.height} />
-      {near.map((n) => ring(n, "#64748b", 1))}
-      {ring(node, "#1d4ed8", 2)}
+      {/* Normalised to ink-on-void, the same as every other rendering of this sheet. The
+          class goes on the image alone so the rings above it are not inverted with it. */}
+      <image
+        className="engineeringRaster"
+        href={imageUrl}
+        width={drawing.width}
+        height={drawing.height}
+      />
+      {near.map((n) => ring(n, "var(--overlay-related)", 1))}
+      {ring(node, "var(--overlay-selected)", 2)}
     </svg>
   );
 }

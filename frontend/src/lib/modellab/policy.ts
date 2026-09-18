@@ -287,30 +287,27 @@ function metricValue(stage: Stage, label: string, progress: number): number | un
   return metric ? metricAt(metric, clamp01(progress)) : undefined;
 }
 
-function metricReference(stage: Stage, label: string): number | undefined {
-  const reference = stage.metrics.find((m) => m.label.startsWith(label))?.reference;
-  return typeof reference === "number" ? reference : undefined;
-}
-
 /**
  * Stage 3 policy error rates at a share of the run, read from the stage's own metrics: early
- * rollouts fail often, late ones rarely.
+ * rollouts fail often, late ones rarely. The unsupported-claim rate drives both fabricated
+ * content and dropped citations: a claim with no supporting source is either.
  */
 export function rlPolicyProfile(stage: Stage, progress: number): ErrorProfile {
   const value = (label: string, fallback: number) =>
     metricValue(stage, label, progress) ?? fallback;
-  const faithfulness = value("Grounded answer faithfulness", 1);
+  const attributable = value("Attributable claim rate", 1);
+  const unsupported = value("Unsupported claim rate", 0);
   const raw = {
-    hallucination: clamp01(value("Hallucination rate", 0)),
+    hallucination: clamp01(unsupported),
     wrongConnection: clamp01(1 - value("Topology constraint satisfaction", 1)),
-    staleReading: clamp01(1 - value("Simulation consistency score", 1)),
-    missingCitation: clamp01(value("Unsupported assertion rate", 0)),
-    wrongLine: clamp01((1 - faithfulness) * 0.5),
+    staleReading: clamp01(1 - value("Simulator outcome agreement", 1)),
+    missingCitation: clamp01(unsupported),
+    wrongLine: clamp01((1 - attributable) * 0.5),
   };
   // The per-error rates above are each a separate metric, and drawn independently they fail
   // far more rollouts than the policy's measured pass@1 says. Scale them together so a clean
   // rollout is exactly as likely as that metric: P(no error) = Π(1 − k·rᵢ) = pass@1.
-  const passAt1 = metricValue(stage, "Verifier pass@1", progress);
+  const passAt1 = metricValue(stage, "pass@1", progress);
   if (passAt1 === undefined) return raw;
   const scale = passScale(Object.values(raw), clamp01(passAt1));
   return {
@@ -337,33 +334,42 @@ export function passScale(rates: readonly number[], target: number): number {
   return (lo + hi) / 2;
 }
 
-/** The distillation teacher: a strong, fixed model with small residual error rates. */
-export function teacherProfile(stage: Stage): ErrorProfile {
-  const topology = metricReference(stage, "Topology F1") ?? 0.962;
-  const citation = metricReference(stage, "Citation precision") ?? 0.978;
-  return {
-    hallucination: 0.02,
-    wrongConnection: clamp01(1 - topology),
-    staleReading: 0.03,
-    missingCitation: clamp01(1 - citation),
-    wrongLine: 0.02,
-    seed: "teacher",
-  };
-}
+/**
+ * The teacher's absolute scores on the held-out suite. The stage-4 metrics are the student's
+ * retention ratios against these, so the teacher's own row there is 1 by definition.
+ */
+const TEACHER_TOPOLOGY_F1 = 0.962;
+const TEACHER_CITATION_PRECISION = 0.978;
 
-/** The distilled student at a share of the run, derived from its deltas against the teacher. */
+/**
+ * The distillation teacher: a strong, fixed model with small residual error rates. It takes
+ * the stage for symmetry with `studentProfile`, but a finished teacher does not depend on it.
+ */
+export const teacherProfile: (stage: Stage) => ErrorProfile = () => ({
+  hallucination: 0.02,
+  wrongConnection: clamp01(1 - TEACHER_TOPOLOGY_F1),
+  staleReading: 0.03,
+  missingCitation: clamp01(1 - TEACHER_CITATION_PRECISION),
+  wrongLine: 0.02,
+  seed: "teacher",
+});
+
+/**
+ * The distilled student at a share of the run. Each metric is a ratio of the student's score
+ * to the teacher's, so the student's success rate is that ratio times the teacher's.
+ */
 export function studentProfile(stage: Stage, progress: number): ErrorProfile {
   const teacher = teacherProfile(stage);
   const value = (label: string) => metricValue(stage, label, progress) ?? 1;
-  const retention = value("Teacher retention score");
-  const grounding = value("Grounding delta vs teacher");
-  const topology = value("Topology F1 delta");
-  const citation = value("Citation precision delta");
+  const retention = value("Task accuracy retained");
+  const grounding = value("Grounding mAP retained");
+  const topology = value("Topology F1 retained");
+  const citation = value("Citation precision retained");
   return {
     hallucination: clamp01(1 - grounding * (1 - teacher.hallucination)),
-    wrongConnection: clamp01(1 - topology),
+    wrongConnection: clamp01(1 - topology * (1 - teacher.wrongConnection)),
     staleReading: clamp01(1 - retention * (1 - teacher.staleReading)),
-    missingCitation: clamp01(1 - citation),
+    missingCitation: clamp01(1 - citation * (1 - teacher.missingCitation)),
     wrongLine: clamp01((1 - grounding) * 0.5),
     seed: "student",
   };

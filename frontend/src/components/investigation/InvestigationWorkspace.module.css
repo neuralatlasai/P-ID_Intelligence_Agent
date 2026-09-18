@@ -1,14 +1,26 @@
+/*
+ * Linked investigation — evidence map, asset investigation and engineering brief.
+ *
+ * Converted to the industrial dark system. The three pages share one surface ladder: the
+ * evidence map and the brief canvas are engineering artefact backdrops (the shared
+ * `.engineeringField` substrate) carrying panels; the investigation is a region
+ * (--bg-canvas) carrying cards (--bg-surface) whose headers and nested tiles step up to
+ * --bg-surface-high.
+ *
+ * Colour is spent in three places only:
+ *   - --evidence-observed, on the one source badge that names a backend evidence class
+ *   - --status-ready, on checks the system has actually run and passed
+ *   - --accent-action, on selection affordance: selected rows and pressed tiles
+ * Marks drawn over an artefact are --overlay-*, told apart by weight rather than hue
+ * (§8b/§9). Everything else separates by surface level, a 1px border, or mono type.
+ */
+
 .workspace {
-  --ink: #102a3a;
-  --muted: #526774;
-  --line: #cfd9de;
-  --purple: #155d7a;
-  --purple-dark: #0f455d;
   display: grid;
   grid-template: 64px minmax(0, 1fr) / 68px minmax(0, 1fr);
   min-height: 100dvh;
-  color: var(--ink);
-  background: #edf2f4;
+  color: var(--text-primary);
+  background: var(--bg-canvas);
 }
 
 .connectionScreen {
@@ -16,47 +28,49 @@
   min-height: 100dvh;
   place-content: center;
   justify-items: start;
-  padding: 32px;
-  color: #172033;
-  background: #f5f6f9;
+  padding: var(--space-8);
+  color: var(--text-primary);
+  background: var(--bg-canvas);
 }
 
 .connectionScreen > span {
-  color: #7047d7;
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.1em;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
 }
 
 .connectionScreen h1 {
-  margin: 8px 0;
-  font-size: clamp(28px, 5vw, 52px);
-  letter-spacing: -0.05em;
+  margin: var(--space-2) 0;
+  font-size: var(--text-3xl);
+  font-weight: var(--weight-semibold);
 }
 
 .connectionScreen p {
-  margin: 0 0 22px;
-  color: #687287;
+  margin: 0 0 var(--space-6);
+  color: var(--text-secondary);
+  font-size: var(--text-base);
 }
 
 .connectionScreen div {
   display: flex;
-  gap: 9px;
-  margin-bottom: 18px;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
 }
 
 .connectionScreen button,
 .connectionScreen a {
-  min-height: 40px;
-  padding: 0 15px;
-  border: 1px solid #d6dbe5;
-  border-radius: 8px;
-  color: #4e596d;
-  background: #fff;
+  min-height: var(--control-height-lg);
+  padding: 0 var(--space-4);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  background: var(--bg-surface);
   font: inherit;
-  font-size: 12px;
-  font-weight: 700;
+  font-size: var(--text-base);
+  font-weight: var(--weight-medium);
   text-decoration: none;
   cursor: pointer;
 }
@@ -66,21 +80,23 @@
   align-items: center;
 }
 
+/* -- Rail and header -------------------------------------------------------- */
+
 .rail {
-  z-index: 10;
+  z-index: var(--z-sticky);
   grid-row: 1 / -1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 9px;
-  padding: 16px 8px;
-  color: #c7cfdd;
-  background: #151b26;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-2);
+  color: var(--text-secondary);
+  background: var(--bg-subtle);
 }
 
 .rail > svg {
-  margin-bottom: 16px;
-  color: #a99af2;
+  margin-bottom: var(--space-4);
+  color: var(--text-primary);
 }
 
 .rail button,
@@ -89,118 +105,137 @@
   width: 52px;
   min-height: 48px;
   place-items: center;
-  gap: 2px;
+  gap: var(--space-1);
   border: 0;
-  border-radius: 9px;
+  border-radius: var(--radius-sm);
   color: inherit;
   background: transparent;
   text-decoration: none;
   cursor: pointer;
 }
 
+.rail a:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+/* The current rail destination: selected surface, active label, 2px left indicator. */
 .rail button {
-  color: #fff;
-  background: #2d3650;
-  box-shadow: inset 3px 0 0 #8b6deb;
+  color: var(--text-active);
+  background: var(--bg-selected);
+  box-shadow: inset 2px 0 0 var(--accent-action);
 }
 
 .rail span {
-  font-size: 9px;
-  letter-spacing: 0.02em;
+  font-size: var(--text-xs);
 }
 
 .header {
-  z-index: 9;
+  z-index: var(--z-sticky);
   display: grid;
   grid-template-columns: minmax(220px, 1fr) auto minmax(160px, 1fr);
   align-items: center;
-  gap: 24px;
-  padding: 0 22px;
-  border-bottom: 1px solid var(--line);
-  background: #f8fafb;
+  gap: var(--space-6);
+  padding: 0 var(--space-6);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-subtle);
 }
 
 .breadcrumb {
   display: flex;
   min-width: 0;
   align-items: center;
-  gap: 8px;
-  font-size: 13px;
+  gap: var(--space-2);
+  font-size: var(--text-md);
 }
 
 .breadcrumb a {
-  color: var(--muted);
+  color: var(--text-link);
   text-decoration: none;
 }
 
 .breadcrumb strong {
   overflow: hidden;
+  color: var(--text-primary);
+  font-weight: var(--weight-medium);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+/* The page switcher is a segmented control: a well with one selected segment. */
 .pageNav {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px;
-  border: 1px solid #e4e7ee;
-  border-radius: 10px;
-  background: #f7f8fa;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
 }
 
 .pageNav button {
   display: flex;
   align-items: center;
-  gap: 7px;
-  min-height: 34px;
-  padding: 0 12px;
+  gap: var(--space-2);
+  min-height: var(--control-height-md);
+  padding: 0 var(--space-3);
   border: 0;
-  border-radius: 7px;
-  color: #636d80;
+  border-radius: var(--radius-xs);
+  color: var(--text-secondary);
   background: transparent;
   font: inherit;
-  font-size: 12px;
+  font-size: var(--text-base);
   cursor: pointer;
+  transition:
+    color var(--duration-hover) var(--easing-standard),
+    background-color var(--duration-hover) var(--easing-standard);
+}
+
+.pageNav button:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
 }
 
 .pageNav button span {
-  color: #596274;
-  font-size: 10px;
-  font-weight: 800;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: var(--tracking-label);
 }
 
 .pageNav button[aria-current="step"] {
-  color: #fff;
-  background: var(--purple);
-  box-shadow: 0 4px 12px rgba(81, 53, 162, 0.22);
+  color: var(--text-active);
+  background: var(--bg-selected);
+  box-shadow: inset 2px 0 0 var(--accent-action);
 }
 
 .pageNav button[aria-current="step"] span {
-  color: #fff;
+  color: var(--text-active);
 }
 
 .sourceStatus {
   display: flex;
   justify-self: end;
   align-items: center;
-  gap: 7px;
-  color: #536076;
-  font-size: 12px;
-  font-weight: 650;
+  gap: var(--space-2);
+  color: var(--text-secondary);
+  font-size: var(--text-base);
+  font-weight: var(--weight-medium);
 }
 
+/* Status dot: 7px, true circle, non-text mark. */
 .sourceStatus i {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #23a36d;
-  box-shadow: 0 0 0 4px #dff6ec;
+  width: 7px;
+  height: 7px;
+  border-radius: var(--radius-pill);
+  background: var(--status-ready-mark);
 }
 
 .main {
   min-width: 0;
-  padding: 20px 24px 26px;
+  padding: var(--space-5) var(--space-6) var(--space-6);
   overflow: auto;
 }
 
@@ -208,67 +243,90 @@
   display: flex;
   align-items: end;
   justify-content: space-between;
-  gap: 24px;
-  margin: 0 auto 16px;
+  gap: var(--space-6);
+  margin: 0 auto var(--space-4);
   max-width: 1500px;
 }
 
+/* Section labels: numbered structural markers, uppercase mono at --tracking-label. */
 .pageHeader span,
 .mappingLabel,
 .cardHeader > span {
-  color: #5d6678;
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.1em;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
 }
 
 .pageHeader h1 {
-  margin: 5px 0 3px;
-  font-size: clamp(22px, 2vw, 31px);
-  line-height: 1.05;
-  letter-spacing: -0.035em;
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-3xl);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-tight);
 }
 
 .pageHeader p {
   margin: 0;
-  color: var(--muted);
-  font-size: 12px;
+  color: var(--text-secondary);
+  font-size: var(--text-base);
 }
 
 .pageActions {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: var(--space-2);
 }
 
+/*
+ * The default control: a dark surface with a 1px border. No colour fill.
+ */
 .pageActions a,
 .pageActions button,
 .mappingPanel > button,
 .traceCard > button {
   display: inline-flex;
-  min-height: 38px;
+  min-height: var(--control-height-lg);
   align-items: center;
   justify-content: center;
-  gap: 7px;
-  padding: 0 14px;
-  border: 1px solid #d8dce5;
-  border-radius: 8px;
-  color: #4e596d;
-  background: #fff;
+  gap: var(--space-2);
+  padding: 0 var(--space-4);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  background: var(--bg-surface);
   font: inherit;
-  font-size: 12px;
-  font-weight: 700;
+  font-size: var(--text-base);
+  font-weight: var(--weight-medium);
   text-decoration: none;
   cursor: pointer;
+  transition:
+    background-color var(--duration-hover) var(--easing-standard),
+    border-color var(--duration-hover) var(--easing-standard);
 }
 
-.pageActions button,
+.pageActions a:hover,
+.pageActions button:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  background: var(--bg-hover);
+}
+
+/*
+ * The one filled action per page: "Inspect correlation record" on the evidence map and
+ * "Open engineering brief" on the investigation. Filled with --bg-inverse, not a colour.
+ */
 .mappingPanel > button,
 .traceCard > button {
-  border-color: var(--purple);
-  color: #fff;
-  background: var(--purple);
+  border-color: var(--action-fill);
+  color: var(--action-fill-text);
+  background: var(--action-fill);
+}
+
+.mappingPanel > button:hover,
+.traceCard > button:hover {
+  border-color: var(--action-fill-hover);
+  background: var(--action-fill-hover);
 }
 
 .pageActions button:disabled {
@@ -276,20 +334,21 @@
   cursor: default;
 }
 
+/* -- Evidence map ----------------------------------------------------------- */
+
+/*
+ * The map is an engineering artefact backdrop: the panels on it are the bright things.
+ * Its substrate is the shared `.engineeringField` class from globals.css, applied on the
+ * element — the dotted field is defined once for the whole product (§6).
+ */
 .map {
   position: relative;
   min-height: 760px;
   max-width: 1500px;
   margin: 0 auto;
   overflow: hidden;
-  border: 1px solid #dfe3eb;
-  border-radius: 5px;
-  background-color: #f8fafb;
-  background-image:
-    linear-gradient(rgba(62, 91, 106, 0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(62, 91, 106, 0.05) 1px, transparent 1px);
-  background-size: 20px 20px;
-  box-shadow: 0 8px 22px rgba(19, 47, 62, 0.06);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
 }
 
 .linkCanvas {
@@ -307,66 +366,71 @@
   display: flex;
   overflow: hidden;
   padding: 0;
-  border: 1px solid #d6dce7;
-  border-radius: 4px;
-  color: var(--ink);
-  background: #fff;
-  box-shadow: 0 3px 10px rgba(27, 58, 72, 0.08);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  background: var(--bg-surface);
   font: inherit;
   text-align: left;
   cursor: pointer;
   transition:
-    border-color 160ms ease,
-    box-shadow 160ms ease,
-    transform 160ms ease;
+    border-color var(--duration-hover) var(--easing-standard),
+    background-color var(--duration-hover) var(--easing-standard);
 }
 
 .mapCard:hover {
-  transform: translateY(-2px);
+  border-color: var(--border-strong);
+  background: var(--bg-hover);
 }
 
 .mapCard.selected {
-  border-color: #7b5ddb;
-  box-shadow:
-    0 0 0 3px rgba(123, 93, 219, 0.14),
-    0 12px 30px rgba(47, 35, 91, 0.14);
+  border-color: var(--accent-action);
+  background: var(--bg-selected);
 }
 
+/*
+ * No background on the raster itself: `.engineeringRaster` inverts the whole element, its
+ * own background included, so a --bg-void backdrop here would come out near-white and
+ * letterbox the sheet. The card surface shows through instead.
+ */
 .mapCard img {
   display: block;
   width: 100%;
   height: 132px;
   object-fit: cover;
-  background: #eef1f5;
 }
 
 .cardBody {
   display: flex;
   min-width: 0;
   flex-direction: column;
-  gap: 4px;
-  padding: 12px 13px 13px;
+  gap: var(--space-1);
+  padding: var(--space-3);
 }
 
 .cardBody small {
-  color: #7655ce;
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
 }
 
 .cardBody strong {
   overflow: hidden;
-  font-size: 13px;
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .cardBody em {
-  color: var(--muted);
-  font-size: 10px;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
   font-style: normal;
+  font-variant-numeric: tabular-nums;
 }
 
 .fusionGallery {
@@ -375,66 +439,78 @@
   top: 36px;
   left: 30px;
   width: 410px;
-  padding: 12px;
-  border: 1px solid #d8dde8;
-  border-radius: 4px;
-  background: #fff;
-  box-shadow: 0 4px 14px rgba(27, 58, 72, 0.08);
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
 }
 
 .fusionGallery > header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 9px;
-  color: #596274;
-  font-size: 9px;
-  letter-spacing: 0.07em;
+  margin-bottom: var(--space-2);
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
 }
 
+/* A check the system ran and passed, not a category. */
 .fusionGallery > header strong {
-  color: #13724e;
+  color: var(--status-ready);
+  font-variant-numeric: tabular-nums;
 }
 
 .fusionGallery > div {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 7px;
+  gap: var(--space-1);
 }
 
 .fusionGallery button {
   min-width: 0;
   overflow: hidden;
   padding: 0;
-  border: 1px solid #dce1ea;
-  border-radius: 3px;
-  color: var(--ink);
-  background: #fff;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xs);
+  color: var(--text-primary);
+  background: var(--bg-surface-high);
   text-align: left;
   cursor: pointer;
+  transition:
+    border-color var(--duration-hover) var(--easing-standard),
+    background-color var(--duration-hover) var(--easing-standard);
+}
+
+.fusionGallery button:hover {
+  border-color: var(--border-strong);
+  background: var(--bg-hover);
 }
 
 .fusionGallery button[aria-pressed="true"] {
-  border-color: var(--purple);
-  box-shadow: 0 0 0 2px rgba(112, 71, 215, 0.16);
+  border-color: var(--accent-action);
+  background: var(--bg-selected);
 }
 
 .fusionGallery button > span:last-child {
   display: flex;
   justify-content: space-between;
-  gap: 4px;
-  padding: 6px 7px;
-  color: #5f697b;
-  font-size: 8px;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
 }
 
 .fusionGallery button b {
-  color: #5c39bd;
+  color: var(--text-primary);
+  font-weight: var(--weight-medium);
 }
 
 .fusionGallery .annotationBox b {
-  color: #fff;
+  color: var(--text-active);
 }
 
 .drawingNode {
@@ -462,8 +538,8 @@
   min-height: 84px;
   flex: 0 0 auto;
   place-items: center;
-  color: var(--purple);
-  background: #eee9ff;
+  color: var(--text-secondary);
+  background: var(--bg-sunken);
 }
 
 .trendNode {
@@ -474,7 +550,7 @@
 }
 
 .trendNode .cardBody {
-  padding-bottom: 2px;
+  padding-bottom: var(--space-1);
 }
 
 .mappingPanel {
@@ -483,63 +559,63 @@
   top: 50px;
   right: 34px;
   width: 300px;
-  padding: 20px;
-  border: 1px solid #d8dde8;
-  border-top: 3px solid var(--purple);
-  border-radius: 4px;
-  background: #fff;
-  box-shadow: 0 4px 14px rgba(27, 58, 72, 0.1);
+  padding: var(--space-5);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
 }
 
 .mappingPanel h2 {
-  margin: 7px 0 8px;
-  font-size: 18px;
-  line-height: 1.2;
-  letter-spacing: -0.02em;
+  margin: var(--space-2) 0;
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-tight);
 }
 
 .mappingPanel > p {
-  margin: 0 0 16px;
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.55;
+  margin: 0 0 var(--space-4);
+  color: var(--text-secondary);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
 }
 
 .mappingPanel dl,
 .observationBody dl {
-  margin: 0 0 18px;
-  border-top: 1px solid #ebedf2;
+  margin: 0 0 var(--space-4);
+  border-top: 1px solid var(--rule-subtle);
 }
 
 .mappingPanel dl div,
 .observationBody dl div {
   display: grid;
   grid-template-columns: 88px minmax(0, 1fr);
-  gap: 10px;
-  padding: 8px 0;
-  border-bottom: 1px solid #ebedf2;
-  font-size: 10px;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--rule-subtle);
+  font-size: var(--text-sm);
 }
 
 .mappingPanel dt,
 .observationBody dt {
-  color: #606a7a;
+  color: var(--text-tertiary);
 }
 
+/* Identifiers, paths and coordinates are read character by character: mono. */
 .mappingPanel dd,
 .observationBody dd {
   min-width: 0;
   margin: 0;
   overflow: hidden;
-  font-weight: 700;
+  color: var(--text-primary);
+  font-weight: var(--weight-medium);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .mappingPanel dd {
   overflow-wrap: anywhere;
-  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
-  font-size: 9px;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
   white-space: normal;
 }
 
@@ -547,10 +623,12 @@
   width: 100%;
 }
 
+/* -- Asset investigation ---------------------------------------------------- */
+
 .investigationGrid {
   display: grid;
   grid-template-columns: minmax(0, 1.35fr) minmax(330px, 0.65fr);
-  gap: 16px;
+  gap: var(--space-4);
   max-width: 1500px;
   margin: 0 auto;
 }
@@ -559,13 +637,12 @@
   grid-column: 1 / -1;
   display: grid;
   grid-template-columns: minmax(150px, 1.2fr) repeat(6, minmax(110px, 1fr));
-  gap: 8px;
-  padding: 10px;
+  gap: var(--space-2);
+  padding: var(--space-3);
   overflow-x: auto;
-  border: 1px solid #dfe3eb;
-  border-radius: 4px;
-  background: #fff;
-  box-shadow: 0 3px 10px rgba(27, 58, 72, 0.05);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
 }
 
 .fusionSelector > div {
@@ -573,20 +650,23 @@
   min-width: 150px;
   flex-direction: column;
   justify-content: center;
-  gap: 3px;
-  padding: 0 8px;
+  gap: var(--space-1);
+  padding: 0 var(--space-2);
 }
 
 .fusionSelector > div span {
-  color: #5d6678;
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
 }
 
 .fusionSelector > div strong {
-  font-size: 11px;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  font-variant-numeric: tabular-nums;
 }
 
 .fusionSelector button {
@@ -594,26 +674,35 @@
   min-width: 110px;
   grid-template-columns: 42px minmax(0, 1fr);
   align-items: center;
-  gap: 7px;
-  padding: 4px;
-  border: 1px solid #dce1ea;
-  border-radius: 3px;
-  color: var(--ink);
-  background: #fff;
+  gap: var(--space-2);
+  padding: var(--space-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xs);
+  color: var(--text-primary);
+  background: var(--bg-surface-high);
   cursor: pointer;
+  transition:
+    border-color var(--duration-hover) var(--easing-standard),
+    background-color var(--duration-hover) var(--easing-standard);
+}
+
+.fusionSelector button:hover {
+  border-color: var(--border-strong);
+  background: var(--bg-hover);
 }
 
 .fusionSelector button[aria-pressed="true"] {
-  border-color: var(--purple);
-  background: #f7f4ff;
-  box-shadow: inset 0 0 0 1px var(--purple);
+  border-color: var(--accent-action);
+  background: var(--bg-selected);
+  box-shadow: inset 0 0 0 1px var(--accent-action);
 }
 
 .fusionSelector button img {
   width: 42px;
   height: 42px;
-  border-radius: 5px;
+  border-radius: var(--radius-xs);
   object-fit: cover;
+  background: var(--bg-void);
 }
 
 .fusionSelector button span,
@@ -621,28 +710,29 @@
   display: block;
   min-width: 0;
   overflow: hidden;
+  font-family: var(--font-mono);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .fusionSelector button span {
-  color: #5f697b;
-  font-size: 8px;
+  color: var(--text-tertiary);
+  font-size: var(--text-xs);
 }
 
 .fusionSelector button b {
-  margin-bottom: 3px;
-  color: #5c39bd;
-  font-size: 9px;
+  margin-bottom: var(--space-1);
+  color: var(--text-primary);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
 }
 
 .contentCard {
   min-width: 0;
   overflow: hidden;
-  border: 1px solid #dfe3eb;
-  border-radius: 4px;
-  background: #fff;
-  box-shadow: 0 3px 10px rgba(27, 58, 72, 0.05);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
 }
 
 .correlationCard {
@@ -653,8 +743,8 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) 116px minmax(0, 1fr);
   align-items: stretch;
-  gap: 12px;
-  padding: 16px;
+  gap: var(--space-3);
+  padding: var(--space-4);
 }
 
 .correlationSide {
@@ -662,27 +752,30 @@
   grid-template-rows: 36px 260px minmax(38px, auto);
   min-width: 0;
   overflow: hidden;
-  border: 1px solid #dfe3eb;
-  border-radius: 3px;
-  background: #f7f8fb;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xs);
+  background: var(--bg-sunken);
 }
 
 .correlationSide > header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: var(--space-3);
   min-height: 36px;
-  padding: 8px 11px;
-  border-bottom: 1px solid #e1e5ec;
-  color: #657083;
-  background: #fff;
-  font-size: 9px;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-tertiary);
+  background: var(--bg-surface-high);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
 }
 
 .correlationSide > header strong {
-  color: #5c39bd;
+  color: var(--text-primary);
+  font-weight: var(--weight-medium);
 }
 
 .correlationSide > .annotatedImage,
@@ -690,7 +783,7 @@
   display: block;
   width: 100%;
   height: 260px;
-  background: #edf0f4;
+  background: var(--bg-void);
 }
 
 .correlationSide > p {
@@ -698,11 +791,11 @@
   min-height: 38px;
   align-items: center;
   margin: 0;
-  padding: 9px 12px;
-  color: #667085;
-  background: #fff;
-  font-size: 9px;
-  line-height: 1.4;
+  padding: var(--space-2) var(--space-3);
+  color: var(--text-tertiary);
+  background: var(--bg-surface);
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
 }
 
 .correlationLink {
@@ -711,69 +804,78 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 9px;
-  color: #5c39bd;
+  gap: var(--space-2);
+  color: var(--text-secondary);
   text-align: center;
 }
 
 .correlationLink span {
   width: 100%;
   overflow: hidden;
-  padding: 6px 8px;
-  border: 1px solid #d8d1f1;
-  border-radius: 6px;
-  background: #f8f5ff;
-  font-size: 10px;
-  font-weight: 800;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  background: var(--bg-sunken);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .correlationLink strong {
-  font-size: 9px;
-  line-height: 1.35;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  line-height: var(--leading-tight);
 }
 
+/* The connector between the two halves of the correlation: a wire, not a gradient. */
 .correlationLink i {
   width: 2px;
   height: 34px;
-  background: linear-gradient(#9a83dd, #6d48cf);
+  background: var(--ink-wire);
 }
 
+/*
+ * Detection overlays. The raster is normalised to ink-on-void by `.engineeringRaster`
+ * (§8b), so these are the standard overlay tokens: selection and relationship are told
+ * apart by weight, not hue, and read the same here as on a photograph or the 3D view.
+ */
 .pidDetectionBox {
-  fill: rgba(255, 46, 90, 0.12);
-  stroke: #d70d3e;
-  stroke-width: 3px;
+  fill: var(--overlay-selected-bg);
+  stroke: var(--overlay-selected);
+  stroke-width: var(--overlay-selected-width);
 }
 
 .pidDetectionCenter {
-  fill: #d70d3e;
-  stroke: #fff;
-  stroke-width: 2px;
+  fill: var(--overlay-selected);
+  stroke: var(--bg-void);
+  stroke-width: var(--overlay-related-width);
 }
 
 .cardHeader {
-  padding: 16px 18px 12px;
-  border-bottom: 1px solid #eceef3;
+  padding: var(--space-4) var(--space-4) var(--space-3);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .cardHeader h2 {
-  margin: 5px 0 2px;
-  font-size: 16px;
-  letter-spacing: -0.015em;
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
 }
 
 .cardHeader p {
-  margin: 0;
-  color: var(--muted);
-  font-size: 10px;
+  margin: var(--space-1) 0 0;
+  color: var(--text-tertiary);
+  font-size: var(--text-sm);
 }
 
 .pidViewport {
   position: relative;
   min-height: 390px;
   overflow: auto;
-  background: #f8f9fb;
+  background: var(--bg-void);
 }
 
 .pidViewport img {
@@ -783,19 +885,19 @@
   object-fit: contain;
 }
 
+/* A screen-space label pinned to a detection on the drawing. */
 .assetMarker {
   position: absolute;
   transform: translate(-50%, -50%);
-  padding: 5px 8px;
-  border: 2px solid #fff;
-  border-radius: 6px;
-  color: #fff;
-  background: #b51f42;
-  box-shadow:
-    0 2px 0 #7f1230,
-    0 0 0 4px rgba(181, 31, 66, 0.2);
-  font-size: 9px;
-  font-weight: 800;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--overlay-selected);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  background: var(--bg-void);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--tracking-label);
   white-space: nowrap;
 }
 
@@ -803,6 +905,7 @@
   min-height: 250px;
 }
 
+/* Charts fill the panel, so they carry no border or background of their own. */
 .chart,
 .compactChart {
   display: block;
@@ -814,47 +917,51 @@
   height: 76px;
 }
 
+/* The 1px gaps are hairlines: the grid shows the border colour through its gutters. */
 .trendStats {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 1px;
-  border-top: 1px solid #eceef3;
-  background: #eceef3;
+  border-top: 1px solid var(--border-subtle);
+  background: var(--border-subtle);
 }
 
 .trendStats span {
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  padding: 11px;
-  color: var(--muted);
-  background: #fff;
-  font-size: 9px;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  color: var(--text-tertiary);
+  background: var(--bg-surface);
+  font-size: var(--text-sm);
 }
 
 .trendStats strong {
-  color: var(--ink);
-  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
-  font-size: 12px;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--text-md);
+  font-weight: var(--weight-medium);
+  font-variant-numeric: tabular-nums;
 }
 
 .observationBody {
   display: grid;
   grid-template-columns: minmax(220px, 0.8fr) minmax(240px, 1.2fr);
-  gap: 16px;
-  padding: 16px;
+  gap: var(--space-4);
+  padding: var(--space-4);
 }
 
 .observationBody img {
   width: 100%;
   height: 190px;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   object-fit: cover;
+  background: var(--bg-void);
 }
 
 .observationBody .annotatedImage {
   height: 230px;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
 }
 
 .observationBody .annotatedImage img {
@@ -868,9 +975,9 @@
 .correlationProof {
   grid-column: 1 / -1;
   overflow: hidden;
-  border: 1px solid #c7d5db;
-  border-radius: 3px;
-  background: #f8fafb;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xs);
+  background: var(--bg-surface-high);
 }
 
 .correlationPair > .correlationProof {
@@ -881,21 +988,23 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 10px 12px;
-  border-bottom: 1px solid #d4dfe3;
-  color: #415d69;
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 0.06em;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
 }
 
+/* The registration check passed: a determined state, so a status token. */
 .correlationProof header strong {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  color: #23673d;
+  gap: var(--space-1);
+  color: var(--status-ready);
   letter-spacing: 0;
   text-transform: none;
 }
@@ -904,28 +1013,32 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 1px;
-  background: #d7e0e4;
+  background: var(--border-subtle);
 }
 
 .correlationProof label {
   display: flex;
   min-width: 0;
   flex-direction: column;
-  gap: 4px;
-  padding: 10px 12px;
-  color: #6b7280;
-  background: #fff;
-  font-size: 9px;
-  font-weight: 700;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  color: var(--text-tertiary);
+  background: var(--bg-surface);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
 }
 
 .correlationProof output {
   overflow: hidden;
-  color: #202635;
-  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
-  font-size: 10px;
-  font-weight: 800;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
   text-overflow: ellipsis;
   text-transform: none;
   white-space: nowrap;
@@ -936,39 +1049,42 @@
   min-height: 125px;
   flex-wrap: wrap;
   align-content: flex-start;
-  gap: 8px;
-  padding: 16px;
+  gap: var(--space-2);
+  padding: var(--space-4);
 }
 
 .traceFlow span {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  height: 30px;
-  padding: 0 10px;
-  border: 1px solid #ddd7f4;
-  border-radius: 6px;
-  color: #503b91;
-  background: #f8f5ff;
-  font-size: 10px;
-  font-weight: 700;
+  gap: var(--space-2);
+  height: var(--row-height);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  background: var(--bg-sunken);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
 }
 
 .traceFlow i {
   width: 6px;
   height: 6px;
-  border-radius: 50%;
-  background: var(--purple);
+  border-radius: var(--radius-pill);
+  background: var(--text-tertiary);
 }
 
 .traceFlow p {
-  color: var(--muted);
-  font-size: 12px;
+  color: var(--text-secondary);
+  font-size: var(--text-base);
 }
+
+/* -- Topology trace --------------------------------------------------------- */
 
 .topologyTable {
   min-height: 125px;
-  padding: 12px 14px;
+  padding: var(--space-3);
 }
 
 .topologyHeader,
@@ -976,7 +1092,7 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 0.8fr) minmax(0, 1.4fr);
   align-items: center;
-  gap: 12px;
+  gap: var(--space-3);
 }
 
 .topologyHeader > *,
@@ -987,38 +1103,41 @@
 }
 
 .topologyHeader {
-  padding: 7px 9px;
-  border: 1px solid #cfd9de;
-  color: #5a6d78;
-  background: #edf3f5;
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.07em;
+  padding: var(--space-2);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  background: var(--bg-surface-high);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
 }
 
 .topologyRow {
-  padding: 8px 9px;
-  border: 1px solid #d8e0e4;
+  min-height: var(--row-height);
+  padding: var(--space-2);
+  border: 1px solid var(--border-subtle);
   border-top: 0;
-  color: #334e5c;
-  background: #fff;
-  font-size: 12px;
+  color: var(--text-primary);
+  background: var(--bg-surface);
+  font-size: var(--text-base);
 }
 
 .topologyRow code {
-  color: #0f4f69;
-  font-weight: 800;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-weight: var(--weight-medium);
 }
 
 .topologyTable > p {
-  color: var(--muted);
-  font-size: 11px;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
 }
 
 .traceCard > button {
-  width: calc(100% - 32px);
-  margin: 0 16px 16px;
+  width: calc(100% - var(--space-8));
+  margin: 0 var(--space-4) var(--space-4);
 }
 
 .annotatedImage {
@@ -1026,7 +1145,7 @@
   display: block;
   min-width: 0;
   overflow: hidden;
-  background: #e9edf2;
+  background: var(--bg-void);
 }
 
 .annotatedImage img {
@@ -1043,139 +1162,194 @@
 }
 
 .evidenceDetails {
-  margin: 0 16px 16px;
-  padding: 12px 14px;
-  border: 1px solid #d4dfe3;
-  background: #f7fafb;
-  font-size: 12px;
+  margin: 0 var(--space-4) var(--space-4);
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  background: var(--bg-sunken);
+  font-size: var(--text-base);
 }
+
 .evidenceDetails summary {
+  min-height: var(--control-height-sm);
+  color: var(--text-primary);
+  font-weight: var(--weight-medium);
   cursor: pointer;
-  font-weight: 700;
-  min-height: 28px;
 }
+
 .evidenceDetails dl {
   display: grid;
   grid-template-columns: minmax(100px, 0.35fr) minmax(0, 1fr);
-  gap: 10px;
+  gap: var(--space-3);
 }
+
 .evidenceDetails dd {
   margin: 0;
+  color: var(--text-primary);
   overflow-wrap: anywhere;
-  font-family: monospace;
+  font-family: var(--font-mono);
 }
+
 .evidenceDetails a {
-  color: #155e78;
+  color: var(--text-link);
 }
+
 .simulationControls {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 12px;
-  padding: 16px;
+  gap: var(--space-3);
+  padding: var(--space-4);
 }
+
 .simulationControls button,
 .topologyRow button {
-  min-height: 36px;
-  border: 1px solid #b7cbd4;
-  border-radius: 4px;
-  background: #f4f9fb;
-  color: #174f65;
-  padding: 6px 10px;
+  min-height: var(--control-height-lg);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  padding: var(--space-1) var(--space-3);
   cursor: pointer;
   font: inherit;
+  transition:
+    background-color var(--duration-hover) var(--easing-standard),
+    border-color var(--duration-hover) var(--easing-standard);
 }
+
+.simulationControls button:hover,
+.topologyRow button:hover {
+  border-color: var(--border-strong);
+  background: var(--bg-hover);
+}
+
 .simulationControls button:focus-visible,
 .topologyRow button:focus-visible {
-  outline: 3px solid #217eae;
+  outline: 2px solid var(--border-focus);
   outline-offset: 2px;
 }
+
 .simulationControls label {
   display: grid;
-  gap: 6px;
-  font-size: 11px;
+  gap: var(--space-2);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
 }
+
 .simulationControls input {
-  accent-color: #155e78;
+  accent-color: var(--accent-action);
   min-height: 24px;
 }
+
 .simulationControls output {
-  font-family: monospace;
-  font-size: 12px;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--text-base);
+  font-variant-numeric: tabular-nums;
 }
+
 .modelNote {
-  margin: 10px 16px 16px;
-  font-size: 12px;
-  line-height: 1.6;
-  color: #425d6b;
+  margin: var(--space-3) var(--space-4) var(--space-4);
+  font-size: var(--text-base);
+  line-height: var(--leading-relaxed);
+  color: var(--text-secondary);
   overflow-wrap: anywhere;
 }
+
+/*
+ * The identity assessment is a state the system determined — the printed P&ID identity is
+ * unreviewed, or the reference subtype conflicts with it — so it carries a status wash.
+ */
 .identityAssessment {
   display: grid;
-  gap: 6px;
-  margin: 12px 16px;
-  padding: 12px;
-  border-left: 3px solid #a56416;
-  background: #fff6e5;
-  color: #684212;
-  font-size: 12px;
-  line-height: 1.5;
+  gap: var(--space-2);
+  margin: var(--space-3) var(--space-4);
+  padding: var(--space-3);
+  border-left: 3px solid var(--status-degraded-mark);
+  background: var(--status-degraded-bg);
+  color: var(--text-primary);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
 }
+
 .identityAssessment summary {
   cursor: pointer;
-  font-weight: 650;
+  font-weight: var(--weight-medium);
 }
+
 .identityAssessment p {
-  margin-top: 8px;
+  margin-top: var(--space-2);
+  color: var(--text-secondary);
 }
+
+/* Faceplate: the KPI row of the simulator. */
 .faceplate {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  border-bottom: 1px solid #d8e3e8;
-  background: #f5fafc;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-surface-high);
 }
+
 .faceplate > div {
   display: grid;
-  gap: 7px;
-  padding: 16px;
-  border-right: 1px solid #d8e3e8;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border-right: 1px solid var(--border-subtle);
   min-width: 0;
 }
-.faceplate span {
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  color: #516975;
-  font-weight: 700;
+
+.faceplate > div:last-child {
+  border-right: 0;
 }
+
+.faceplate span {
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--tracking-label);
+}
+
 .faceplate strong {
   font-family: var(--font-mono);
-  font-size: clamp(20px, 2vw, 30px);
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-medium);
   font-variant-numeric: tabular-nums;
-  color: #155d7a;
+  color: var(--text-primary);
 }
+
 .faceplate small {
-  font-family: var(--font-sans);
-  font-size: 13px;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: var(--text-md);
 }
+
 .faceplate em {
-  font-size: 11px;
+  color: var(--text-tertiary);
+  font-size: var(--text-sm);
   font-style: normal;
-  color: #425d6b;
 }
+
 .mappingPanel .identityAssessment,
 .engineeringDossier .identityAssessment {
-  margin: 12px 0;
+  margin: var(--space-3) 0;
 }
+
 .topologyRow button {
-  padding: 4px;
+  padding: var(--space-1);
   overflow-wrap: anywhere;
-  font-family: monospace;
-  font-size: 11px;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
   text-align: left;
 }
+
+/* A selected row: --bg-selected, a 2px --accent-action indicator, --text-active label. */
 .topologyRow button[aria-pressed="true"] {
-  background: #dceef6;
-  border-color: #155e78;
+  border-color: var(--accent-action);
+  background: var(--bg-selected);
+  box-shadow: inset 2px 0 0 var(--accent-action);
+  color: var(--text-active);
 }
 
 .annotatedImageCompact {
@@ -1184,9 +1358,9 @@
 
 .annotationBox {
   position: absolute;
-  border: 2px solid #ff476a;
-  border-radius: 3px;
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.75);
+  border: var(--overlay-selected-width) solid var(--overlay-selected);
+  border-radius: var(--radius-xs);
+  background: var(--overlay-selected-bg);
   pointer-events: none;
 }
 
@@ -1194,28 +1368,33 @@
   position: absolute;
   top: -18px;
   left: -2px;
-  padding: 2px 5px;
-  border-radius: 3px 3px 0 0;
-  color: #fff;
-  background: #a50f35;
-  font-size: 8px;
-  line-height: 14px;
-  letter-spacing: 0.02em;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-xs) var(--radius-xs) 0 0;
+  color: var(--text-primary);
+  background: var(--bg-void);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: 16px;
+  letter-spacing: var(--tracking-label);
 }
 
 .generatedBadge {
   position: absolute;
-  right: 6px;
-  bottom: 6px;
-  padding: 3px 5px;
-  border-radius: 4px;
-  color: #fff;
-  background: rgba(29, 37, 52, 0.88);
-  font-size: 7px;
-  font-weight: 800;
-  letter-spacing: 0.05em;
+  right: var(--space-1);
+  bottom: var(--space-1);
+  padding: 0 var(--space-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xs);
+  color: var(--text-tertiary);
+  background: var(--bg-void);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
 }
+
+/* -- Engineering brief ------------------------------------------------------ */
 
 .briefLayout {
   display: grid;
@@ -1224,76 +1403,78 @@
   max-width: 1500px;
   margin: 0 auto;
   overflow: hidden;
-  border: 1px solid #dfe3eb;
-  border-radius: 4px;
-  background: #f5f8f9;
-  box-shadow: 0 7px 20px rgba(23, 53, 68, 0.06);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-canvas);
 }
 
+/* Substrate comes from the shared `.engineeringField` class, applied on the element. */
 .briefCanvas {
-  padding: 22px;
-  background-color: #f6f9fa;
-  background-image:
-    linear-gradient(rgba(62, 91, 106, 0.045) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(62, 91, 106, 0.045) 1px, transparent 1px);
-  background-size: 20px 20px;
+  padding: var(--space-6);
 }
 
 .sourceStrip {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
-  margin-bottom: 16px;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
 }
 
 .sourceStrip article {
   display: grid;
   grid-template-rows: 36px 145px minmax(36px, auto);
   overflow: hidden;
-  border: 1px solid #dfe3eb;
-  border-radius: 3px;
-  background: #fff;
-  box-shadow: 0 2px 8px rgba(27, 58, 72, 0.06);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xs);
+  background: var(--bg-surface);
 }
 
 .sourceStrip article > header {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   min-height: 36px;
-  padding: 7px 9px;
-  border-bottom: 1px solid #dbe3e7;
-  color: #334f5d;
-  font-size: 9px;
+  padding: var(--space-2);
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  background: var(--bg-surface-high);
+  font-size: var(--text-sm);
 }
 
+/*
+ * Provenance codes. REF and SIM are not terms in the backend's evidence vocabulary, so
+ * they stay neutral mono and are told apart by their own letters and by luminance; OBS
+ * is the "observed" class exactly, and is the only one that takes an evidence colour.
+ */
 .sourceCode {
   display: inline-flex;
   min-width: 34px;
   align-items: center;
   justify-content: center;
-  padding: 3px 5px;
-  border: 1px solid #bd8a36;
-  color: #774d0d;
-  background: #fff5dd;
-  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
-  font-size: 8px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
+  padding: var(--space-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xs);
+  color: var(--text-secondary);
+  background: var(--bg-sunken);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--tracking-label);
 }
 
 .sourceCodeObserved {
-  border-color: #378264;
-  color: #175a42;
-  background: #e8f6f0;
+  border-color: var(--evidence-observed);
+  color: var(--evidence-observed);
+  background: var(--evidence-observed-bg);
 }
 
 .sourceCodeSimulated {
-  border-color: #6d8290;
-  color: #405965;
-  background: #edf2f4;
+  border-color: var(--border-subtle);
+  color: var(--text-tertiary);
+  background: var(--bg-sunken);
 }
 
+/* Carries `.engineeringRaster`, so it takes no background of its own — see .mapCard img. */
 .sourceStrip img {
   display: block;
   width: 100%;
@@ -1312,13 +1493,13 @@
 .sourceStrip footer {
   display: block;
   min-height: 34px;
-  padding: 8px 9px;
-  border-top: 1px solid #dbe3e7;
-  color: #4e596d;
-  background: #fafcfc;
-  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
-  font-size: 8px;
-  font-weight: 700;
+  padding: var(--space-2);
+  border-top: 1px solid var(--border-subtle);
+  color: var(--text-tertiary);
+  background: var(--bg-surface-high);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
 }
 
 .miniTrend {
@@ -1332,87 +1513,88 @@
 .briefHero {
   max-width: 720px;
   margin: 0 auto;
-  padding: 34px;
-  border: 1px solid #dbdee7;
-  border-left: 4px solid var(--purple);
-  border-radius: 12px;
-  background: #fff;
-  box-shadow: 0 14px 40px rgba(39, 47, 66, 0.09);
+  padding: var(--space-8);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
 }
 
+/* The registry and graph checks ran and passed. */
 .briefStatus {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 5px 8px;
-  border-radius: 6px;
-  color: #14734f;
-  background: #e5f7ef;
-  font-size: 10px;
-  font-weight: 800;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  color: var(--status-ready);
+  background: var(--status-ready-bg);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--tracking-label);
 }
 
 .briefHero h2 {
-  margin: 16px 0 10px;
-  font-size: clamp(24px, 3vw, 38px);
-  letter-spacing: -0.045em;
+  margin: var(--space-4) 0 var(--space-3);
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-semibold);
 }
 
 .briefHero > p {
   margin: 0;
-  color: #5f6a7e;
-  font-size: 13px;
-  line-height: 1.7;
+  color: var(--text-secondary);
+  font-size: var(--text-md);
+  line-height: var(--leading-relaxed);
 }
 
 .engineeringDossier {
   overflow: hidden;
-  border: 1px solid #cbd7dc;
-  border-left: 3px solid var(--purple);
-  background: #fff;
-  box-shadow: 0 3px 10px rgba(27, 58, 72, 0.06);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
 }
 
 .engineeringDossier > header {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 220px;
-  gap: 22px;
-  padding: 20px;
-  border-bottom: 1px solid #d6e0e4;
+  gap: var(--space-6);
+  padding: var(--space-5);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .engineeringDossier h2 {
-  margin: 12px 0 6px;
-  font-size: clamp(21px, 2.2vw, 29px);
-  letter-spacing: -0.025em;
+  margin: var(--space-3) 0 var(--space-2);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
 }
 
 .engineeringDossier header p {
-  max-width: 720px;
+  max-width: var(--measure-max-width);
   margin: 0;
-  color: #506570;
-  font-size: 11px;
-  line-height: 1.6;
+  color: var(--text-secondary);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
 }
 
 .engineeringDossier code,
 .engineeringDossier dd,
 .dossierCodes dd {
-  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  font-family: var(--font-mono);
 }
 
 .dossierCodes {
   margin: 0;
-  border: 1px solid #cfdade;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xs);
 }
 
 .dossierCodes div {
   display: grid;
   grid-template-columns: 82px minmax(0, 1fr);
-  gap: 8px;
-  padding: 7px 9px;
-  border-bottom: 1px solid #dce4e7;
-  font-size: 8px;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border-bottom: 1px solid var(--rule-subtle);
+  font-size: var(--text-xs);
 }
 
 .dossierCodes div:last-child {
@@ -1420,14 +1602,17 @@
 }
 
 .dossierCodes dt {
-  color: #637681;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
 }
 
 .dossierCodes dd {
   margin: 0;
-  color: #0f4f69;
-  font-weight: 800;
+  color: var(--text-primary);
+  font-weight: var(--weight-medium);
+  overflow-wrap: anywhere;
   text-align: right;
 }
 
@@ -1439,8 +1624,8 @@
 
 .dossierGrid section {
   min-width: 0;
-  padding: 16px 20px;
-  border-right: 1px solid #d6e0e4;
+  padding: var(--space-4) var(--space-5);
+  border-right: 1px solid var(--border-subtle);
 }
 
 .dossierGrid section:last-child {
@@ -1448,37 +1633,39 @@
 }
 
 .dossierGrid h3 {
-  margin: 0 0 10px;
-  color: #405965;
-  font-size: 9px;
-  letter-spacing: 0.08em;
+  margin: 0 0 var(--space-3);
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
 }
 
 .dossierGrid dl {
   margin: 0;
-  border-top: 1px solid #d6e0e4;
+  border-top: 1px solid var(--rule-subtle);
 }
 
 .dossierGrid dl div {
   display: grid;
   grid-template-columns: 130px minmax(0, 1fr);
-  gap: 12px;
-  padding: 7px 0;
-  border-bottom: 1px solid #e2e8eb;
-  font-size: 9px;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--rule-subtle);
+  font-size: var(--text-sm);
 }
 
 .dossierGrid dt {
-  color: #657782;
+  color: var(--text-tertiary);
 }
 
 .dossierGrid dd {
   min-width: 0;
   margin: 0;
   overflow: hidden;
-  color: #183847;
-  font-weight: 800;
+  color: var(--text-primary);
+  font-weight: var(--weight-medium);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1486,38 +1673,41 @@
 .dossierGrid table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 9px;
+  font-size: var(--text-sm);
   text-align: left;
 }
 
 .dossierGrid th,
 .dossierGrid td {
-  padding: 8px 9px;
-  border: 1px solid #d6e0e4;
+  padding: var(--space-2);
+  border: 1px solid var(--border-subtle);
 }
 
 .dossierGrid th {
-  color: #526a76;
-  background: #edf3f5;
-  font-size: 8px;
-  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  background: var(--bg-surface-high);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
 }
 
+/* The authority column names a controlled term: mono type carries it, not colour. */
 .dossierGrid td:nth-child(2) {
-  color: #0f4f69;
-  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
-  font-weight: 800;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-weight: var(--weight-medium);
 }
 
 .engineeringDossier > footer {
-  padding: 10px 20px;
-  border-top: 1px solid #d6e0e4;
-  border-bottom: 1px solid #d6e0e4;
-  color: #5f4b20;
-  background: #fff9e9;
-  font-size: 9px;
-  line-height: 1.5;
+  padding: var(--space-3) var(--space-5);
+  border-top: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  background: var(--bg-surface-high);
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
 }
 
 .briefMetrics {
@@ -1528,9 +1718,9 @@
 }
 
 .briefMetrics div {
-  padding: 12px 20px;
-  border-right: 1px solid #d6e0e4;
-  background: #f8fafb;
+  padding: var(--space-3) var(--space-5);
+  border-right: 1px solid var(--border-subtle);
+  background: var(--bg-surface-high);
 }
 
 .briefMetrics div:last-child {
@@ -1543,32 +1733,36 @@
 }
 
 .briefMetrics strong {
-  color: #163f52;
-  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
-  font-size: 19px;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-medium);
+  font-variant-numeric: tabular-nums;
 }
 
 .briefMetrics span {
-  margin-top: 3px;
-  color: var(--muted);
-  font-size: 9px;
+  margin-top: var(--space-1);
+  color: var(--text-tertiary);
+  font-size: var(--text-sm);
 }
+
+/* -- Assistant panel -------------------------------------------------------- */
 
 .copilotPanel {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 18px;
-  border-left: 1px solid #dfe3eb;
-  background: #f8fafb;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-left: 1px solid var(--border-subtle);
+  background: var(--bg-subtle);
 }
 
 .copilotPanel > header {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding-bottom: 15px;
-  border-bottom: 1px solid #e8eaf0;
+  gap: var(--space-3);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .copilotPanel > header div,
@@ -1578,59 +1772,61 @@
 }
 
 .copilotPanel > header strong {
-  font-size: 13px;
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
 }
 
 .copilotPanel > header span {
   margin-top: 2px;
-  color: var(--muted);
-  font-size: 9px;
+  color: var(--text-tertiary);
+  font-size: var(--text-sm);
 }
 
 .promptBubble {
   align-self: flex-end;
   max-width: 86%;
-  padding: 11px 13px;
-  border: 1px solid #cbd7dc;
-  border-radius: 3px;
-  color: #274857;
-  background: #fff;
-  font-size: 11px;
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  background: var(--bg-surface-high);
+  font-size: var(--text-base);
 }
 
 .answerBubble {
-  padding: 15px;
-  border: 1px solid #c9d7dd;
-  border-left: 3px solid var(--purple);
-  border-radius: 2px;
-  background: #fff;
-  font-size: 11px;
-  line-height: 1.55;
+  padding: var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
 }
 
 .answerBubble > strong {
   display: block;
-  margin-bottom: 8px;
-  color: #174e66;
-  font-size: 9px;
-  letter-spacing: 0.07em;
+  margin-bottom: var(--space-2);
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
 }
 
 .answerBubble ul {
   margin: 0;
-  padding-left: 18px;
+  padding-left: var(--space-4);
 }
 
 .answerBubble li + li {
-  margin-top: 7px;
+  margin-top: var(--space-2);
 }
 
 .answerBubble code {
-  color: #0e506b;
-  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
-  font-size: 0.95em;
-  font-weight: 800;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
 }
 
 .streamedAnswer {
@@ -1641,7 +1837,7 @@
 .briefThumbnails {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 7px;
+  gap: var(--space-2);
 }
 
 .briefThumbnails img,
@@ -1649,10 +1845,15 @@
 .briefThumbnails .annotatedImage {
   width: 100%;
   height: 70px;
-  border: 1px solid #e0e4eb;
-  border-radius: 2px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xs);
   object-fit: cover;
-  background: #f8f9fb;
+}
+
+/* The P&ID thumbnail is inverted by `.engineeringRaster`, so it takes no backdrop here. */
+.briefThumbnails canvas,
+.briefThumbnails .annotatedImage {
+  background: var(--bg-void);
 }
 
 .briefThumbnails .annotatedImage img {
@@ -1662,43 +1863,62 @@
 .addButton,
 .assistantLink {
   display: flex;
-  min-height: 42px;
+  min-height: var(--control-height-lg);
   align-items: center;
   justify-content: center;
-  border-radius: 3px;
-  font-size: 11px;
-  font-weight: 750;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  background: var(--bg-surface);
+  font-size: var(--text-base);
+  font-weight: var(--weight-medium);
   text-decoration: none;
+  transition:
+    background-color var(--duration-hover) var(--easing-standard),
+    border-color var(--duration-hover) var(--easing-standard);
+}
+
+.addButton:hover,
+.assistantLink:hover {
+  border-color: var(--border-strong);
+  background: var(--bg-hover);
 }
 
 .assistantComposer {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 7px;
+  gap: var(--space-2);
 }
 
 .assistantComposer input {
   min-width: 0;
-  height: 42px;
-  padding: 0 11px;
-  border: 1px solid #d9dde7;
-  border-radius: 8px;
-  color: var(--ink);
-  background: #fff;
+  height: var(--control-height-lg);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  background: var(--bg-sunken);
   font: inherit;
-  font-size: 11px;
+  font-size: var(--text-base);
 }
 
+/* The one filled action on the brief: submitting the question. */
 .assistantComposer button {
   min-width: 52px;
-  border: 0;
-  border-radius: 8px;
-  color: #fff;
-  background: var(--purple);
+  border: 1px solid var(--action-fill);
+  border-radius: var(--radius-sm);
+  color: var(--action-fill-text);
+  background: var(--action-fill);
   font: inherit;
-  font-size: 11px;
-  font-weight: 800;
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
   cursor: pointer;
+  transition: background-color var(--duration-hover) var(--easing-standard);
+}
+
+.assistantComposer button:hover:not(:disabled) {
+  border-color: var(--action-fill-hover);
+  background: var(--action-fill-hover);
 }
 
 .assistantComposer button:disabled,
@@ -1709,21 +1929,16 @@
 
 .assistantComposer input:focus-visible,
 .assistantComposer button:focus-visible {
-  outline: 3px solid #96b8ff;
+  outline: 2px solid var(--border-focus);
   outline-offset: 2px;
 }
 
 .addButton {
   margin-top: auto;
-  color: #fff;
-  background: var(--purple);
 }
 
 .assistantLink {
-  gap: 6px;
-  border: 1px solid #d9dde7;
-  color: #4e596d;
-  background: #fff;
+  gap: var(--space-2);
 }
 
 .rail a:focus-visible,
@@ -1736,13 +1951,13 @@
 .traceCard button:focus-visible,
 .addButton:focus-visible,
 .assistantLink:focus-visible {
-  outline: 3px solid #96b8ff;
+  outline: 2px solid var(--border-focus);
   outline-offset: 2px;
 }
 
 .fusionGallery button:focus-visible,
 .fusionSelector button:focus-visible {
-  outline: 3px solid #96b8ff;
+  outline: 2px solid var(--border-focus);
   outline-offset: 2px;
 }
 
@@ -1759,8 +1974,8 @@
     display: grid;
     min-height: auto;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 14px;
-    padding: 20px;
+    gap: var(--space-4);
+    padding: var(--space-5);
   }
 
   .mapCard,
@@ -1806,8 +2021,8 @@
   .header {
     grid-row: 1;
     grid-template-columns: 1fr;
-    gap: 10px;
-    padding: 12px 16px;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
   }
 
   .pageNav {
@@ -1819,7 +2034,7 @@
   }
 
   .main {
-    padding: 16px;
+    padding: var(--space-4);
   }
 
   .pageHeader {
@@ -1843,7 +2058,7 @@
 
   .dossierGrid section {
     border-right: 0;
-    border-bottom: 1px solid #d6e0e4;
+    border-bottom: 1px solid var(--border-subtle);
   }
 
   .dossierGrid section:last-child {
@@ -1851,7 +2066,7 @@
   }
 
   .copilotPanel {
-    border-top: 1px solid #dfe3eb;
+    border-top: 1px solid var(--border-subtle);
     border-left: 0;
   }
 }
@@ -1886,20 +2101,30 @@
   .correlationSide {
     grid-template-rows: minmax(36px, auto) 220px minmax(38px, auto);
   }
+
   .faceplate {
     grid-template-columns: 1fr;
   }
+
+  .faceplate > div {
+    border-right: 0;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
   .sourceStrip article {
     grid-template-rows: minmax(36px, auto) 180px minmax(36px, auto);
   }
+
   .miniTrend canvas {
     height: 180px;
   }
+
   .topologyHeader,
   .topologyRow {
     grid-template-columns: minmax(0, 1fr) minmax(0, 0.85fr) minmax(0, 1fr);
     overflow-wrap: anywhere;
   }
+
   .evidenceDetails dl {
     grid-template-columns: 1fr;
   }
@@ -1932,7 +2157,7 @@
 
   .briefCanvas,
   .briefHero {
-    padding: 20px;
+    padding: var(--space-5);
   }
 }
 
@@ -1940,11 +2165,12 @@
   .map {
     display: grid;
     grid-template-columns: minmax(260px, 1fr) minmax(260px, 1fr) minmax(240px, 0.8fr);
-    gap: 24px;
-    padding: 24px;
+    gap: var(--space-6);
+    padding: var(--space-6);
     align-items: start;
     min-height: 720px;
   }
+
   .mapCard,
   .fusionGallery,
   .mappingPanel {
@@ -1953,27 +2179,33 @@
     width: auto;
     min-width: 0;
   }
+
   .fusionGallery {
     grid-column: 1;
     grid-row: 1 / 4;
   }
+
   .drawingNode {
     grid-column: 2;
     grid-row: 1;
   }
+
   .mappingPanel {
     grid-column: 3;
     grid-row: 1 / 4;
   }
+
   .trendNode {
     grid-column: 2;
     grid-row: 2;
   }
+
   .observationNode {
     grid-column: 2;
     grid-row: 3;
   }
 }
+
 @media (min-width: 901px) and (max-width: 1180px) {
   .briefLayout,
   .dossierGrid,
@@ -1981,27 +2213,30 @@
     grid-template-columns: 1fr;
   }
 }
+
 .topologyTable {
   max-height: 350px;
   overflow-y: auto;
 }
+
 .fusionGallery > header {
   flex-wrap: wrap;
-  gap: 6px;
-  font-size: 10px;
+  gap: var(--space-2);
 }
+
 .mappingPanel dt,
 .mappingPanel dd,
 .correlationProof output {
-  font-size: 11px;
+  font-size: var(--text-sm);
 }
+
 .correlationProof output {
   white-space: normal;
   overflow-wrap: anywhere;
 }
+
 .sourceStrip footer {
   overflow-wrap: anywhere;
-  font-size: 10px;
 }
 
 @media (prefers-reduced-motion: reduce) {

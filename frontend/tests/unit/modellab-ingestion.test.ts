@@ -143,7 +143,7 @@ describe("instruction mixture", () => {
 });
 
 describe("deployment measurements", () => {
-  it("marks the local profile Ready exactly when p95 is under one second", () => {
+  it("marks the local profile Ready exactly when p95 is under 2.5 s for a 256-token answer", () => {
     let sawReady = false;
     let sawPending = false;
     const stage = effective("distillation");
@@ -154,7 +154,7 @@ describe("deployment measurements", () => {
         NOW,
       );
       const localProfile = measured.targets.find((target) => target.id === "local")!;
-      expect(localProfile.status === "Ready").toBe(localProfile.p95 < 1);
+      expect(localProfile.status === "Ready").toBe(localProfile.p95 < 2.5);
       if (localProfile.status === "Ready") sawReady = true;
       else sawPending = true;
       for (const target of measured.targets) {
@@ -183,22 +183,36 @@ describe("deployment measurements", () => {
       (target) => target.id === "local",
     )!;
     const metric = (prefix: string) =>
-      metricAtEval(stage.metrics.find((m) => m.label.startsWith(prefix))!, stage, step);
-    expect(local.p50).toBeCloseTo(metric("Latency per sample"), 9);
-    expect(local.tokensPerSecond).toBeCloseTo(metric("Throughput"), 9);
-    expect(local.memoryGb).toBeCloseTo(metric("Peak VRAM"), 9);
+      metricAtEval(
+        stage.metrics.find((m) => m.label.startsWith(prefix))!,
+        stage,
+        step,
+      );
+    // End-to-end latency of a 256-token answer: time to first token plus 256 decode steps.
+    const ttft = metric("Time to first token p50") / 1000;
+    const decode = metric("Decode throughput");
+    expect(local.p95).toBeCloseTo(
+      ttft + 256 * (metric("Time per output token p95") / 1000),
+      9,
+    );
+    expect(local.p50).toBeCloseTo(ttft + 256 / decode, 9);
+    expect(local.tokensPerSecond).toBeCloseTo(decode, 9);
+    expect(local.memoryGb).toBeCloseTo(metric("Serving memory"), 9);
   });
 });
 
 describe("batch rewards", () => {
   it("keeps the penalty negative and scores within bounds", () => {
     const stage = stageById("rl")!;
-    const rewards = batchRewards(stage, 53_556, 0.53);
+    const step = stage.run.openingStep;
+    const rewards = batchRewards(stage, step, step / stage.run.totalSteps);
     expect(rewards).toHaveLength(stage.rewards!.length);
-    // One decomposition of the plotted mean reward, not a second estimate of it.
+    // One decomposition of the plotted mean reward — incidents included — not a second
+    // estimate of it.
     const mean = curveAt(
       stage.curves.flatMap((tab) => tab.curves).find((curve) => curve.key === "reward")!,
-      53_556,
+      step,
+      stage,
     );
     expect(rewards.reduce((sum, reward) => sum + reward.value, 0)).toBeCloseTo(mean, 6);
     for (const reward of rewards) {

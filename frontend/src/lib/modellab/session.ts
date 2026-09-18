@@ -18,10 +18,12 @@ import {
   type RunConfig,
   type RunProfile,
 } from "./config";
-import { openingControl, stepAt, type RunControl } from "./run";
+import { openingControl, REPLAY_SPEEDS, stepAt, withSpeed, type RunControl } from "./run";
 import { STAGES, stageById, type Stage, type StageId } from "./stages";
 
-export const SESSION_KEY = "pid.modellab.session.v3";
+// v4: the run model gained an incident timeline, realistic step counts and replay speed;
+// a v3 session's step positions refer to runs that no longer exist.
+export const SESSION_KEY = "pid.modellab.session.v4";
 
 export interface AppliedConfig {
   readonly config: RunConfig;
@@ -90,6 +92,9 @@ export function loadSession(
           status: control.status,
           step: Math.min(Math.max(0, control.step), stage.run.totalSteps),
           at: Math.min(control.at, now),
+          speed: (REPLAY_SPEEDS as readonly number[]).includes(control.speed ?? 1)
+            ? (control.speed ?? 1)
+            : 1,
         };
       }
       const config = parsed.applied?.[stage.id];
@@ -159,7 +164,12 @@ export function applyConfig(
   return {
     controls: {
       ...session.controls,
-      [stageId]: { status: control.status, step: restartStep, at: now },
+      [stageId]: {
+        status: control.status,
+        step: restartStep,
+        at: now,
+        speed: control.speed,
+      },
     },
     applied: { ...session.applied, [stageId]: { config, appliedAt: now } },
     history: [record, ...session.history].slice(0, 50),
@@ -189,7 +199,12 @@ export function resumeFromCheckpoint(
     ...session,
     controls: {
       ...session.controls,
-      [stageId]: { status: "running", step: Math.min(checkpointStep, step), at: now },
+      [stageId]: {
+        status: "running",
+        step: Math.min(checkpointStep, step),
+        at: now,
+        speed: session.controls[stageId].speed,
+      },
     },
     history: [record, ...session.history].slice(0, 50),
   };
@@ -211,7 +226,15 @@ export function stopRun(session: LabSession, stageId: StageId, now: number): Lab
   };
   return {
     ...session,
-    controls: { ...session.controls, [stageId]: { status: "paused", step, at: now } },
+    controls: {
+      ...session.controls,
+      [stageId]: {
+        status: "paused",
+        step,
+        at: now,
+        speed: session.controls[stageId].speed,
+      },
+    },
     history: [record, ...session.history].slice(0, 50),
   };
 }
@@ -259,4 +282,27 @@ export function lineageOf(session: LabSession, stageId: StageId, now: number): L
       interim: parentStep < parent.stage.run.totalSteps,
     },
   };
+}
+
+/** The replay speed the session is running at. One speed applies to every stage. */
+export function replaySpeedOf(session: LabSession): number {
+  return session.controls[STAGES[0]!.id].speed ?? 1;
+}
+
+/**
+ * Change replay speed for every stage at once. Each run is rebased at the step it has reached,
+ * so the change moves nothing — it only alters how fast training time passes from here on —
+ * and stage lineage (which reads each predecessor's step) stays consistent.
+ */
+export function setReplaySpeed(
+  session: LabSession,
+  speed: number,
+  now: number,
+): LabSession {
+  const controls = { ...session.controls };
+  for (const plan of STAGES) {
+    const { stage } = effectiveStage(plan, session.applied[plan.id]);
+    controls[plan.id] = withSpeed(session.controls[plan.id], stage.run, now, speed);
+  }
+  return { ...session, controls };
 }

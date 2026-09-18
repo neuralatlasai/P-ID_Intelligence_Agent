@@ -1,22 +1,32 @@
+/*
+ * A pending value. The pulse encodes that the system is still working — which is a real
+ * runtime state, so it earns its motion — but it is a plain opacity cycle on a flat
+ * surface rather than a travelling gradient sheen.
+ */
 .line {
   block-size: 10px;
-  border-radius: var(--radius-xs);
-  background: linear-gradient(
-    90deg,
-    var(--bg-sunken) 25%,
-    var(--bg-hover) 37%,
-    var(--bg-sunken) 63%
-  );
-  background-size: 400% 100%;
-  animation: shimmer 1.4s ease-in-out infinite;
+  border-radius: var(--radius-sm);
+  background: var(--bg-hover);
+  animation: pending 1.4s ease-in-out infinite;
 }
 
-@keyframes shimmer {
-  0% {
-    background-position: 100% 50%;
-  }
+@keyframes pending {
+  0%,
   100% {
-    background-position: 0 50%;
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+/*
+ * A keyframe animation is not neutralised by the duration tokens going to 0ms, so it
+ * needs its own reduced-motion rule. The bar stays, at its resting opacity.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .line {
+    animation: none;
   }
 }
 

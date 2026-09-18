@@ -103,8 +103,9 @@ describe("simulated run", () => {
   });
 
   it("writes checkpoints at the cadence and marks exactly one best", () => {
-    const written = checkpoints(stage, 10_000, 100);
-    expect(written.map((c) => c.step)).toEqual([10_000, 8_000, 6_000, 4_000, 2_000]);
+    const every = stage.run.checkpointEvery;
+    const written = checkpoints(stage, every * 5, 100);
+    expect(written.map((c) => c.step)).toEqual([5, 4, 3, 2, 1].map((n) => n * every));
     expect(written.filter((c) => c.best)).toHaveLength(1);
   });
 });

@@ -16,7 +16,9 @@ export const viewport: Viewport = {
   // Zoom is not capped. Restricting it breaks the 200% text-zoom requirement and is a
   // direct accessibility failure on touch devices.
   maximumScale: 5,
-  themeColor: "#f4f6fb",
+  // Matches --bg-canvas. The browser paints chrome with this before any CSS loads, so it
+  // is the one place a literal is unavoidable; keep it in step with the token.
+  themeColor: "#151619",
 };
 
 /**

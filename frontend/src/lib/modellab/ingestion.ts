@@ -321,7 +321,7 @@ interface ObjectiveSpec {
 
 const OBJECTIVES: Partial<Record<Stage["id"], readonly ObjectiveSpec[]>> = {
   pretraining: [
-    { key: "mlm", label: "Masked multimodal modeling", weight: 0.35 },
+    { key: "mlm", label: "Next-token prediction (interleaved image–text)", weight: 0.35 },
     { key: "contrastive", label: "Contrastive alignment", weight: 0.25 },
     { key: "grounding", label: "OCR / tag grounding", weight: 0.2 },
     { key: "topology", label: "Topology prediction", weight: 0.15 },
@@ -343,7 +343,6 @@ const FALLBACK_CURVES: Record<string, CurveSpec> = {
   registration: {
     key: "registration-loss",
     label: "Registration loss",
-    colour: "#16a34a",
     start: 1.8,
     end: 0.0055,
     tau: 1200,
@@ -354,7 +353,6 @@ const FALLBACK_CURVES: Record<string, CurveSpec> = {
 export interface ObjectiveShare {
   readonly key: string;
   readonly label: string;
-  readonly colour: string;
   readonly weight: number;
   readonly loss: number;
   /** weight × loss / Σ(weight × loss); shares sum to 1. */
@@ -370,11 +368,10 @@ export function objectiveShares(stage: Stage, step: number): readonly ObjectiveS
   const rows = specs.map((spec) => {
     const plotted = tab.curves.find((curve) => curve.key === spec.key);
     const curve = plotted ?? FALLBACK_CURVES[spec.key];
-    const loss = curve ? Math.max(0, curveAt(curve, step)) : 0;
+    const loss = curve ? Math.max(0, curveAt(curve, step, stage)) : 0;
     return {
       key: spec.key,
       label: spec.label,
-      colour: curve?.colour ?? "#64748b",
       weight: spec.weight,
       loss,
       derived: !plotted,
@@ -391,19 +388,22 @@ export function objectiveShares(stage: Stage, step: number): readonly ObjectiveS
 // Instruction mixture
 // ────────────────────────────────────────────────────────────────────────────────────────────
 
+/**
+ * The planned task families, in the order the donut and its legend draw them. Series are
+ * taken in that order, so a family's colour is its position here and no colour is stored.
+ */
 export const MIXTURE_FAMILIES = [
-  { id: "qa", label: "Plant QA", share: 0.25, colour: "#2563eb" },
-  { id: "grounding", label: "Grounding", share: 0.2, colour: "#8b5cf6" },
-  { id: "topology", label: "Topology / tool-use", share: 0.2, colour: "#22c55e" },
-  { id: "procedure", label: "Procedure reasoning", share: 0.2, colour: "#f59e0b" },
-  { id: "telemetry", label: "Telemetry-conditioned", share: 0.15, colour: "#38bdf8" },
+  { id: "qa", label: "Plant QA", share: 0.25 },
+  { id: "grounding", label: "Grounding", share: 0.2 },
+  { id: "topology", label: "Topology / tool-use", share: 0.2 },
+  { id: "procedure", label: "Procedure reasoning", share: 0.2 },
+  { id: "telemetry", label: "Telemetry-conditioned", share: 0.15 },
 ] as const;
 
 export interface MixtureFamilyCount {
   readonly id: string;
   readonly label: string;
   readonly share: number;
-  readonly colour: string;
   /** Samples of this family seen since step 0. */
   readonly seen: number;
   /** Samples of this family in the most recent optimiser batch. */
@@ -477,7 +477,6 @@ export function mixtureCounts(
       id: family.id,
       label: family.label,
       share: family.share,
-      colour: family.colour,
       seen: seen[index]!,
       lastBatch: lastBatch[index]!,
     })),
@@ -523,7 +522,7 @@ export function batchRewards(
   const rateCurve = stageCurve(stage, "halluc");
   const hallucination = Math.min(
     1,
-    Math.max(0, rateCurve ? curveAt(rateCurve, at) : lerp(0.15, 0.035, t)),
+    Math.max(0, rateCurve ? curveAt(rateCurve, at, stage) : lerp(0.15, 0.035, t)),
   );
 
   const raw = rewards.map((reward) => {
@@ -540,14 +539,19 @@ export function batchRewards(
     if (reward.weight < 0) penalty += reward.weight * raw[index]!;
     else spread += reward.weight * raw[index]!;
   });
-  const mean = meanCurve ? curveAt(meanCurve, at) : lerp(0.18, 0.71, t);
+  const mean = meanCurve ? curveAt(meanCurve, at, stage) : lerp(0.18, 0.71, t);
   // The common level of the positive scores that makes the weighted rows sum to `mean`.
   const level = (mean - penalty - spread) / positiveWeight;
 
   return rewards.map((reward, index) => {
     const score =
       reward.weight < 0 ? raw[index]! : Math.min(1, Math.max(0, level + raw[index]!));
-    return { name: reward.name, weight: reward.weight, score, value: reward.weight * score };
+    return {
+      name: reward.name,
+      weight: reward.weight,
+      score,
+      value: reward.weight * score,
+    };
   });
 }
 
@@ -580,24 +584,32 @@ export interface DeploymentMeasurements {
   readonly targets: readonly DeploymentTarget[];
 }
 
+/** A served export's measurement model; the local profile is derived instead (see below). */
 interface TargetModel {
-  readonly id: DeploymentTarget["id"];
+  readonly id: Exclude<DeploymentTarget["id"], "local">;
   readonly name: string;
   readonly detail: string;
   readonly p50: readonly [number, number];
   readonly tail: readonly [number, number];
   readonly tokens: readonly [number, number];
   readonly memory: readonly [number, number];
-  readonly supportedAt?: number;
+  readonly supportedAt: number;
   readonly memoryBudgetGb?: number;
-  readonly tailFinal?: number;
 }
+
+/**
+ * The local profile's request: a 4K-token prompt answered with 256 tokens on one H100 80GB
+ * at batch 1, the same setup as the stage-4 serving metrics. It is Ready once its p95
+ * end-to-end latency is under this target.
+ */
+export const LOCAL_ANSWER_TOKENS = 256;
+export const LOCAL_P95_TARGET_S = 2.5;
 
 const TARGET_MODELS: readonly TargetModel[] = [
   {
     id: "vllm",
     name: "vLLM server",
-    detail: "FP16 / INT8, continuous batching",
+    detail: "BF16 / INT8 W8A16, continuous batching",
     p50: [0.62, 0.38],
     tail: [1.9, 1.55],
     tokens: [142, 196],
@@ -607,7 +619,7 @@ const TARGET_MODELS: readonly TargetModel[] = [
   {
     id: "tensorrt",
     name: "TensorRT-LLM",
-    detail: "INT8 / FP8, fused kernels",
+    detail: "INT8 W8A16 · FP8 KV cache, fused kernels",
     p50: [0.55, 0.29],
     tail: [1.7, 1.4],
     tokens: [165, 238],
@@ -617,34 +629,28 @@ const TARGET_MODELS: readonly TargetModel[] = [
   {
     id: "edge",
     name: "Edge GPU / plant server",
-    detail: "L4 / L40S, 16 GB budget, air-gapped",
+    detail: "L4 / L40S, 24 GB budget (L4), air-gapped",
     p50: [1.05, 0.62],
     tail: [1.8, 1.45],
     tokens: [31, 46],
     memory: [17.6, 14.2],
     supportedAt: 0.5,
-    memoryBudgetGb: 16,
-  },
-  {
-    id: "local",
-    name: "Local inference profile",
-    detail: "Single GPU, p95 < 1 s target",
-    p50: [1.4, 0.82],
-    tail: [1.5, 1.12],
-    tokens: [38, 52.7],
-    memory: [18, 16],
-    tailFinal: 1.08,
+    memoryBudgetGb: 24,
   },
 ];
 
 /**
  * Latency, throughput and memory per deployment target from the quantisation-aware pass of
  * the stage's evaluation harness. The numbers change only when an evaluation publishes, at
- * the step the metrics table reports. The local single-GPU profile reads latency, throughput
- * and peak memory straight from those metrics; the other targets scale from the same
- * progress with a small, fixed measurement scatter.
+ * the step the metrics table reports. The other targets scale from the same progress with a
+ * small, fixed measurement scatter.
  *
- * The local profile is Ready exactly when its measured p95 is under one second.
+ * The local profile is derived from the metrics table's serving rows, measured on the same
+ * H100 at batch 1 with a 4K prompt. End-to-end latency for an N-token answer is time to first
+ * token plus N decode steps:
+ *   p95 ≈ TTFT p50 + N × TPOT p95     (every decode step at its p95: a conservative tail)
+ *   p50 ≈ TTFT p50 + N / decode tok/s (mean decode step)
+ * It is Ready exactly when that p95 is under LOCAL_P95_TARGET_S.
  */
 export function deploymentMeasurements(
   stage: Stage,
@@ -660,50 +666,54 @@ export function deploymentMeasurements(
     return spec ? measured(spec, stage, evalStep) : undefined;
   };
 
-  const targets = TARGET_MODELS.map((model): DeploymentTarget => {
+  const served = TARGET_MODELS.map((model): DeploymentTarget => {
     const scatter = (key: string, size: number) =>
       1 + (unit(`deploy:${model.id}:${key}:${evalStep}`) * 2 - 1) * size;
-    const local = model.id === "local";
-    const p50 =
-      (local ? fromMetric("Latency per sample") : undefined) ??
-      lerp(model.p50[0], model.p50[1], t) * scatter("p50", 0.02);
-    const tail = lerp(model.tail[0], model.tailFinal ?? model.tail[1], t);
-    const p95 = p50 * tail * scatter("p95", 0.015);
-    const tokensPerSecond =
-      (local ? fromMetric("Throughput") : undefined) ??
-      lerp(model.tokens[0], model.tokens[1], t) * scatter("tok", 0.02);
-    const memoryGb =
-      (local ? fromMetric("Peak VRAM") : undefined) ??
-      lerp(model.memory[0], model.memory[1], t) * scatter("mem", 0.005);
-
-    let status: DeploymentStatus;
-    let gate: string;
-    if (model.id === "local") {
-      status = p95 < 1 ? "Ready" : "Pending";
-      gate = status === "Ready" ? "p95 under 1 s" : `p95 ${p95.toFixed(2)} s, needs < 1 s`;
-    } else {
-      const reached = measuredProgress >= (model.supportedAt ?? 0);
-      const fits = model.memoryBudgetGb === undefined || memoryGb <= model.memoryBudgetGb;
-      status = reached && fits ? "Supported" : "Pending";
-      gate =
-        status === "Supported"
-          ? "Export validated"
-          : !reached
-            ? `Export validated at ${Math.round((model.supportedAt ?? 0) * 100)}%`
-            : `Needs ≤ ${model.memoryBudgetGb} GB`;
-    }
+    const p50 = lerp(model.p50[0], model.p50[1], t) * scatter("p50", 0.02);
+    const p95 = p50 * lerp(model.tail[0], model.tail[1], t) * scatter("p95", 0.015);
+    const memoryGb = lerp(model.memory[0], model.memory[1], t) * scatter("mem", 0.005);
+    const reached = measuredProgress >= model.supportedAt;
+    const fits = model.memoryBudgetGb === undefined || memoryGb <= model.memoryBudgetGb;
+    const status: DeploymentStatus = reached && fits ? "Supported" : "Pending";
     return {
       id: model.id,
       name: model.name,
       detail: model.detail,
       status,
-      gate,
+      gate:
+        status === "Supported"
+          ? "Export validated"
+          : !reached
+            ? `Export validated at ${Math.round(model.supportedAt * 100)}%`
+            : `Needs ≤ ${model.memoryBudgetGb} GB`,
       p50,
       p95,
-      tokensPerSecond,
+      tokensPerSecond: lerp(model.tokens[0], model.tokens[1], t) * scatter("tok", 0.02),
       memoryGb,
     };
   });
+
+  // The local profile, from the metrics table's serving rows (milliseconds → seconds).
+  const ttftS = (fromMetric("Time to first token p50") ?? 0) / 1000;
+  const tpotP95S = (fromMetric("Time per output token p95") ?? 0) / 1000;
+  const decodeTokS = fromMetric("Decode throughput") ?? 0;
+  const p95 = ttftS + LOCAL_ANSWER_TOKENS * tpotP95S;
+  const ready = p95 < LOCAL_P95_TARGET_S;
+  const answer = `${LOCAL_ANSWER_TOKENS}-token answer`;
+  const local: DeploymentTarget = {
+    id: "local",
+    name: "Local inference profile",
+    detail: `H100 80GB · batch 1 · 4K prompt + ${answer}`,
+    status: ready ? "Ready" : "Pending",
+    gate: ready
+      ? `p95 under ${LOCAL_P95_TARGET_S} s (${answer})`
+      : `p95 ${p95.toFixed(2)} s, needs < ${LOCAL_P95_TARGET_S} s (${answer})`,
+    p50: ttftS + (decodeTokS > 0 ? LOCAL_ANSWER_TOKENS / decodeTokS : 0),
+    p95,
+    tokensPerSecond: decodeTokS,
+    memoryGb: fromMetric("Serving memory") ?? 0,
+  };
+  const targets = [...served, local];
 
   const rate = run.stepsPerSecond > 0 ? run.stepsPerSecond : 1;
   const lag = evalStep === 0 || evalStep >= run.totalSteps ? 0 : evalLagSteps(stage);

@@ -37,6 +37,10 @@
   color: var(--text-tertiary);
 }
 
+/*
+ * Sending is the one dominant action in this view, so it is the one filled surface — and it
+ * is filled white, not blue. Blue is left to links, focus and selection.
+ */
 .send {
   flex: none;
   display: grid;
@@ -44,18 +48,18 @@
   inline-size: 34px;
   block-size: 34px;
   border: 0;
-  border-radius: var(--radius-md);
-  background: var(--accent-action);
-  color: #fff;
+  border-radius: var(--radius-sm);
+  background: var(--action-fill);
+  color: var(--action-fill-text);
   transition: background-color var(--duration-fast) var(--easing-standard);
 }
 
 .send:hover:not(:disabled) {
-  background: var(--accent-action-hover);
+  background: var(--action-fill-hover);
 }
 
 .send:disabled {
-  background: var(--border-default);
+  background: var(--bg-hover);
   color: var(--text-tertiary);
 }
 

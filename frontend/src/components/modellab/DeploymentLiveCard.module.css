@@ -1,4 +1,5 @@
-/* Live deployment targets. */
+/* Live deployment targets. Target names and their latency/throughput figures are read
+   character by character, so both run mono. */
 
 .table th[scope="row"],
 .table td {
@@ -7,20 +8,22 @@
 
 .name {
   display: block;
-  font-weight: 500;
-  color: var(--ink);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-weight: var(--weight-medium);
   white-space: nowrap;
 }
 
 .detail {
   display: block;
-  font-size: 10.5px;
-  font-weight: 400;
-  color: var(--muted);
+  color: var(--text-tertiary);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-regular);
   white-space: normal;
 }
 
 .numeric {
+  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -28,6 +31,6 @@
 .note {
   margin: 0;
   padding: 0 14px 12px;
-  font-size: 10.5px;
-  color: var(--muted);
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
 }

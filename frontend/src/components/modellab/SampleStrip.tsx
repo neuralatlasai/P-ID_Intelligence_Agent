@@ -365,16 +365,26 @@ function PidCrop({
           y={node.y - height / 2}
           width={width}
           height={height}
-          fill="#ffffff"
+          fill="var(--bg-void)"
         />
-        <image href={imageUrl} width={drawing.width} height={drawing.height} />
+        {/* Normalised to ink-on-void, the same as every other rendering of this sheet. The
+            class goes on the image alone so the detection marks above it are not inverted
+            with it. The field photograph beside this one is deliberately left alone —
+            inverting a photograph produces false colour, not dark mode. */}
+        <image
+          className="engineeringRaster"
+          href={imageUrl}
+          width={drawing.width}
+          height={drawing.height}
+        />
+        {/* The located symbol: a detection overlay, told by weight rather than by hue. */}
         <rect
           x={node.x - node.width / 2 - pad}
           y={node.y - node.height / 2 - pad}
           width={node.width + pad * 2}
           height={node.height + pad * 2}
-          fill="rgba(220, 38, 38, 0.06)"
-          stroke="#dc2626"
+          fill="none"
+          stroke="var(--overlay-selected)"
           strokeWidth={span / 110}
           strokeDasharray={`${span / 40} ${span / 60}`}
         />
@@ -391,10 +401,14 @@ function PidCrop({
 // Topology
 // ────────────────────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Neighbour groups are categories, not states, so they take the ordered categorical family
+ * in the order the legend lists them — never a status colour.
+ */
 const GROUP_COLOUR = {
-  equipment: "#93c5fd",
-  instrument: "#60a5fa",
-  process: "#4ade80",
+  equipment: "var(--series-1)",
+  instrument: "var(--series-2)",
+  process: "var(--series-3)",
 } as const;
 
 function shortFunction(name: string): string {
@@ -519,12 +533,12 @@ function EvidenceMap({
   readonly sample: LabSample;
   readonly label: string;
 }) {
+  // Six evidence classes: categories, so they take the categorical family in list order.
   const items: {
     name: string;
     count: number;
     icon: IconName;
     href: string;
-    colour: string;
     x: number;
     y: number;
   }[] = [
@@ -533,7 +547,6 @@ function EvidenceMap({
       count: sample.evidence.fieldImages,
       icon: "canvas",
       href: canvasHref(sample.nodeId),
-      colour: "#22c55e",
       x: 30,
       y: 14,
     },
@@ -542,7 +555,6 @@ function EvidenceMap({
       count: sample.evidence.pid,
       icon: "reports",
       href: canvasHref(sample.nodeId),
-      colour: "#2563eb",
       x: 70,
       y: 14,
     },
@@ -551,7 +563,6 @@ function EvidenceMap({
       count: sample.evidence.twin,
       icon: "cube",
       href: canvasHref(sample.nodeId, "Twin"),
-      colour: "#16a34a",
       x: 80,
       y: 46,
     },
@@ -560,7 +571,6 @@ function EvidenceMap({
       count: sample.evidence.manuals,
       icon: "book",
       href: canvasHref(sample.nodeId, "Files"),
-      colour: "#f59e0b",
       x: 70,
       y: 78,
     },
@@ -569,7 +579,6 @@ function EvidenceMap({
       count: sample.evidence.timeSeries,
       icon: "monitoring",
       href: canvasHref(sample.nodeId),
-      colour: "#06b6d4",
       x: 30,
       y: 78,
     },
@@ -578,7 +587,6 @@ function EvidenceMap({
       count: sample.evidence.graph,
       icon: "graph",
       href: canvasHref(sample.nodeId, "Assets"),
-      colour: "#7c3aed",
       x: 21,
       y: 46,
     },
@@ -600,12 +608,16 @@ function EvidenceMap({
       <span className={styles.hub} style={{ left: "50%", top: "50%" }}>
         {label}
       </span>
-      {items.map((item) => (
+      {items.map((item, index) => (
         <Link
           key={item.name}
           href={item.href}
           className={styles.evidenceNode}
-          style={{ left: `${item.x}%`, top: `${item.y}%`, color: item.colour }}
+          style={{
+            left: `${item.x}%`,
+            top: `${item.y}%`,
+            color: `var(--series-${index + 1})`,
+          }}
           title={`Open ${item.name.toLowerCase()} evidence for ${sample.tag}`}
         >
           <span>

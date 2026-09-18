@@ -284,7 +284,7 @@ function EvidenceMap({
   readonly onOpenInvestigation: () => void;
 }) {
   return (
-    <section className={styles.map} aria-label="Linked evidence map">
+    <section className={`${styles.map} engineeringField`} aria-label="Linked evidence map">
       <LinkCanvas selectedNode={selectedFusion?.node.id ?? model.asset.id} />
 
       <section
@@ -322,7 +322,7 @@ function EvidenceMap({
         onClick={() => onSelect("drawing")}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={imageUrl} alt="P&ID source drawing" />
+        <img className="engineeringRaster" src={imageUrl} alt="P&ID source drawing" />
         <span className={styles.cardBody}>
           <small>OBS / controlled corpus drawing</small>
           <strong>PID2Graph OPEN100 / Sheet 0</strong>
@@ -816,7 +816,7 @@ function AiBrief({
 
   return (
     <section className={styles.briefLayout}>
-      <div className={styles.briefCanvas}>
+      <div className={`${styles.briefCanvas} engineeringField`}>
         <div className={styles.sourceStrip}>
           <article>
             <header>
@@ -836,7 +836,7 @@ function AiBrief({
               <strong>Controlled P&amp;ID source</strong>
             </header>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={imageUrl} alt="Linked P&ID drawing" />
+            <img className="engineeringRaster" src={imageUrl} alt="Linked P&ID drawing" />
             <footer>{model.drawing.source} / corpus evidence</footer>
           </article>
           <article className={styles.miniTrend}>
@@ -1031,7 +1031,7 @@ function AiBrief({
         <div className={styles.briefThumbnails}>
           {selectedFusion ? <AnnotatedImage asset={selectedFusion} compact /> : null}
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={imageUrl} alt="P&ID thumbnail" />
+          <img className="engineeringRaster" src={imageUrl} alt="P&ID thumbnail" />
           <TrendChart values={model.trend} nodeId={node.id} compact />
         </div>
         <Link
@@ -1168,7 +1168,9 @@ function PidCorrelationCrop({
       data-source-x={node.x}
       data-source-y={node.y}
     >
+      {/* The filter sits on the raster alone: the overlay marks below must not invert. */}
       <image
+        className="engineeringRaster"
         href={imageUrl}
         x="0"
         y="0"
@@ -1182,9 +1184,9 @@ function PidCorrelationCrop({
           cx={entry.x}
           cy={entry.y}
           r="8"
-          fill="#0284c7"
-          fillOpacity="0.45"
-          stroke="#075985"
+          fill="var(--overlay-selected-bg)"
+          stroke="var(--overlay-related)"
+          strokeWidth="var(--overlay-related-width)"
           vectorEffect="non-scaling-stroke"
         >
           <title>{entry.id}</title>
@@ -1242,9 +1244,9 @@ function AnnotatedImage({
           y={y}
           width={(box.width * width) / 100}
           height={(box.height * height) / 100}
-          fill="none"
-          stroke="#dc234e"
-          strokeWidth="2"
+          fill="var(--overlay-selected-bg)"
+          stroke="var(--overlay-selected)"
+          strokeWidth="var(--overlay-selected-width)"
           vectorEffect="non-scaling-stroke"
         />
         <rect
@@ -1252,14 +1254,14 @@ function AnnotatedImage({
           y={Math.max(0, y - labelHeight)}
           width={width * 0.16}
           height={labelHeight}
-          fill="#941c3b"
+          fill="var(--bg-void)"
         />
         <text
           x={x + 8}
           y={Math.max(0, y - labelHeight) + labelHeight * 0.74}
-          fill="white"
+          fill="var(--text-primary)"
           fontSize={labelHeight * 0.65}
-          fontFamily="monospace"
+          fontFamily="var(--font-mono)"
         >
           {asset.annotationId}
         </text>
@@ -1268,6 +1270,50 @@ function AnnotatedImage({
     </span>
   );
 }
+
+/*
+ * Canvas 2D takes colour strings, not custom properties, so the tokens the two renderers
+ * below need are read once from the document element and cached here. getComputedStyle
+ * forces a style recalculation, so calling it per frame — or worse, per shape — makes the
+ * chart janky; the palette is static (one :root, no theme switch), so a single read is
+ * correct as well as cheap.
+ */
+interface CanvasInk {
+  readonly grid: string;
+  readonly label: string;
+  readonly reference: string;
+  readonly trace: string;
+  readonly wire: string;
+  readonly mono: string;
+  readonly labelSize: number;
+}
+
+let canvasInk: CanvasInk | undefined;
+
+function readCanvasInk(): CanvasInk {
+  if (canvasInk) return canvasInk;
+  const style = getComputedStyle(document.documentElement);
+  const token = (name: string): string => style.getPropertyValue(name).trim();
+  canvasInk = {
+    grid: token("--chart-grid"),
+    label: token("--text-tertiary"),
+    reference: token("--chart-crosshair"),
+    trace: token("--series-1"),
+    wire: token("--ink-wire"),
+    mono: token("--font-mono"),
+    labelSize: Number.parseFloat(token("--text-sm")) || 11,
+  };
+  return canvasInk;
+}
+
+/*
+ * The trend is drawn in a fixed logical space that CSS stretches to the panel width. The
+ * full chart's 260 logical units are shown at the 160px given by `.chart`, so tick labels
+ * are pre-scaled by that ratio to land at --text-sm on screen.
+ */
+const CHART_SIZE = { width: 900, height: 260 } as const;
+const CHART_COMPACT_SIZE = { width: 420, height: 130 } as const;
+const CHART_LABEL_PRESCALE = 260 / 160;
 
 function TrendChart({
   values,
@@ -1283,16 +1329,21 @@ function TrendChart({
   readonly target?: number;
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
+  const { width, height } = compact ? CHART_COMPACT_SIZE : CHART_SIZE;
 
   useEffect(() => {
     const element = canvas.current;
     if (!element) return;
     const context = element.getContext("2d");
     if (!context) return;
-    const width = element.width;
-    const height = element.height;
+    // The backing buffer carries device pixels; drawing stays in logical units.
+    const ratio = Math.max(1, window.devicePixelRatio || 1);
+    element.width = Math.round(width * ratio);
+    element.height = Math.round(height * ratio);
+    context.setTransform(ratio, 0, 0, ratio, 0, 0);
+    const ink = readCanvasInk();
     context.clearRect(0, 0, width, height);
-    context.strokeStyle = "#e3e7ef";
+    context.strokeStyle = ink.grid;
     context.lineWidth = 1;
     for (let row = 1; row < 4; row += 1) {
       const y = (height / 4) * row;
@@ -1301,8 +1352,8 @@ function TrendChart({
       context.lineTo(width, y);
       context.stroke();
     }
-    context.fillStyle = "#405965";
-    context.font = "18px sans-serif";
+    context.fillStyle = ink.label;
+    context.font = `${ink.labelSize * CHART_LABEL_PRESCALE}px ${ink.mono}`;
     if (!compact) {
       for (const value of [0, 50, 100])
         context.fillText(
@@ -1318,7 +1369,7 @@ function TrendChart({
       context.fillText(`${endSeconds ?? values.length - 1}s`, width - 60, height - 4);
     }
     if (target !== undefined) {
-      context.strokeStyle = "#697c86";
+      context.strokeStyle = ink.reference;
       context.setLineDash([8, 5]);
       context.beginPath();
       const targetY = height - 35 - (target / 100) * (height - 60);
@@ -1328,7 +1379,7 @@ function TrendChart({
       context.setLineDash([]);
       context.fillText("TARGET", width - 95, targetY - 7);
     }
-    context.strokeStyle = "#086585";
+    context.strokeStyle = ink.trace;
     context.lineWidth = compact ? 3 : 4;
     context.lineJoin = "round";
     context.beginPath();
@@ -1339,14 +1390,14 @@ function TrendChart({
       else context.lineTo(x, y);
     });
     context.stroke();
-  }, [values, compact, endSeconds, nodeId, target]);
+  }, [values, compact, endSeconds, nodeId, target, width, height]);
 
   return (
     <canvas
       ref={canvas}
       className={compact ? styles.compactChart : styles.chart}
-      width={compact ? 420 : 900}
-      height={compact ? 130 : 260}
+      width={width}
+      height={height}
       role="img"
       aria-label={`Simulated ${displayProfile(nodeId).label}, ${values.length} samples, latest ${displayValue(nodeId, values.at(-1) ?? 0).toFixed(2)} ${displayProfile(nodeId).unit}; sample interval one second`}
     />
@@ -1359,16 +1410,18 @@ function LinkCanvas({ selectedNode }: { readonly selectedNode: string }) {
   useEffect(() => {
     const element = canvas.current;
     if (!element) return;
+    // Read once here, not inside draw: the observer re-runs draw on every resize frame.
+    const ink = readCanvasInk();
     const draw = () => {
       const box = element.getBoundingClientRect();
-      const scale = window.devicePixelRatio || 1;
+      const scale = Math.max(1, window.devicePixelRatio || 1);
       element.width = Math.max(1, Math.round(box.width * scale));
       element.height = Math.max(1, Math.round(box.height * scale));
       const context = element.getContext("2d");
       if (!context) return;
       context.scale(scale, scale);
       context.clearRect(0, 0, box.width, box.height);
-      context.strokeStyle = "#697386";
+      context.strokeStyle = ink.wire;
       context.lineWidth = 1.5;
       context.setLineDash([5, 5]);
       const container = element.parentElement;

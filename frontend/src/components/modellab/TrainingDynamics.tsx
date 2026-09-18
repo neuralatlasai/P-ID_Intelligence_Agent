@@ -11,13 +11,20 @@ import {
 
 import type { LiveCardProps } from "./live";
 import css from "./TrainingDynamics.module.css";
+import { seriesColour } from "@/lib/series";
 
 const number = (value: number) =>
   value.toLocaleString("en-US", { maximumFractionDigits: 0 });
 const value = (input: number) =>
   Math.abs(input) < 0.001 && input !== 0 ? input.toExponential(2) : input.toFixed(4);
 
-function MicroChart({ signal }: { readonly signal: TrainingSignal }) {
+function MicroChart({
+  signal,
+  colour,
+}: {
+  readonly signal: TrainingSignal;
+  readonly colour: string;
+}) {
   const points = signalPolyline(signal.history);
   const last = points.split(" ").at(-1)?.split(",") ?? ["196", "27"];
   return (
@@ -31,11 +38,11 @@ function MicroChart({ signal }: { readonly signal: TrainingSignal }) {
       <polyline
         points={points}
         fill="none"
-        stroke={signal.colour}
+        stroke={colour}
         strokeWidth="1.7"
         strokeLinejoin="round"
       />
-      <circle cx={last[0]} cy={last[1]} r="2.6" fill={signal.colour} />
+      <circle cx={last[0]} cy={last[1]} r="2.6" fill={colour} />
     </svg>
   );
 }
@@ -55,6 +62,10 @@ export function TrainingDynamics({
 }) {
   const [selected, setSelected] = useState<string | undefined>();
   const snapshot = useMemo(() => trainingSignals(stage, step), [stage, step]);
+  // One colour per channel, fixed by its place in the catalogue, so the stack segment, the
+  // card, its micro-chart and the inspection swatch all name the same channel.
+  const colourOf = (signal: TrainingSignal) =>
+    seriesColour(snapshot.signals.findIndex((item) => item.id === signal.id));
   const inspected =
     snapshot.signals.find((signal) => signal.id === selected) ?? snapshot.signals[0];
   const positive = snapshot.signals.filter((signal) => (signal.contribution ?? 0) > 0);
@@ -155,7 +166,7 @@ export function TrainingDynamics({
                   onClick={() => setSelected(signal.id)}
                   style={{
                     flexGrow: (signal.contribution ?? 0) / positiveTotal,
-                    backgroundColor: signal.colour,
+                    backgroundColor: colourOf(signal),
                   }}
                 />
               ))}
@@ -183,7 +194,7 @@ export function TrainingDynamics({
               className={css.signal}
               aria-pressed={inspected?.id === signal.id}
               onClick={() => setSelected(signal.id)}
-              style={{ "--signal": signal.colour } as CSSProperties}
+              style={{ "--signal": colourOf(signal) } as CSSProperties}
             >
               <span className={css.signalHeading}>
                 <i />
@@ -194,7 +205,7 @@ export function TrainingDynamics({
                 {value(signal.value)}
                 <small>{snapshot.kind === "reward" ? "score" : "loss"}</small>
               </span>
-              <MicroChart signal={signal} />
+              <MicroChart signal={signal} colour={colourOf(signal)} />
               <span className={css.signalMeta}>
                 <span>
                   {signal.weight === undefined
@@ -213,7 +224,7 @@ export function TrainingDynamics({
 
         {inspected && (
           <div className={css.inspection}>
-            <span style={{ backgroundColor: inspected.colour }} />
+            <span style={{ backgroundColor: colourOf(inspected) }} />
             <strong>{inspected.label}</strong>
             <p>
               {inspected.weight === undefined

@@ -1,77 +1,103 @@
 /*
- * Asset views. These render inside `.workspace`, so they inherit its tokens (--ink, --muted,
- * --accent, --ok, --line …) rather than declaring a second palette. Text ratios are against
- * the surface each rule paints; the dark popover has its own, checked separately.
+ * Asset views: the inspector panels down the right of the canvas, and the popover anchored on
+ * the drawing itself. Every colour is a token from src/styles/tokens.css.
+ *
+ * Type follows §3. Anything an engineer reads character by character — tags, functional
+ * locations, line and loop numbers, file names, failure codes, counts, sizes, dates — is mono,
+ * and tabular wherever it forms a column. The prose around it stays sans.
+ *
+ * The panel titles are this inspector's section labels, so they take the numbered
+ * `01 ——— LABEL` form. The number is generated content with empty alternative text, so the
+ * heading's accessible name is exactly the title the component renders.
  */
 
-/* ── shared chips ─────────────────────────────────────────────────────────────────────── */
+/* ── shared marks ─────────────────────────────────────────────────────────────────────── */
 
-/* Provenance, stated quietly: a hatched swatch and a word, not another pill. */
+/*
+ * Provenance, stated quietly: a swatch and a word, not another pill. Where a value came from
+ * is a category, not a state the system has determined, so it is carried by a dashed border
+ * and mono type rather than by hue.
+ */
 .simulated {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  color: #6f4a0d; /* 6.9:1 */
-  font-size: 11px;
-  font-weight: 500;
+  gap: var(--space-1);
+  color: var(--text-tertiary);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
   white-space: nowrap;
 }
 .simulated::before {
   content: "";
   width: 8px;
   height: 8px;
-  border-radius: 2px;
-  border: 1px solid #c9a35a;
-  background: repeating-linear-gradient(
-    135deg,
-    #e7c98f 0 1.5px,
-    transparent 1.5px 3px
-  );
+  border-radius: var(--radius-xs);
+  border: 1px dashed var(--rule-strong);
+  background: var(--bg-sunken);
 }
 
+/* A status word in a chip: a controlled-vocabulary term, so mono, with the dot repeating it. */
 .chip {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: 10.5px;
-  font-weight: 650;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface-high);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
   white-space: nowrap;
-  background: #eef1f6;
-  color: #3a4659; /* 8.4:1 */
 }
 .chip i {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: currentColor;
+  width: 7px;
+  height: 7px;
+  border-radius: var(--radius-pill);
+  background: var(--status-unknown-mark);
 }
 .statusOk {
-  background: #e8f6ef;
-  color: #0c5533; /* 8.3:1 */
+  background: var(--status-ready-bg);
+  color: var(--status-ready);
+}
+.statusOk i {
+  background: var(--status-ready-mark);
 }
 .statusWarn {
-  background: #fdf5e4;
-  color: #6f4a0d; /* 6.9:1 */
+  background: var(--status-degraded-bg);
+  color: var(--status-degraded);
+}
+.statusWarn i {
+  background: var(--status-degraded-mark);
 }
 .statusBad {
-  background: #fdedee;
-  color: #a4212b; /* 6.6:1 */
+  background: var(--status-down-bg);
+  color: var(--status-down);
+}
+.statusBad i {
+  background: var(--status-down-mark);
 }
 .statusInfo {
-  background: #eef3ff;
-  color: #1d4ed8; /* 5.9:1 */
+  background: var(--accent-action-subtle);
+  color: var(--accent-info);
+}
+.statusInfo i {
+  background: var(--accent-action);
 }
 
-.alert {
-  color: #a4212b !important;
+/* A count the asset is answerable for. The second selector carries enough specificity to beat
+   `.facts dd` on its own, so no override flag is needed. */
+.alert,
+.facts dd.alert {
+  color: var(--status-down);
 }
 .quiet {
-  color: var(--muted);
-  font-size: 11.5px;
-  line-height: 1.55;
-  padding: 6px 0;
+  color: var(--text-tertiary);
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+  padding: var(--space-2) 0;
 }
 
 /* ── panel shell ──────────────────────────────────────────────────────────────────────── */
@@ -80,138 +106,179 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--card);
-  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
 }
 .panel > header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 11px 14px;
-  border-bottom: 1px solid var(--line-soft);
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  background: var(--bg-surface-high);
 }
 .panel > header h2 {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: var(--space-2);
   margin: 0;
-  font-size: 12.5px;
-  font-weight: 650;
-  color: var(--ink);
+  counter-increment: inspector-section;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
   white-space: nowrap;
 }
+/* `/ ""` gives the marker empty alternative text: it is read by no one, and the accessible
+   name of the heading is unchanged. */
+.panel > header h2::before {
+  content: counter(inspector-section, decimal-leading-zero) " ——— " / "";
+  color: var(--text-tertiary);
+}
 .panel > header h2 svg {
-  color: var(--accent);
+  color: var(--text-tertiary);
 }
 .headerAction {
   margin-left: auto;
 }
 .panelBody {
-  padding: 10px 14px 13px;
+  padding: var(--space-3) var(--space-4);
   min-width: 0;
   overflow: hidden;
 }
 .count {
-  font-size: 10.5px;
-  font-weight: 650;
-  color: #a4212b;
+  color: var(--status-down);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--weight-medium);
 }
 
-/* ── popover (dark, anchored on the drawing) ──────────────────────────────────────────── */
+/* ── popover (anchored on the drawing) ────────────────────────────────────────────────── */
 
+/* This one genuinely floats over the artefact, so it is the rare surface that carries a shadow. */
 .popover {
   pointer-events: auto;
   width: 344px;
   max-height: min(420px, var(--card-max, 420px));
   overflow-y: auto;
   scrollbar-width: thin;
-  border-radius: 12px;
-  background: #151b28;
-  border: 1px solid #2a3348;
-  box-shadow:
-    0 20px 40px -14px rgba(8, 14, 28, 0.6),
-    0 4px 12px -4px rgba(8, 14, 28, 0.4);
-  color: #d7deec; /* 10.8:1 on #151b28 */
-  font-size: 11.5px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-md);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
 }
 .popover > header {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
-  padding: 13px 14px 10px;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4) var(--space-2);
 }
+/* The tag is the subject of the popover: the brightest thing on it, and read character by
+   character. */
 .popover > header strong {
   display: block;
-  color: #ffffff;
-  font-size: 17px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  color: var(--text-active);
+  font-family: var(--font-mono);
+  font-size: var(--text-xl);
+  font-weight: var(--weight-semibold);
   font-variant-numeric: tabular-nums;
 }
 .popover > header p {
   margin-top: 2px;
-  color: #a3aec5; /* 6.6:1 */
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
 }
 .popover > header > button {
   margin-left: auto;
-  border: 0;
-  border-radius: 7px;
-  padding: 4px 8px;
-  background: #222b3d;
-  color: #c3cddf;
-  font-size: 11px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: var(--space-1) var(--space-2);
+  background: var(--bg-surface-high);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  transition:
+    background-color var(--duration-hover) var(--easing-standard),
+    color var(--duration-hover) var(--easing-standard);
+}
+.popover > header > button:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-active);
 }
 .popoverTop {
   display: flex;
-  gap: 12px;
-  padding: 0 14px 10px;
+  gap: var(--space-3);
+  padding: 0 var(--space-4) var(--space-3);
 }
 .popoverSummary {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: var(--space-2);
 }
 
 .crop {
   flex: none;
   margin: 0;
 }
-.crop > div {
+/*
+ * The crop is a window onto the sheet, so it takes the artefact backdrop — and carries it
+ * on the figure rather than on the filtered child, because the child is normalised to
+ * ink-on-void and a backdrop underneath it would be inverted into a bright frame.
+ */
+.cropWindow {
   width: 104px;
   height: 104px;
-  border-radius: 8px;
-  background-color: #ffffff;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  background-color: var(--bg-void);
+  box-shadow: inset 0 0 0 1px var(--border-subtle);
+}
+/*
+ * Only the sheet is normalised. The element has no background-colour of its own, so what
+ * shows around the crop is the window's void rather than inverted paper.
+ */
+.crop > .cropWindow > div {
+  width: 100%;
+  height: 100%;
   background-repeat: no-repeat;
-  box-shadow: inset 0 0 0 1px #2a3348;
+  filter: var(--raster-normalize);
 }
 .crop figcaption {
-  margin-top: 4px;
+  margin-top: var(--space-1);
   text-align: center;
-  font-size: 9.5px;
-  color: #94a1ba; /* 5.6:1 */
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
 }
 
 .facts {
   display: grid;
-  gap: 2px;
+  gap: var(--space-1);
 }
 .facts > div {
   display: flex;
   justify-content: space-between;
-  gap: 10px;
+  gap: var(--space-3);
 }
 .facts dt {
-  color: #94a1ba; /* 5.6:1 */
-  font-size: 10.5px;
+  color: var(--text-tertiary);
+  font-size: var(--text-sm);
   white-space: nowrap;
 }
+/* Sizes, service codes, piping classes, line and loop numbers, counts: all read character by
+   character, and all sit in one column. */
 .facts dd {
-  color: #eef2f9;
-  font-weight: 600;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--weight-medium);
   text-align: right;
   min-width: 0;
   overflow: hidden;
@@ -219,63 +286,42 @@
   white-space: nowrap;
 }
 
-.popover .chip {
-  align-self: flex-start;
-  background: #1f2a3d;
-  color: #c3cddf;
-}
-.popover .statusOk {
-  background: #10281d;
-  color: #6ee7a8;
-}
-.popover .statusWarn {
-  background: #2e230d;
-  color: #f5c46b;
-}
-.popover .statusBad {
-  background: #34161a;
-  color: #fca5a5;
-}
-.popover .simulated {
-  background: #33260f;
-  border-color: #5a441a;
-  color: #f0cd8a; /* 9.1:1 */
-}
-.popover .alert {
-  color: #fca5a5 !important;
-}
-
 .provenance {
   display: flex;
   align-items: center;
-  gap: 7px;
-  padding: 0 14px 10px;
-  color: #94a1ba;
-  font-size: 10.5px;
+  gap: var(--space-2);
+  padding: 0 var(--space-4) var(--space-3);
+  color: var(--text-tertiary);
+  font-size: var(--text-sm);
 }
 
 .tagCloud {
   display: flex;
   flex-wrap: wrap;
-  gap: 5px;
-  padding: 0 14px 10px;
+  gap: var(--space-1);
+  padding: 0 var(--space-4) var(--space-3);
 }
 .popover .tagCloud button {
-  border: 1px solid #2f3a52;
-  border-radius: 6px;
-  background: #1c2436;
-  color: #c9d4ea;
-  padding: 3px 7px;
-  font-size: 10.5px;
-  font-family: ui-monospace, "SFMono-Regular", "Cascadia Mono", Menlo, monospace;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  color: var(--text-primary);
+  padding: var(--space-1) var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  transition:
+    background-color var(--duration-hover) var(--easing-standard),
+    color var(--duration-hover) var(--easing-standard);
 }
-.popover .tagCloud button:hover {
-  background: #26314a;
-  color: #ffffff;
+.popover .tagCloud button:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-active);
 }
 .tagCloud span {
-  color: #94a1ba;
-  font-size: 10.5px;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
   align-self: center;
 }
 
@@ -283,141 +329,44 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
-  padding: 10px 14px 12px;
-  border-top: 1px solid #262f42;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--border-subtle);
 }
 .popover > footer > button {
-  border: 1px solid #2f3a52;
-  border-radius: 7px;
-  background: transparent;
-  color: #c9d4ea;
-  padding: 5px 9px;
-  font-size: 11px;
-  font-weight: 600;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  transition:
+    background-color var(--duration-hover) var(--easing-standard),
+    border-color var(--duration-hover) var(--easing-standard),
+    color var(--duration-hover) var(--easing-standard);
 }
-.popover > footer > button:hover {
-  background: #232d40;
-  color: #ffffff;
+.popover > footer > button:hover:not(:disabled) {
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
+  color: var(--text-active);
 }
+/* The one filled action on this surface. It is white, not a colour. */
 .popover > footer > .primaryAction {
   margin-left: auto;
-  border-color: #3b63d6;
-  background: #2a54c8;
-  color: #ffffff;
+  border-color: var(--action-fill);
+  background: var(--action-fill);
+  color: var(--action-fill-text);
+}
+.popover > footer > .primaryAction:hover:not(:disabled) {
+  border-color: var(--action-fill-hover);
+  background: var(--action-fill-hover);
+  color: var(--action-fill-text);
 }
 
-/* ── telemetry ────────────────────────────────────────────────────────────────────────── */
+/* ── row source mark ──────────────────────────────────────────────────────────────────── */
 
-.trendHead {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  margin-bottom: 6px;
-}
-.trendHead > div:first-child {
-  min-width: 0;
-  flex: 1;
-}
-.trendHead strong {
-  display: block;
-  font-size: 12px;
-  color: var(--ink);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.trendHead small {
-  display: block;
-  color: var(--muted);
-  font-size: 10.5px;
-}
-.windows {
-  display: flex;
-  flex: none;
-  border: 1px solid var(--line);
-  border-radius: 7px;
-  overflow: hidden;
-}
-.panel .windows button {
-  border: 0;
-  border-radius: 0;
-  padding: 3px 7px;
-  background: transparent;
-  color: var(--muted);
-  font-size: 10.5px;
-  font-weight: 650;
-}
-.panel .windows button[aria-pressed="true"] {
-  background: var(--accent-soft);
-  color: var(--accent-deep);
-}
-.trendBody {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.trend {
-  flex: 1;
-  min-width: 0;
-  height: auto;
-}
-.band {
-  fill: #e8f6ef;
-}
-.alarmLine {
-  stroke: #e7a1a7;
-  stroke-width: 1;
-  stroke-dasharray: 3 3;
-}
-.series {
-  fill: none;
-  stroke: #6d28d9;
-  stroke-width: 1.6;
-  stroke-linejoin: round;
-}
-.axis {
-  font-size: 8.5px;
-  fill: #64748b;
-}
-.reading {
-  flex: none;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 2px;
-  min-width: 84px;
-}
-.reading strong {
-  font-size: 22px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  color: var(--ink);
-  font-variant-numeric: tabular-nums;
-}
-.reading strong small {
-  margin-left: 3px;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--muted);
-}
-.reading span {
-  font-size: 10.5px;
-  font-weight: 650;
-}
-.reading > small {
-  font-size: 10px;
-  color: var(--muted);
-}
-.up {
-  color: #0c5533;
-}
-.down {
-  color: #a4212b;
-}
-
-/* Per-row source: real corpus content or the simulated register. */
-/* The same hatched swatch the panel header's "Simulated" label carries: a key, not a word. */
+/* The same swatch the panel header's "Simulated" label carries: a key, not a word. */
 .sourceTag,
 .panel .tree .sourceTag {
   flex: none;
@@ -428,9 +377,9 @@
   margin: 0 7px 0 0;
   padding: 0;
   float: none;
-  border-radius: 2px;
-  border: 1px solid #c9a35a;
-  background: repeating-linear-gradient(135deg, #e7c98f 0 1.5px, transparent 1.5px 3px);
+  border-radius: var(--radius-xs);
+  border: 1px dashed var(--rule-strong);
+  background: var(--bg-sunken);
   vertical-align: 0;
 }
 /* The tree styles every span as a full-width row; a source tag stays an inline chip. */
@@ -440,8 +389,8 @@
   flex-direction: column;
   align-items: flex-end;
   gap: 2px;
-  font-size: 10.5px;
-  color: var(--muted);
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
 }
 .fileMeta .sourceTag {
   margin-right: 0;
@@ -456,21 +405,22 @@
 }
 .tree li {
   position: relative;
-  padding-left: calc(var(--depth) * 12px + 12px);
+  padding-left: calc(var(--depth) * var(--space-3) + var(--space-3));
 }
 .tree li::before {
   content: "";
   position: absolute;
-  left: calc(var(--depth) * 12px + 2px);
+  left: calc(var(--depth) * var(--space-3) + 2px);
   top: 3px;
   width: 6px;
   height: 9px;
-  border-left: 1px solid #c9d2df;
-  border-bottom: 1px solid #c9d2df;
+  border-left: 1px solid var(--border-strong);
+  border-bottom: 1px solid var(--border-strong);
 }
 .tree li:first-child::before {
   display: none;
 }
+/* Site, area, unit, system, sheet and line are all functional-location identifiers. */
 .panel .tree button,
 .panel .tree span {
   display: block;
@@ -478,38 +428,46 @@
   border: 0;
   background: transparent;
   text-align: left;
-  min-height: 26px;
-  padding: 4px 6px;
-  border-radius: 6px;
-  font-size: 11.5px;
-  color: var(--body);
+  min-height: var(--row-height);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  transition:
+    background-color var(--duration-hover) var(--easing-standard),
+    color var(--duration-hover) var(--easing-standard);
 }
-.panel .tree button:hover {
-  background: #f1f4fa;
-  color: var(--accent-deep);
+.panel .tree button:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-primary);
 }
+/* The selected leaf: the surface barely moves, the indicator and the label do the telling. */
 .panel .treeLeaf button {
-  background: var(--accent-soft);
-  box-shadow: inset 0 0 0 1px var(--accent-line);
+  background: var(--bg-selected);
+  box-shadow: inset 2px 0 0 0 var(--accent-action);
 }
 .panel .tree button em {
   float: right;
   font-style: normal;
-  font-size: 10px;
-  color: var(--muted);
-  margin-left: 8px;
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+  margin-left: var(--space-2);
 }
-.treeLeaf strong {
-  color: var(--accent-deep);
-  font-size: 12px;
+.panel .treeLeaf strong {
+  color: var(--text-active);
+  font-family: var(--font-mono);
+  font-size: var(--text-base);
 }
-.treeLeaf small {
-  margin-left: 6px;
-  color: var(--accent);
-  font-size: 10.5px;
+.panel .treeLeaf small {
+  margin-left: var(--space-2);
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
 }
 
 /* ── files ────────────────────────────────────────────────────────────────────────────── */
@@ -520,7 +478,7 @@
   padding: 0;
 }
 .files li {
-  border-bottom: 1px solid var(--line-soft);
+  border-bottom: 1px solid var(--rule-subtle);
 }
 .files li:last-child {
   border-bottom: 0;
@@ -528,58 +486,59 @@
 .panel .fileRow {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: var(--space-2);
   width: 100%;
-  padding: 6px 4px;
+  padding: var(--space-2) var(--space-1);
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: transparent;
   text-align: left;
+  transition: background-color var(--duration-hover) var(--easing-standard);
 }
-.panel .fileRow:hover {
-  background: #f1f4fa;
+.panel .fileRow:hover:not(:disabled) {
+  background: var(--bg-hover);
 }
-.panel .fileRow:hover strong {
-  color: var(--accent);
+.panel .fileRow:hover:not(:disabled) strong {
+  color: var(--text-active);
   text-decoration: underline;
 }
+/* The format is a category, not a state: mono type tells PDF from PNG without a second hue. */
 .fileIcon {
   flex: none;
   width: 30px;
-  padding: 5px 0;
-  border-radius: 5px;
+  padding: var(--space-1) 0;
+  border-radius: var(--radius-xs);
   text-align: center;
-  font-size: 8.5px;
-  font-weight: 800;
-  background: #fdedee;
-  color: #a4212b; /* 6.6:1 */
-}
-.fileIcon[data-format="PNG"] {
-  background: #eef3ff;
-  color: #1d4ed8; /* 5.9:1 */
+  background: var(--bg-sunken);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
 }
 .fileText {
   flex: 1;
   min-width: 0;
 }
-.fileText strong {
+.panel .fileText strong {
   display: block;
-  font-size: 11.5px;
-  font-weight: 600;
-  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.fileText small {
+.panel .fileText small {
   display: block;
-  color: var(--muted);
-  font-size: 10px;
+  color: var(--text-tertiary);
+  font-size: var(--text-xs);
 }
 .fileRow time {
   flex: none;
-  color: var(--muted);
-  font-size: 10px;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
   font-variant-numeric: tabular-nums;
 }
 
@@ -590,59 +549,64 @@
   margin: 0;
   padding: 0;
   display: grid;
-  gap: 8px;
+  gap: var(--space-2);
   max-height: 260px;
   overflow-y: auto;
   scrollbar-width: thin;
 }
 .orders > li {
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #fbfcfe;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface-high);
 }
 .orders > li[data-expanded] {
-  border-color: var(--accent-line, #c7d7fb);
-  background: #ffffff;
+  border-color: var(--border-strong);
+  background: var(--bg-selected);
 }
 .panel .orderToggle {
   display: grid;
-  gap: 3px;
+  gap: var(--space-1);
   width: 100%;
-  padding: 8px 10px;
+  padding: var(--space-2) var(--space-3);
   border: 0;
   background: transparent;
   text-align: left;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
+  transition: background-color var(--duration-hover) var(--easing-standard);
 }
-.panel .orderToggle:hover {
-  background: #f1f4fa;
+.panel .orderToggle:hover:not(:disabled) {
+  background: var(--bg-hover);
 }
 .orderHead {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--space-2);
 }
-.orderHead strong {
-  font-size: 12px;
-  color: var(--ink);
+.panel .orderHead strong {
+  font-family: var(--font-mono);
+  font-size: var(--text-base);
+  color: var(--text-primary);
   font-variant-numeric: tabular-nums;
 }
 .orderTitle {
-  font-size: 11px;
-  color: var(--body);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
 }
+/* Order type, ISO 14224 failure code and due date: identifiers and a timestamp. */
 .orderMeta {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 10px;
-  color: var(--muted);
+  gap: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
 }
 .orderDetail {
-  padding: 0 10px 10px;
-  font-size: 11px;
-  color: var(--body);
+  padding: 0 var(--space-3) var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
 }
 .orderDetail p {
   margin: 2px 0;
@@ -650,33 +614,53 @@
 .orderDetail b {
   display: inline-block;
   min-width: 74px;
-  color: var(--muted);
-  font-weight: 600;
+  color: var(--text-tertiary);
+  font-weight: var(--weight-medium);
 }
 .orderDetail ol {
-  margin: 6px 0;
-  padding-left: 16px;
+  margin: var(--space-2) 0;
+  padding-left: var(--space-4);
 }
 .orderDocs,
 .orderActions {
   display: flex;
   flex-wrap: wrap;
-  gap: 5px;
-  margin-top: 6px;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
 }
 .panel .orderDocs button,
 .panel .orderActions button {
-  padding: 3px 9px;
-  font-size: 10.5px;
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  transition:
+    background-color var(--duration-hover) var(--easing-standard),
+    border-color var(--duration-hover) var(--easing-standard),
+    color var(--duration-hover) var(--easing-standard);
 }
+.panel .orderDocs button:hover:not(:disabled),
+.panel .orderActions button:hover:not(:disabled) {
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
+  color: var(--text-active);
+}
+/*
+ * Advancing a work order is the strongest action in this panel, but the rail already has one
+ * filled action per floating surface; here emphasis is a brighter label and a stronger border.
+ */
 .panel .orderActions .orderPrimary {
-  color: #ffffff;
-  background: #1d4ed8;
-  border-color: #1b45bd;
+  border-color: var(--border-strong);
+  background: var(--bg-surface-high);
+  color: var(--text-active);
+  font-weight: var(--weight-medium);
 }
-.panel .orderActions .orderPrimary:hover {
-  color: #ffffff;
-  background: #1f52e4;
+.panel .orderActions .orderPrimary:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  background: var(--bg-hover);
+  color: var(--text-active);
 }
 
 /* ── summary ──────────────────────────────────────────────────────────────────────────── */
@@ -692,35 +676,40 @@
 .panel .summary button {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: var(--space-2);
   width: 100%;
-  padding: 5px 6px;
+  padding: var(--space-1) var(--space-2);
   border: 0;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   background: transparent;
   text-align: left;
+  transition: background-color var(--duration-hover) var(--easing-standard);
 }
-.panel .summary button:hover {
-  background: #f1f4fa;
+.panel .summary button:hover:not(:disabled) {
+  background: var(--bg-hover);
 }
 .summary button > strong {
   flex: none;
   min-width: 46px;
-  font-size: 15px;
-  font-weight: 650;
-  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: var(--text-xl);
+  font-weight: var(--weight-medium);
+  color: var(--text-primary);
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
 .summary button > strong[data-pending] {
-  color: #6f4a0d;
+  color: var(--status-degraded);
 }
 .summaryText span em {
-  margin-left: 8px;
+  margin-left: var(--space-2);
   font-style: normal;
-  font-size: 10.5px;
-  font-weight: 600;
-  color: #6f4a0d;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--status-degraded);
 }
 .summaryText {
   flex: 1;
@@ -728,22 +717,22 @@
 }
 .summaryText span {
   display: block;
-  font-size: 11.5px;
-  font-weight: 600;
-  color: var(--ink);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--text-primary);
 }
-.summaryText small {
+.panel .summaryText small {
   display: block;
-  font-size: 10px;
-  color: var(--muted);
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .chevron {
   flex: none;
-  color: var(--muted);
-  font-size: 16px;
+  color: var(--text-tertiary);
+  font-size: var(--text-2xl);
   line-height: 1;
 }
 
@@ -751,42 +740,44 @@
 
 .failures {
   list-style: none;
-  margin: 8px 0 4px;
+  margin: var(--space-2) 0 var(--space-1);
   padding: 0;
   display: grid;
-  gap: 6px;
+  gap: var(--space-2);
 }
 .failures li {
   display: flex;
   align-items: flex-start;
-  gap: 9px;
-  padding: 7px 9px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #fbfcfe;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface-high);
 }
-.failures code {
+/* An ISO 14224 failure code — a controlled term, in a well. */
+.failures li code {
   flex: none;
-  padding: 2px 5px;
-  border-radius: 4px;
-  background: #eef1f6;
-  color: #3a4659; /* 8.4:1 */
-  font-size: 10.5px;
-  font-weight: 700;
+  padding: var(--space-1);
+  border-radius: var(--radius-xs);
+  background: var(--bg-sunken);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
 }
 .failures li > div {
   flex: 1;
   min-width: 0;
 }
-.failures strong {
+.failures li strong {
   display: block;
-  font-size: 11.5px;
-  color: var(--ink);
+  font-size: var(--text-sm);
+  color: var(--text-primary);
 }
-.failures small {
+.failures li small {
   display: block;
   margin-top: 1px;
-  font-size: 10.5px;
-  color: var(--muted);
-  line-height: 1.4;
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  line-height: var(--leading-normal);
 }

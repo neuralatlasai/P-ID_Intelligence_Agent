@@ -66,7 +66,7 @@
   position: fixed;
   inset: 0;
   z-index: var(--z-scrim);
-  background: rgb(21 32 46 / 42%);
+  background: var(--scrim);
   border: 0;
   padding: 0;
   cursor: pointer;

@@ -7,7 +7,7 @@ import type { ArchBox, ArchitectureSpec, Symbol } from "@/lib/modellab/architect
 import css from "./ArchitectureFigure.module.css";
 
 /*
- * A stage's architecture drawn the way a systems diagram is drawn: white boxes on a dotted
+ * A stage's architecture drawn the way a systems diagram is drawn: ink boxes on a dotted
  * field, one thin ink rule each, a title and a monospace second line, orthogonal connectors
  * with arrowheads in execution order. One accent path follows a single reference sample.
  *
@@ -73,7 +73,12 @@ function layout(spec: ArchitectureSpec) {
   const innerRight = innerX + innerW;
 
   const aggY = TOP + band + 58;
-  const aggregate: Placed = { box: spec.aggregate, x: W / 2 - AGG_W / 2, y: aggY, w: AGG_W };
+  const aggregate: Placed = {
+    box: spec.aggregate,
+    x: W / 2 - AGG_W / 2,
+    y: aggY,
+    w: AGG_W,
+  };
   const chainY = aggY + BOX_H + 60;
   const chainTotal = spec.chain.length * CHAIN_W + (spec.chain.length - 1) * CHAIN_GAP;
   const chain: Placed[] = spec.chain.map((box, i) => ({
@@ -118,11 +123,19 @@ function rowWires(geo: Layout): { readonly d: string; readonly arrow: boolean }[
     const upper = geo.rows[index]!;
     const y = gapY(geo, index);
     const xs = [...upper.map(cx), ...lower.map(cx)];
-    if (upper.length === 1 && lower.length === 1 && Math.abs(cx(upper[0]!) - cx(lower[0]!)) < 1) {
-      wires.push({ d: `M${cx(upper[0]!)},${upper[0]!.y + BOX_H} V${lower[0]!.y}`, arrow: true });
+    if (
+      upper.length === 1 &&
+      lower.length === 1 &&
+      Math.abs(cx(upper[0]!) - cx(lower[0]!)) < 1
+    ) {
+      wires.push({
+        d: `M${cx(upper[0]!)},${upper[0]!.y + BOX_H} V${lower[0]!.y}`,
+        arrow: true,
+      });
       return;
     }
-    for (const p of upper) wires.push({ d: `M${cx(p)},${p.y + BOX_H} V${y}`, arrow: false });
+    for (const p of upper)
+      wires.push({ d: `M${cx(p)},${p.y + BOX_H} V${y}`, arrow: false });
     wires.push({ d: `M${Math.min(...xs)},${y} H${Math.max(...xs)}`, arrow: false });
     for (const p of lower) wires.push({ d: `M${cx(p)},${y} V${p.y}`, arrow: true });
   });
@@ -139,7 +152,9 @@ function orthogonal(points: readonly (readonly [number, number])[]): string {
     if (last && last[0] !== x && last[1] !== y) out.push([x, last[1]]);
     if (!last || last[0] !== x || last[1] !== y) out.push([x, y]);
   }
-  return out.map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
+  return out
+    .map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(1)},${y.toFixed(1)}`)
+    .join(" ");
 }
 
 /**
@@ -150,7 +165,11 @@ function tracePath(spec: ArchitectureSpec, geo: Layout): string {
   const points: [number, number][] = [];
   const source = geo.left.find((p) => spec.trace.includes(p.box.id)) ?? geo.left[0];
   if (source) {
-    points.push([source.x + source.w, cy(source)], [LEFT_BUS, cy(source)], [LEFT_BUS, geo.entryY]);
+    points.push(
+      [source.x + source.w, cy(source)],
+      [LEFT_BUS, cy(source)],
+      [LEFT_BUS, geo.entryY],
+    );
     points.push([geo.innerX, geo.entryY]);
   }
   geo.rows.forEach((row, r) => {
@@ -160,7 +179,11 @@ function tracePath(spec: ArchitectureSpec, geo: Layout): string {
   });
   const last = geo.rows.at(-1)!;
   const lastTraced = last.find((item) => spec.trace.includes(item.box.id)) ?? last[0]!;
-  points.push([cx(lastTraced), geo.exitY], [geo.innerRight, geo.exitY], [RIGHT_BUS, geo.exitY]);
+  points.push(
+    [cx(lastTraced), geo.exitY],
+    [geo.innerRight, geo.exitY],
+    [RIGHT_BUS, geo.exitY],
+  );
   const head = geo.right.find((p) => spec.trace.includes(p.box.id)) ?? geo.right[0];
   if (head) {
     points.push([RIGHT_BUS, cy(head)], [head.x + 18, cy(head)], [RIGHT_BUS, cy(head)]);
@@ -169,7 +192,11 @@ function tracePath(spec: ArchitectureSpec, geo: Layout): string {
   points.push([RIGHT_BUS, cy(agg)], [agg.x + agg.w, cy(agg)], [cx(agg), cy(agg)]);
   const first = geo.chain[0];
   if (first) {
-    points.push([cx(agg), agg.y + BOX_H + 30], [cx(first), agg.y + BOX_H + 30], [cx(first), cy(first)]);
+    points.push(
+      [cx(agg), agg.y + BOX_H + 30],
+      [cx(first), agg.y + BOX_H + 30],
+      [cx(first), cy(first)],
+    );
     for (const p of geo.chain.slice(1)) points.push([cx(p), cy(p)]);
   }
   return orthogonal(points);
@@ -177,7 +204,8 @@ function tracePath(spec: ArchitectureSpec, geo: Layout): string {
 
 const ICON: Record<Symbol, string> = {
   sheet: "M3 2h12v14H3z M3 12h12 M5.5 5.5l3.5 2-3.5 2z M12.5 5.5L9 7.5l3.5 2z",
-  graph: "M4 14a1.8 1.8 0 1 0 0-.1z M14 14a1.8 1.8 0 1 0 0-.1z M9 4.2a1.8 1.8 0 1 0 0-.1z M5.5 12.6l2.4-6.8 M12.5 12.6l-2.4-6.8 M5.8 14h6.4",
+  graph:
+    "M4 14a1.8 1.8 0 1 0 0-.1z M14 14a1.8 1.8 0 1 0 0-.1z M9 4.2a1.8 1.8 0 1 0 0-.1z M5.5 12.6l2.4-6.8 M12.5 12.6l-2.4-6.8 M5.8 14h6.4",
   camera: "M2 6h3l1.5-2h5L13 6h3v9H2z M9 13.3a2.8 2.8 0 1 0 0-5.6 2.8 2.8 0 0 0 0 5.6z",
   cube: "M9 2l6 3.5v7L9 16l-6-3.5v-7z M9 9l6-3.5 M9 9v7 M9 9L3 5.5",
   wave: "M1 9h3l2-5 3 10 3-8 2 3h3",
@@ -214,7 +242,9 @@ function Box({ p, traced }: { readonly p: Placed; readonly traced: boolean }) {
     >
       <title>{`${box.title} — ${box.detail}${box.absent ? " (not connected)" : ""}${box.frozen ? " (frozen weights)" : ""}`}</title>
       <rect width={p.w} height={BOX_H} rx={3} />
-      {box.frozen && <path className={css.frozen} d={`M5 7V${BOX_H - 7} M8 7V${BOX_H - 7}`} />}
+      {box.frozen && (
+        <path className={css.frozen} d={`M5 7V${BOX_H - 7} M8 7V${BOX_H - 7}`} />
+      )}
       <path className={css.icon} d={ICON[box.symbol]} transform="translate(12 19)" />
       <text className={css.title} x={40} y={24}>
         {clip(box.title, titleMax)}
@@ -339,20 +369,38 @@ export function ArchitectureFigure({
         </li>
       </ul>
 
-      <div className={css.canvas} tabIndex={0} role="region" aria-label={`${spec.figure} diagram`}>
+      <div
+        className={css.canvas}
+        tabIndex={0}
+        role="region"
+        aria-label={`${spec.figure} diagram`}
+      >
         <svg
           key={replays}
           ref={svg}
           className={css.svg}
           viewBox={`0 0 ${W} ${geo.height.toFixed(0)}`}
           role="img"
-          aria-label={`${spec.heading} ${spec.sourcesTitle}: ${spec.sources.map((b) => b.title).join(", ")}. ${spec.modelTitle}: ${spec.model.flat().map((b) => b.title).join(", ")}. ${spec.headsTitle}: ${spec.heads.map((b) => b.title).join(", ")}. Then ${[spec.aggregate, ...spec.chain].map((b) => b.title).join(", ")}.`}
+          aria-label={`${spec.heading} ${spec.sourcesTitle}: ${spec.sources.map((b) => b.title).join(", ")}. ${spec.modelTitle}: ${spec.model
+            .flat()
+            .map((b) => b.title)
+            .join(
+              ", ",
+            )}. ${spec.headsTitle}: ${spec.heads.map((b) => b.title).join(", ")}. Then ${[spec.aggregate, ...spec.chain].map((b) => b.title).join(", ")}.`}
         >
           <defs>
             <pattern id="arch-dots" width="14" height="14" patternUnits="userSpaceOnUse">
               <circle cx="1" cy="1" r="0.9" className={css.dot} />
             </pattern>
-            <marker id="arch-arrow" viewBox="0 0 8 8" refX="7.5" refY="4" markerWidth="8" markerHeight="8" orient="auto">
+            <marker
+              id="arch-arrow"
+              viewBox="0 0 8 8"
+              refX="7.5"
+              refY="4"
+              markerWidth="8"
+              markerHeight="8"
+              orient="auto"
+            >
               <path d="M0 0.5L7.5 4 0 7.5" className={css.arrowHead} />
             </marker>
           </defs>
@@ -371,15 +419,25 @@ export function ArchitectureFigure({
               <path key={p.box.id} d={`M${p.x + p.w},${cy(p)} H${LEFT_BUS}`} />
             ))}
             <path d={`M${LEFT_BUS},${Math.min(...busLeft)} V${Math.max(...busLeft)}`} />
-            <path d={`M${LEFT_BUS},${geo.entryY} H${geo.innerX}`} markerEnd="url(#arch-arrow)" />
+            <path
+              d={`M${LEFT_BUS},${geo.entryY} H${geo.innerX}`}
+              markerEnd="url(#arch-arrow)"
+            />
 
             {/* model → heads → aggregate */}
             <path d={`M${geo.innerRight},${geo.exitY} H${RIGHT_BUS}`} />
             <path d={`M${RIGHT_BUS},${Math.min(...busRight)} V${Math.max(...busRight)}`} />
             {geo.right.map((p) => (
-              <path key={p.box.id} d={`M${RIGHT_BUS},${cy(p)} H${p.x}`} markerEnd="url(#arch-arrow)" />
+              <path
+                key={p.box.id}
+                d={`M${RIGHT_BUS},${cy(p)} H${p.x}`}
+                markerEnd="url(#arch-arrow)"
+              />
             ))}
-            <path d={`M${RIGHT_BUS},${cy(agg)} H${agg.x + agg.w}`} markerEnd="url(#arch-arrow)" />
+            <path
+              d={`M${RIGHT_BUS},${cy(agg)} H${agg.x + agg.w}`}
+              markerEnd="url(#arch-arrow)"
+            />
 
             {/* aggregate → update chain */}
             {first && (
@@ -395,10 +453,12 @@ export function ArchitectureFigure({
                 markerEnd="url(#arch-arrow)"
               />
             ))}
-
           </g>
 
-          <g className={css.container} transform={`translate(${CENTER_X} ${geo.containerY})`}>
+          <g
+            className={css.container}
+            transform={`translate(${CENTER_X} ${geo.containerY})`}
+          >
             <rect width={CENTER_W} height={geo.containerH} rx={4} />
             <text className={css.containerTitle} x={CENTER_W / 2} y={24}>
               {spec.modelTitle}
@@ -422,9 +482,11 @@ export function ArchitectureFigure({
           {/* The accent path runs under the boxes, so it shows on the wires and never over text. */}
           {sampleTag && <path className={css.trace} d={path} />}
 
-          {[...geo.left, ...geo.rows.flat(), ...geo.right, geo.aggregate, ...geo.chain].map((p) => (
-            <Box key={p.box.id} p={p} traced={traced.has(p.box.id)} />
-          ))}
+          {[...geo.left, ...geo.rows.flat(), ...geo.right, geo.aggregate, ...geo.chain].map(
+            (p) => (
+              <Box key={p.box.id} p={p} traced={traced.has(p.box.id)} />
+            ),
+          )}
 
           {sampleTag && !reduced && (
             <circle r="5" className={css.packet} data-testid="reference-packet">

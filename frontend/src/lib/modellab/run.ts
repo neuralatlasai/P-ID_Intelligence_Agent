@@ -11,8 +11,8 @@
  * The page labels the run as simulated wherever it is shown.
  */
 
-import { hashString } from "@/lib/canvas/engineering";
-
+import { perturbation } from "./incidents";
+import { fbm, seedOf, white } from "./noise";
 import type { CurveSpec, MetricSpec, RunSpec, Stage } from "./stages";
 
 export type RunStatus = "running" | "paused";
@@ -23,47 +23,152 @@ export interface RunControl {
   readonly step: number;
   /** Epoch milliseconds the step was recorded at. */
   readonly at: number;
+  /**
+   * Replay speed: training seconds per wall-clock second. 1 is real time. Faster replay lets
+   * a viewer watch hours of a run's evolution in minutes; it changes nothing about the run's
+   * modelled throughput, which every card still reports in real training time.
+   */
+  readonly speed?: number;
 }
 
-export function openingControl(run: RunSpec, now: number): RunControl {
-  return { status: "running", step: run.openingStep, at: now };
+/** The replay speeds offered. Real time first: it is the honest default. */
+export const REPLAY_SPEEDS = [1, 60, 600] as const;
+
+export function openingControl(run: RunSpec, now: number, speed = 1): RunControl {
+  return { status: "running", step: run.openingStep, at: now, speed };
 }
 
 /** The step the run has reached at `now`. O(1). */
 export function stepAt(control: RunControl, run: RunSpec, now: number): number {
   const moved =
     control.status === "running"
-      ? (Math.max(0, now - control.at) / 1000) * run.stepsPerSecond
+      ? (Math.max(0, now - control.at) / 1000) * run.stepsPerSecond * (control.speed ?? 1)
       : 0;
   return Math.min(run.totalSteps, control.step + moved);
 }
 
 export function pause(control: RunControl, run: RunSpec, now: number): RunControl {
-  return { status: "paused", step: stepAt(control, run, now), at: now };
+  return {
+    status: "paused",
+    step: stepAt(control, run, now),
+    at: now,
+    speed: control.speed,
+  };
 }
 
 export function resume(control: RunControl, run: RunSpec, now: number): RunControl {
   const step = stepAt(control, run, now);
   // A finished stage starts again from zero: that is what "run training stage" means then.
-  return { status: "running", step: step >= run.totalSteps ? 0 : step, at: now };
+  return {
+    status: "running",
+    step: step >= run.totalSteps ? 0 : step,
+    at: now,
+    speed: control.speed,
+  };
 }
 
-/** Deterministic noise in [-1, 1] for a key at a coarse step bucket, so curves do not shimmer. */
-function jitter(key: string, step: number): number {
-  const bucket = Math.floor(step / 250);
-  return (hashString(`${key}:${bucket}`) / 4294967296) * 2 - 1;
+/** Change replay speed without moving the run: rebase at the current step, then continue. */
+export function withSpeed(
+  control: RunControl,
+  run: RunSpec,
+  now: number,
+  speed: number,
+): RunControl {
+  return { ...control, step: stepAt(control, run, now), at: now, speed };
+}
+
+/** Enough of a stage for a curve to know its run's incidents, epochs and sibling curves. */
+export type CurveContext = Pick<Stage, "id" | "run" | "curves">;
+
+/** Multiplicative level change per epoch boundary for a multi-epoch training loss. */
+const EPOCH_DROP = 0.8;
+
+/**
+ * How a curve is being read. `train`: the value on the training batch at that step, with
+ * per-step sampling noise and the run's incidents. `heldout`: the value a held-out evaluation
+ * would report — smooth, incident-free, a little worse than training, and for a multi-epoch
+ * objective, turning up in the final epoch while the training loss is still falling.
+ */
+export type CurveMode = "train" | "heldout";
+
+/** Held-out loss sits above training loss; held-out reward below training reward. */
+const GENERALISATION_GAP = { loss: 1.06, reward: 0.97 } as const;
+
+/**
+ * The trajectory a curve follows before noise and incidents: a power-law approach from
+ * `start` to `end`, the shape both loss and score curves take in practice, bent by the
+ * run's epoch structure where the curve asks for it.
+ */
+function trend(
+  curve: CurveSpec,
+  step: number,
+  context: CurveContext | undefined,
+  mode: CurveMode,
+): number {
+  const settle = Math.pow(1 + step / curve.tau, -1.35);
+  let value = curve.end + (curve.start - curve.end) * settle;
+  const epochs = context?.run.epochs ?? 1;
+  if (context && curve.shape === "epochs" && epochs > 1) {
+    const epoch = (step / context.run.totalSteps) * epochs;
+    const whole = Math.min(epochs - 1, Math.floor(epoch));
+    if (mode === "train" && whole > 0) {
+      // Each new epoch revisits examples the model has already fitted, so the training loss
+      // steps down at the boundary instead of continuing smoothly. The step is softened over
+      // the first 1.5 % of the epoch, as the first reshuffled batches arrive.
+      const into = epoch - whole;
+      value *= Math.pow(EPOCH_DROP, whole - 1 + Math.min(1, into / 0.015));
+    } else if (mode === "heldout") {
+      // Held-out loss stops improving once training loss is mostly memorisation.
+      const overfit = Math.max(0, epoch - (epochs - 1));
+      value *= 1 + 0.085 * Math.pow(overfit, 1.25);
+    }
+  }
+  if (mode === "heldout" && (curve.response === "loss" || curve.response === "reward")) {
+    value *= GENERALISATION_GAP[curve.response];
+  }
+  return value;
 }
 
 /**
- * A curve's value at a step: a power-law approach from `start` to `end`, the shape both loss
- * and score curves take in practice, with multiplicative noise that shrinks as training
- * settles.
+ * A curve's value at a step.
+ *
+ * Training-time signals carry per-step sampling noise — each optimiser step sees a different
+ * batch — on top of a slow wander; held-out signals carry only a smaller wander. Both shrink
+ * as training settles. Given the run's context, a training reading also carries the run's
+ * incidents (see incidents.ts): a loss spike in the timeline is a spike in this curve, so
+ * every chart, card and log line that reads it agrees on what happened. A total objective
+ * (`sumOf`) is computed from its terms, so `L = Σ λᵢ Lᵢ` holds at every step.
  */
-export function curveAt(curve: CurveSpec, step: number): number {
-  const shape = Math.pow(1 + step / curve.tau, -1.35);
-  const value = curve.end + (curve.start - curve.end) * shape;
-  const noise = curve.noise * (0.4 + 0.6 * shape) * jitter(curve.key, step);
-  return value * (1 + noise);
+export function curveAt(
+  curve: CurveSpec,
+  step: number,
+  context?: CurveContext,
+  requested: CurveMode = "train",
+): number {
+  const mode: CurveMode = curve.evaluation ? "heldout" : requested;
+  if (curve.sumOf && context) {
+    const siblings = context.curves.flatMap((tab) => tab.curves);
+    let total = 0;
+    for (const term of curve.sumOf) {
+      const part = siblings.find((item) => item.key === term.key);
+      if (part && !part.sumOf) total += term.weight * curveAt(part, step, context, mode);
+    }
+    return total;
+  }
+  const settle = Math.pow(1 + step / curve.tau, -1.35);
+  const seed = seedOf(curve.key);
+  const scale = context ? Math.max(40, context.run.totalSteps / 70) : 900;
+  const amplitude = curve.noise * (0.4 + 0.6 * settle);
+  const value = trend(curve, step, context, mode);
+  if (mode === "heldout") {
+    return value * (1 + fbm(seed ^ 0x7f4a7c15, step / scale) * amplitude * 0.35);
+  }
+  const wander = fbm(seed, step / scale) * amplitude * 0.6;
+  const sample = curve.response
+    ? white(seed ^ 0x5bd1e995, Math.floor(step)) * amplitude
+    : 0;
+  const trained = value * (1 + wander + sample);
+  return context ? trained * perturbation(context, curve.response, step) : trained;
 }
 
 /** Sample a curve from step 0 to `upTo` in `points` log-spaced-then-linear steps. */
@@ -83,6 +188,13 @@ export function curveSeries(
 
 /** A metric's value at a share of the run: the same saturating approach, without noise. */
 export function metricAt(metric: MetricSpec, progress: number): number {
+  if (metric.from !== undefined) {
+    // A discrete change: nothing until the event, then a short settle as evaluations of the
+    // new artefact accumulate.
+    const into = Math.min(1, Math.max(0, (progress - metric.from) / 0.08));
+    const eased = into * into * (3 - 2 * into);
+    return metric.start + (metric.final - metric.start) * eased;
+  }
   const shape = Math.pow(1 + (progress * 100) / 18, -1.1);
   const floor = Math.pow(1 + 100 / 18, -1.1);
   // Normalised so progress 0 gives `start` and progress 1 gives `final` exactly.
@@ -116,12 +228,11 @@ export function isBetter(stage: Stage, a: number, b: number): boolean {
  * above the training loss; a held-out reward below the training reward).
  */
 export function validationAt(stage: Stage, step: number): number {
-  const primary = stage.curves[0]!.curves[0]!;
-  const value = curveAt(
-    { ...primary, key: `${primary.key}#val`, noise: primary.noise * 1.6 },
-    step,
-  );
-  return stage.id === "rl" ? value * 0.98 : value * 1.08;
+  // Measured on a fixed held-out split: no batch noise, no training incidents, the
+  // generalisation gap applied — and, for a multi-epoch run, the held-out trajectory that
+  // turns up in the final epoch. That is why the best checkpoint of a three-epoch fine-tune
+  // is usually not the last one.
+  return curveAt(stage.curves[0]!.curves[0]!, step, stage, "heldout");
 }
 
 export interface Checkpoint {

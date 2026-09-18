@@ -18,6 +18,7 @@ import { Card } from "./Cards";
 import type { LiveCardProps } from "./live";
 import base from "./ModelLab.module.css";
 import styles from "./CurvesLiveCard.module.css";
+import { SERIES_COUNT, seriesColour } from "@/lib/series";
 
 const HEIGHT = 216;
 /** Roughly how many samples each series carries up to the current step. */
@@ -26,7 +27,7 @@ const TARGET_POINTS = 200;
 const MARKER_GAP = 8;
 /** How close, in CSS pixels, the pointer must be for the crosshair to snap to a marker. */
 const SNAP = 6;
-const LR_COLOUR = "#64748b";
+const LR_COLOUR = seriesColour(SERIES_COUNT - 1);
 
 const number = (value: number) => value.toLocaleString("en-US");
 
@@ -174,6 +175,9 @@ export function CurvesLiveCard({ stage, step, running }: LiveCardProps) {
   );
 
   const visible = tab.curves.filter((curve) => !hidden.has(curve.key));
+  /** A curve keeps its series slot whether or not it is currently drawn. */
+  const colourOf = (curve: CurveSpec) =>
+    seriesColour(tab.curves.findIndex((item) => item.key === curve.key));
 
   // ── geometry ──────────────────────────────────────────────────────────────────────────────
   const pad = { left: 46, right: showLr ? 54 : 14, top: 12, bottom: 36 };
@@ -517,7 +521,7 @@ export function CurvesLiveCard({ stage, step, running }: LiveCardProps) {
                       key={curve.key}
                       d={`M${pad.left},${y(raw[0] ?? curve.end).toFixed(1)}H${pad.left + plotW}`}
                       fill="none"
-                      stroke={curve.colour}
+                      stroke={colourOf(curve)}
                       strokeWidth={1.4}
                       strokeDasharray="5 4"
                     />
@@ -529,7 +533,7 @@ export function CurvesLiveCard({ stage, step, running }: LiveCardProps) {
                       <path
                         d={path(raw)}
                         fill="none"
-                        stroke={curve.colour}
+                        stroke={colourOf(curve)}
                         strokeWidth={1}
                         strokeOpacity={0.25}
                         strokeLinejoin="round"
@@ -538,7 +542,7 @@ export function CurvesLiveCard({ stage, step, running }: LiveCardProps) {
                     <path
                       d={path(smooth)}
                       fill="none"
-                      stroke={curve.colour}
+                      stroke={colourOf(curve)}
                       strokeWidth={1.7}
                       strokeLinejoin="round"
                     />
@@ -565,7 +569,7 @@ export function CurvesLiveCard({ stage, step, running }: LiveCardProps) {
                           cx={cx}
                           cy={cy}
                           r={3}
-                          fill={curve.colour}
+                          fill={colourOf(curve)}
                           className={styles.pulse}
                         />
                       ) : null}
@@ -573,8 +577,8 @@ export function CurvesLiveCard({ stage, step, running }: LiveCardProps) {
                         cx={cx}
                         cy={cy}
                         r={3}
-                        fill={curve.colour}
-                        stroke="#ffffff"
+                        fill={colourOf(curve)}
+                        stroke="var(--bg-surface)"
                         strokeWidth={1}
                       />
                     </g>
@@ -599,8 +603,8 @@ export function CurvesLiveCard({ stage, step, running }: LiveCardProps) {
                             cx={x(built.steps[hoverIndex]!)}
                             cy={y(smoothed.get(curve.key)?.[hoverIndex] ?? 0)}
                             r={2.5}
-                            fill="#ffffff"
-                            stroke={curve.colour}
+                            fill="var(--bg-surface)"
+                            stroke={colourOf(curve)}
                             strokeWidth={1.4}
                           />
                         ))
@@ -626,7 +630,7 @@ export function CurvesLiveCard({ stage, step, running }: LiveCardProps) {
                   const smooth = smoothed.get(curve.key)?.[hoverIndex];
                   return (
                     <span key={curve.key} className={styles.tipRow}>
-                      <i style={{ background: curve.colour }} aria-hidden="true" />
+                      <i style={{ background: colourOf(curve) }} aria-hidden="true" />
                       <span className={styles.tipLabel}>{curve.label}</span>
                       <b>{formatValue(smooth ?? Number.NaN)}</b>
                       {!curve.dashed && smoothing > 0 && raw !== undefined ? (
@@ -674,8 +678,8 @@ export function CurvesLiveCard({ stage, step, running }: LiveCardProps) {
                 >
                   <i
                     style={{
-                      background: curve.dashed ? "transparent" : curve.colour,
-                      borderColor: curve.colour,
+                      background: curve.dashed ? "transparent" : colourOf(curve),
+                      borderColor: colourOf(curve),
                     }}
                     data-dashed={curve.dashed || undefined}
                     aria-hidden="true"

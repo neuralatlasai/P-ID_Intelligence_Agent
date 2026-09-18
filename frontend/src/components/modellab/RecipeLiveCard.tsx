@@ -8,6 +8,7 @@ import { Card } from "./Cards";
 import type { LiveCardProps } from "./live";
 import styles from "./ModelLab.module.css";
 import local from "./RecipeLiveCard.module.css";
+import { seriesColour } from "@/lib/series";
 
 const number = (value: number) => value.toLocaleString("en-US");
 
@@ -107,10 +108,10 @@ export function RecipeLiveCard({ stage, step, config, profile }: LiveCardProps) 
               </dt>
               <dd>
                 <ul className={local.objectives}>
-                  {objectives.map((objective) => (
+                  {objectives.map((objective, index) => (
                     <li key={objective.key}>
                       <div className={local.objectiveLine}>
-                        <i style={{ background: objective.colour }} aria-hidden="true" />
+                        <i style={{ background: seriesColour(index) }} aria-hidden="true" />
                         <strong title={objective.label}>{objective.label}</strong>
                         <small>
                           <span className="srOnly">weight </span>×
@@ -131,7 +132,7 @@ export function RecipeLiveCard({ stage, step, config, profile }: LiveCardProps) 
                           className={local.fill}
                           style={{
                             width: `${(objective.share * 100).toFixed(1)}%`,
-                            background: objective.colour,
+                            background: seriesColour(index),
                           }}
                         />
                       </div>

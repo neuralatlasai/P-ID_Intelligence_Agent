@@ -95,7 +95,8 @@
 
 .itemActive {
   background: var(--bg-selected);
-  color: var(--text-primary);
+  box-shadow: inset 2px 0 0 var(--accent-action);
+  color: var(--text-active);
   font-weight: var(--weight-medium);
 }
 

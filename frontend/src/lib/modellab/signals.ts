@@ -5,7 +5,6 @@ import type { Stage } from "./stages";
 export interface TrainingSignal {
   readonly id: string;
   readonly label: string;
-  readonly colour: string;
   readonly value: number;
   readonly weight: number | undefined;
   readonly contribution: number | undefined;
@@ -23,29 +22,26 @@ export interface SignalSnapshot {
 
 const POINTS = 32;
 const MAX_SIGNALS = 8;
-const PALETTE = [
-  "#285d83",
-  "#487d75",
-  "#706590",
-  "#a07739",
-  "#6f8195",
-  "#407e91",
-  "#a55656",
-  "#6a7054",
-];
 
 /**
  * Consume the same simulated functions as the recipe, reward and curve panels. No new
  * synthetic telemetry or KD weights. Sample only elapsed steps; the chart never forecasts.
  * Catalogs are bounded at eight signals and histories at 32 points: O(K × P), bounded
  * allocation per update. Keeping the small histories contiguous avoids chart-library state.
+ *
+ * A signal carries no colour. The catalogue is ordered, so a channel's series is its place
+ * in `signals` and the component reads it from the index; `weight` already says which row is
+ * a penalty, so nothing here has to encode that in a value either.
  */
 export function trainingSignals(stage: Stage, step: number): SignalSnapshot {
-  const end = Math.min(stage.run.totalSteps, Math.max(0, Number.isFinite(step) ? step : 0));
+  // Per-step signals are sampled at completed integer steps, so the charts change when a
+  // step lands rather than drifting with the clock between steps.
+  const end = Math.floor(
+    Math.min(stage.run.totalSteps, Math.max(0, Number.isFinite(step) ? step : 0)),
+  );
   const start = Math.max(0, end - Math.min(4000, stage.run.totalSteps));
-  const steps = Array.from(
-    { length: POINTS },
-    (_, index) => start + ((end - start) * index) / (POINTS - 1),
+  const steps = Array.from({ length: POINTS }, (_, index) =>
+    Math.round(start + ((end - start) * index) / (POINTS - 1)),
   );
 
   if (stage.id === "rl") {
@@ -57,7 +53,6 @@ export function trainingSignals(stage: Stage, step: number): SignalSnapshot {
     const signals = current.map((row, index) => ({
       id: row.name,
       label: row.name.replace(/ reward$| penalty$/, ""),
-      colour: row.weight < 0 ? "#a55656" : PALETTE[index % PALETTE.length]!,
       value: row.score,
       weight: row.weight,
       contribution: row.value,
@@ -79,7 +74,6 @@ export function trainingSignals(stage: Stage, step: number): SignalSnapshot {
     const signals = objectives.map((row, index) => ({
       id: row.key,
       label: row.label,
-      colour: PALETTE[index % PALETTE.length]!,
       value: row.loss,
       weight: row.weight,
       contribution: row.weight * row.loss,
@@ -95,18 +89,15 @@ export function trainingSignals(stage: Stage, step: number): SignalSnapshot {
     };
   }
 
-  const signals = (stage.curves[0]?.curves ?? [])
-    .slice(0, MAX_SIGNALS)
-    .map((curve, index) => ({
-      id: curve.key,
-      label: curve.label,
-      colour: PALETTE[index % PALETTE.length]!,
-      value: curveAt(curve, end),
-      weight: undefined,
-      contribution: undefined,
-      history: steps.map((at) => curveAt(curve, at)),
-      derived: false,
-    }));
+  const signals = (stage.curves[0]?.curves ?? []).slice(0, MAX_SIGNALS).map((curve) => ({
+    id: curve.key,
+    label: curve.label,
+    value: curveAt(curve, end, stage),
+    weight: undefined,
+    contribution: undefined,
+    history: steps.map((at) => curveAt(curve, at, stage)),
+    derived: false,
+  }));
   return { kind: "unweighted", signals, total: undefined, start, end };
 }
 

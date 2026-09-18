@@ -103,7 +103,7 @@ export const SPATIAL_ENCODERS: readonly Encoder[] = [
 ];
 
 export const GRAPH_ENCODERS: readonly Encoder[] = [
-  { id: "gt-xl", name: "Graph Transformer (GT-XL)", paramsM: 480 },
+  { id: "gt-xl", name: "Graph transformer (GPS layers, 480M)", paramsM: 480 },
   { id: "graphgps-l", name: "GraphGPS-L", paramsM: 64 },
   { id: "gat-v2", name: "GATv2 (3-layer)", paramsM: 12 },
   { id: "none", name: "None (topology as text)", paramsM: 0 },
@@ -113,16 +113,23 @@ export interface Accelerator {
   readonly id: string;
   readonly name: string;
   readonly memoryGb: number;
-  /** Nominal bf16 training throughput, FLOPs per second. */
+  /**
+   * Dense BF16 tensor-core peak, FLOPs per second — the vendor datasheet figure without
+   * structured sparsity. It is the MFU denominator, so it must be the same kind of number for
+   * every device: a mix of peak and "effective" figures would make one device's MFU mean
+   * something different from another's.
+   */
   readonly flops: number;
+  /** HBM bandwidth, bytes per second. Bounds decode throughput, which is memory-bound. */
+  readonly bandwidth: number;
 }
 
 export const ACCELERATORS: readonly Accelerator[] = [
-  { id: "h100", name: "H100 80GB", memoryGb: 80, flops: 5.6e14 },
-  { id: "h200", name: "H200 141GB", memoryGb: 141, flops: 5.6e14 },
-  { id: "b200", name: "B200 192GB", memoryGb: 192, flops: 1.2e15 },
-  { id: "a100", name: "A100 80GB", memoryGb: 80, flops: 3.12e14 },
-  { id: "l40s", name: "L40S 48GB", memoryGb: 48, flops: 2.1e14 },
+  { id: "h100", name: "H100 80GB", memoryGb: 80, flops: 9.89e14, bandwidth: 3.35e12 },
+  { id: "h200", name: "H200 141GB", memoryGb: 141, flops: 9.89e14, bandwidth: 4.8e12 },
+  { id: "b200", name: "B200 192GB", memoryGb: 192, flops: 2.25e15, bandwidth: 8e12 },
+  { id: "a100", name: "A100 80GB", memoryGb: 80, flops: 3.12e14, bandwidth: 2.04e12 },
+  { id: "l40s", name: "L40S 48GB", memoryGb: 48, flops: 3.62e14, bandwidth: 8.64e11 },
 ];
 
 export type Precision = "bf16" | "fp8";
@@ -142,23 +149,25 @@ export interface RunConfig {
 
 /** What each stage ships with, matching its published recipe. */
 export const DEFAULT_CONFIG: Record<StageId, RunConfig> = {
+  // 4 × 8 ranks: a global batch of 256 is 8 sequences per rank per step.
   pretraining: {
     backbone: "qwen3-vl-32b",
     spatial: "ptv3-uni3d",
     graph: "gt-xl",
     accelerator: "h100",
-    nodes: 3,
+    nodes: 4,
     gpusPerNode: 8,
     precision: "bf16",
     trainable: "lora",
     globalBatch: 256,
   },
+  // 2 × 8 ranks: a global batch of 128 is 8 sequences per rank per step.
   sft: {
     backbone: "qwen3-vl-32b",
     spatial: "ptv3-uni3d",
     graph: "gt-xl",
     accelerator: "h100",
-    nodes: 3,
+    nodes: 2,
     gpusPerNode: 8,
     precision: "bf16",
     trainable: "lora",
@@ -188,12 +197,22 @@ export const DEFAULT_CONFIG: Record<StageId, RunConfig> = {
   },
 };
 
+/** Completions sampled per prompt in the GRPO group. */
+export const GROUP_SIZE = 8;
+/** Prompt plus mean response, tokens, for one reinforcement-learning sequence. */
+const RL_SEQUENCE_TOKENS = 2900;
+/** Generation runs until the longest completion in the group ends. */
+const RL_MAX_RESPONSE_TOKENS = 4096;
+/** Active parameters of the frozen distillation teacher (Qwen3-VL-32B and encoders), billions. */
+export const TEACHER_ACTIVE_B = 33.6;
+
 /** Average tokens per training sample in each stage: images, drawing crops, graph text, answer. */
 const TOKENS_PER_SAMPLE: Record<StageId, number> = {
   pretraining: 4096,
   sft: 3072,
-  // A rollout is generated, scored and then trained on: roughly three passes of its tokens.
-  rl: 6144 * 1.5,
+  // A reinforcement-learning sample is one prompt group: GROUP_SIZE completions of a
+  // ~1,850-token multimodal prompt and a ~1,050-token mean response.
+  rl: 8 * RL_SEQUENCE_TOKENS,
   distillation: 2048,
 };
 
@@ -230,15 +249,37 @@ export function runProfile(stage: StageId, config: RunConfig): RunProfile {
 
   // Active compute per token: the language backbone's active parameters plus the encoders.
   const activeB = backbone.active + encodersB;
-  const flopsPerToken = (config.trainable === "full" ? 6 : 4) * activeB * 1e9;
+  const updateFactor = config.trainable === "full" ? 6 : 4;
+  // Distillation also runs the frozen teacher forward (2·N) on every student token.
+  const teacherFlops = stage === "distillation" ? 2 * TEACHER_ACTIVE_B : 0;
+  const flopsPerToken = (updateFactor * activeB + teacherFlops) * 1e9;
   // FP8 kernels raise effective throughput on accelerators that support them.
   const precisionGain =
     config.precision === "fp8" && accelerator.id !== "a100" && accelerator.id !== "l40s"
       ? 1.35
       : 1;
-  const tokensPerSecond = (gpus * accelerator.flops * MFU * precisionGain) / flopsPerToken;
+  const sustained = gpus * accelerator.flops * MFU * precisionGain;
   const tokensPerSample = TOKENS_PER_SAMPLE[stage];
-  const samplesPerSecond = tokensPerSecond / tokensPerSample;
+  let stepSeconds: number;
+  if (stage === "rl") {
+    // A GRPO step is generation, then two forward passes (old and reference log-probs) and
+    // the actor update over every generated token, then verification. Generation is
+    // memory-bound: each decode step streams the weights once per tensor-parallel group, and
+    // the step lasts until the longest completion hits its end.
+    const weightsGb = backbone.params * 2;
+    const tensorParallel = weightsGb > 40 ? 4 : weightsGb > 16 ? 2 : 1;
+    const decodeSeconds =
+      (weightsGb * 1e9) / (tensorParallel * accelerator.bandwidth * 0.55) + 0.01;
+    const generation = RL_MAX_RESPONSE_TOKENS * decodeSeconds;
+    const trainTokens = config.globalBatch * tokensPerSample;
+    const training = (trainTokens * (4 + updateFactor) * activeB * 1e9) / sustained;
+    const verification = 0.022 * config.globalBatch * GROUP_SIZE;
+    stepSeconds = generation + training + verification;
+  } else {
+    stepSeconds = (config.globalBatch * tokensPerSample * flopsPerToken) / sustained;
+  }
+  const samplesPerSecond = config.globalBatch / stepSeconds;
+  const tokensPerSecond = samplesPerSecond * tokensPerSample;
 
   // Trainable parameters: everything for a full fine-tune; adapters (≈1.5 %) plus encoders otherwise.
   const trainableB =
@@ -254,7 +295,9 @@ export function runProfile(stage: StageId, config: RunConfig): RunProfile {
     gpus;
   const trainedGb = (trainableB * 16) / gpus;
   // Checkpointed activations for one micro-batch at the stage's sample length.
-  const activationGb = 6 + (tokensPerSample / 4096) * (backbone.active / 33) * 14;
+  // Activations are per micro-batch sequence, not per sample group.
+  const sequenceTokens = stage === "rl" ? RL_SEQUENCE_TOKENS : tokensPerSample;
+  const activationGb = 6 + (sequenceTokens / 4096) * (backbone.active / 33) * 14;
   const memoryPerGpuGb = frozenGb + trainedGb + activationGb;
 
   return {

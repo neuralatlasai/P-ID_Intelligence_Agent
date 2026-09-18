@@ -1,16 +1,17 @@
 /* Live data contract: pipeline status, epoch consumption and the alignment heatmap. */
 
 .simTag {
-  margin-left: 4px;
-  padding: 0 4px;
-  border-radius: 3px;
-  background: #f3e8ff;
-  color: #6d28d9; /* 6.4:1 on #f3e8ff */
-  font-size: 9.5px;
-  letter-spacing: 0.02em;
+  margin-left: var(--space-1);
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-xs);
+  background: var(--evidence-inferred-bg);
+  color: var(--evidence-inferred);
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-label);
 }
 
 .reward {
+  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   text-align: right;
   white-space: nowrap;
@@ -18,8 +19,8 @@
 
 .totalLabel.totalLabel {
   text-align: right;
-  font-size: 11px;
-  color: var(--muted);
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
   border-bottom: 0;
 }
 
@@ -29,59 +30,64 @@
   min-width: 128px;
 }
 
+/*
+ * Pipeline state chip. Rectangular, not a pill: the state is carried by the dot and the
+ * label, and §6 keeps pill containers out of the system.
+ */
 .chip {
   display: inline-flex;
   align-items: center;
   gap: 5px;
   padding: 1px 6px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  font-size: 10.5px;
-  font-weight: 600;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
   white-space: nowrap;
-  background: #ffffff;
-  color: #475569;
+  background: var(--bg-surface-high);
+  color: var(--text-secondary);
 }
 
 .chip i {
   width: 6px;
   height: 6px;
-  border-radius: 50%;
-  background: #94a3b8;
+  border-radius: var(--radius-pill);
+  background: var(--status-unknown-mark);
 }
 
 .chip[data-state="synced"] {
-  border-color: #bbf7d0;
-  background: var(--green-soft);
-  color: #166534; /* 6.5:1 on #dcfce7 */
+  border-color: var(--border-subtle);
+  background: var(--status-ready-bg);
+  color: var(--status-ready);
 }
 
 .chip[data-state="synced"] i {
-  background: #16a34a;
+  background: var(--status-ready-mark);
 }
 
 .chip[data-state="indexing"] {
-  border-color: #bfdbfe;
-  background: var(--blue-soft);
-  color: #1e40af; /* 8.2:1 on #eef4ff */
+  border-color: var(--border-subtle);
+  background: var(--accent-action-subtle);
+  color: var(--text-link);
 }
 
 .chip[data-state="indexing"] i {
-  background: var(--blue);
+  background: var(--accent-action);
 }
 
 .chip[data-state="awaiting"] {
-  border-color: #fde68a;
-  color: var(--amber); /* 5.0:1 on white */
+  border-color: var(--border-subtle);
+  background: var(--status-degraded-bg);
+  color: var(--status-degraded);
 }
 
 .chip[data-state="awaiting"] i {
-  background: #f59e0b;
+  background: var(--status-degraded-mark);
 }
 
 .chip[data-state="off"] {
-  background: #f1f5f9;
-  color: #475569; /* 7.2:1 on #f1f5f9 */
+  background: var(--bg-sunken);
+  color: var(--text-tertiary);
 }
 
 .chip[data-stale] {
@@ -91,8 +97,9 @@
 .sync {
   display: block;
   margin-top: 1px;
-  font-size: 10.5px;
-  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
   white-space: nowrap;
 }
 
@@ -107,21 +114,22 @@
   display: block;
   flex: 0 0 48px;
   height: 3px;
-  border-radius: 3px;
-  background: #e8edf4;
+  border-radius: var(--radius-xs);
+  background: var(--bg-sunken);
   overflow: hidden;
 }
 
 .epochBar i {
   display: block;
   height: 100%;
-  background: #7c3aed;
-  transition: width 0.8s linear;
+  background: var(--series-1);
+  transition: width var(--duration-slow) var(--easing-standard);
 }
 
 .epoch small {
-  font-size: 10px;
-  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
@@ -129,8 +137,8 @@
 .footnote {
   margin: 0;
   padding: 0 14px 10px;
-  font-size: 10.5px;
-  color: var(--muted);
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
 }
 
 /* heatmap */
@@ -139,8 +147,8 @@
   position: relative;
 }
 
-.grid td {
-  padding: 1px !important;
+.grid.grid td {
+  padding: 1px;
 }
 
 .cell {
@@ -151,32 +159,38 @@
   height: 26px;
   padding: 0;
   border: 1px solid transparent;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   background: transparent;
 }
 
+/*
+ * A structurally impossible pair reads as an empty well rather than a hatched fill —
+ * §6 rules out the gradient that drew the hatching.
+ */
 .cell[data-zero] {
-  background: repeating-linear-gradient(135deg, #f8fafc 0 4px, #eef2f7 4px 6px);
+  background: var(--bg-sunken);
+  box-shadow: inset 0 0 0 1px var(--rule-subtle);
 }
 
 .cell:hover,
 .cell:focus-visible,
 .cell[aria-expanded="true"] {
-  border-color: #1e3a8a;
+  border-color: var(--accent-action);
 }
 
 .cell:focus-visible {
-  outline: 2px solid var(--blue);
+  outline: 2px solid var(--border-focus);
   outline-offset: 1px;
 }
 
 .count {
   padding: 0 3px;
-  border-radius: 3px;
-  background: #ffffff;
-  color: var(--ink);
-  font-size: 10px;
-  font-weight: 600;
+  border-radius: var(--radius-xs);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
   line-height: 14px;
   opacity: 0;
   font-variant-numeric: tabular-nums;
@@ -189,7 +203,7 @@
 }
 
 .diagonal {
-  color: #64748b;
+  color: var(--text-tertiary);
 }
 
 .legend {
@@ -197,30 +211,42 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 6px;
-  margin-top: 8px;
-  font-size: 10.5px;
-  color: var(--muted);
+  margin-top: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
 }
 
+/*
+ * The sequential scale, stepped rather than ramped: §6 rules out the gradient that drew
+ * it. The five --scale-* steps the cells themselves take, as opaque 12px bands rising in
+ * luminance left to right. A true zero is not on this ramp — it is the "None" well below.
+ */
 .scale {
-  width: 56px;
-  height: 8px;
-  border-radius: 2px;
-  background: linear-gradient(90deg, rgba(37, 99, 235, 0.12), rgba(37, 99, 235, 0.92));
+  width: 60px;
+  height: var(--space-2);
+  border-radius: var(--radius-xs);
+  background: var(--scale-5);
+  box-shadow:
+    inset 12px 0 0 0 var(--scale-1),
+    inset 24px 0 0 0 var(--scale-2),
+    inset 36px 0 0 0 var(--scale-3),
+    inset 48px 0 0 0 var(--scale-4);
 }
 
 .legendZero {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-1);
   margin-left: 6px;
 }
 
 .legendZero i {
   width: 10px;
   height: 10px;
-  border-radius: 2px;
-  background: repeating-linear-gradient(135deg, #f8fafc 0 3px, #cbd5e1 3px 4px);
+  border-radius: var(--radius-xs);
+  background: var(--bg-sunken);
+  box-shadow: inset 0 0 0 1px var(--rule-subtle);
 }
 
 .popover {
@@ -228,57 +254,59 @@
   z-index: 5;
   right: 14px;
   bottom: 30px;
-  left: 4px;
-  padding: 8px 10px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #ffffff;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.14);
-  font-size: 11.5px;
-  color: var(--body);
+  left: var(--space-1);
+  padding: var(--space-2) 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface-high);
+  box-shadow: var(--shadow-md);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
 }
 
 .popover p {
-  margin: 4px 0 0;
+  margin: var(--space-1) 0 0;
 }
 
 .popoverHead {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .popoverHead strong {
-  color: var(--ink);
-  font-size: 12px;
+  color: var(--text-primary);
+  font-size: var(--text-base);
 }
 
-.close {
+.close.close {
   display: grid;
   place-items: center;
   width: 24px;
   height: 24px;
   padding: 0;
   border: 0;
-  border-radius: 5px;
+  border-radius: var(--radius-sm);
   background: transparent;
-  color: #475569 !important;
+  color: var(--text-secondary);
 }
 
 .close:hover,
 .close:focus-visible {
-  background: #f1f5f9;
+  background: var(--bg-hover);
 }
 
 .popoverCount {
-  font-weight: 650;
-  color: var(--blue-deep);
+  font-family: var(--font-mono);
+  font-weight: var(--weight-medium);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-active);
 }
 
 .basis {
-  color: var(--muted);
-  font-size: 10.5px;
+  color: var(--text-tertiary);
+  font-size: var(--text-xs);
 }
 
 @media (prefers-reduced-motion: reduce) {

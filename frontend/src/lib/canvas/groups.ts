@@ -19,7 +19,6 @@ export interface FunctionGroup {
   readonly short: string;
   /** A short function code shown beside each row. */
   readonly code: string;
-  readonly colour: string;
 }
 
 export const GROUPS: readonly FunctionGroup[] = [
@@ -28,64 +27,55 @@ export const GROUPS: readonly FunctionGroup[] = [
     name: "Transmitters",
     short: "Transmitters",
     code: "TX",
-    colour: "#7c3aed",
   },
   {
     id: "indicator",
     name: "Indicators & gauges",
     short: "Gauges",
     code: "IND",
-    colour: "#a78bfa",
   },
   {
     id: "control-valve",
     name: "Control valves",
     short: "Control valves",
     code: "CV",
-    colour: "#1d4ed8",
   },
   {
     id: "hand-valve",
     name: "Hand valves",
     short: "Hand valves",
     code: "HV",
-    colour: "#60a5fa",
   },
   {
     id: "safety-valve",
     name: "Relief valves",
     short: "Relief valves",
     code: "PSV",
-    colour: "#dc2626",
   },
   {
     id: "exchanger",
     name: "Heat exchangers",
     short: "Exchangers",
     code: "HX",
-    colour: "#0f766e",
   },
   {
     id: "vessel",
     name: "Vessels & drums",
     short: "Vessels",
     code: "VSL",
-    colour: "#15803d",
   },
-  { id: "pump", name: "Pumps", short: "Pumps", code: "PMP", colour: "#b45309" },
+  { id: "pump", name: "Pumps", short: "Pumps", code: "PMP" },
   {
     id: "off-page",
     name: "Off-page connectors",
     short: "Off-page",
     code: "OPC",
-    colour: "#0891b2",
   },
   {
     id: "piping",
     name: "Piping & drafting",
     short: "Piping",
     code: "PIPE",
-    colour: "#94a3b8",
   },
 ];
 

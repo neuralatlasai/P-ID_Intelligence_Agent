@@ -1,26 +1,19 @@
 /*
- * Architecture figure. The grammar of a systems diagram: ink rules on white, a dotted field,
- * monospace captions, one accent for the reference path. Text ratios are against #ffffff.
+ * Architecture figure. The grammar of a systems diagram, in engineering ink: near-white
+ * geometry on a dotted field, monospace captions, orthogonal connectors well below the
+ * geometry, one accent for the reference path. The drawing sits on the void so the figure
+ * itself is the brightest thing in the frame.
  */
 
 .figure {
-  --ink: #111827;
-  --body: #374151; /* 10.3:1 */
-  --muted: #4b5563; /* 7.6:1 */
-  --rule: #1f2937;
-  --faint-rule: #9ca3af;
-  --field: #d7dce3;
-  --trace: #3150c9; /* 6.6:1 */
-  --mono: ui-monospace, "SFMono-Regular", "Cascadia Mono", Menlo, Consolas, monospace;
-
   /* A grid or flex parent must not grow to the diagram's minimum width; the canvas scrolls. */
   min-width: 0;
   max-width: 100%;
   margin: 0 0 16px;
-  border: 1px solid #d9dee6;
-  border-radius: 8px;
-  background: #ffffff;
-  color: var(--body);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
 }
 
 .head {
@@ -33,25 +26,25 @@
 .caption {
   display: block;
   margin-bottom: 14px;
-  font-family: var(--mono);
+  font-family: var(--font-mono);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.04em;
-  color: var(--ink);
+  color: var(--text-primary);
 }
 .head h3 {
   margin: 0 0 8px;
   font-size: 22px;
   font-weight: 650;
   letter-spacing: -0.015em;
-  color: var(--ink);
+  color: var(--text-primary);
 }
 .head p {
   max-width: 760px;
   margin: 0;
   font-size: 13.5px;
   line-height: 1.6;
-  color: var(--body);
+  color: var(--text-secondary);
 }
 
 .actions {
@@ -63,27 +56,27 @@
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  min-height: 36px;
+  min-height: var(--control-height-lg);
   padding: 0 14px;
-  border: 1px solid var(--rule);
-  border-radius: 8px;
-  background: #ffffff;
-  color: var(--ink);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface-high);
+  color: var(--text-primary);
   font: inherit;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
 }
 .actions button:hover:not(:disabled) {
-  background: #f3f4f6;
+  background: var(--bg-hover);
 }
 .actions button:disabled {
-  border-color: #c7ccd4;
-  color: #6b7280;
+  border-color: var(--border-subtle);
+  color: var(--text-tertiary);
   cursor: not-allowed;
 }
 .actions button:focus-visible {
-  outline: 2px solid var(--trace);
+  outline: 2px solid var(--accent-action);
   outline-offset: 2px;
 }
 .actions svg {
@@ -103,9 +96,9 @@
   margin: 0;
   padding: 12px 28px 16px;
   list-style: none;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--border-subtle);
   font-size: 12.5px;
-  color: var(--body);
+  color: var(--text-secondary);
 }
 .legend li {
   display: inline-flex;
@@ -116,23 +109,26 @@
   width: 22px;
   height: 13px;
   border-radius: 2px;
-  background: #ffffff;
+  background: var(--ink-fill);
 }
 .legend i[data-kind="solid"] {
-  border: 1px solid var(--rule);
+  border: 1px solid var(--ink-primary);
 }
 .legend i[data-kind="dashed"] {
-  border: 1px dashed var(--faint-rule);
+  border: 1px dashed var(--ink-muted);
 }
 .legend i[data-kind="frozen"] {
-  border: 1px solid var(--rule);
-  box-shadow: inset 3px 0 0 #ffffff, inset 4px 0 0 var(--rule), inset 6px 0 0 #ffffff,
-    inset 7px 0 0 var(--rule);
+  border: 1px solid var(--ink-primary);
+  box-shadow:
+    inset 3px 0 0 var(--ink-fill),
+    inset 4px 0 0 var(--ink-secondary),
+    inset 6px 0 0 var(--ink-fill),
+    inset 7px 0 0 var(--ink-secondary);
 }
 .legend i[data-kind="trace"] {
   height: 2px;
   border-radius: 0;
-  background: var(--trace);
+  background: var(--accent-action);
   position: relative;
 }
 .legend i[data-kind="trace"]::after {
@@ -142,18 +138,19 @@
   top: -3px;
   width: 8px;
   height: 8px;
-  border-radius: 50%;
-  background: var(--trace);
+  border-radius: var(--radius-pill);
+  background: var(--accent-action);
 }
 
 .canvas {
   max-width: 100%;
   overflow-x: auto;
   padding: 8px 12px 0;
+  background: var(--bg-void);
   scrollbar-width: thin;
 }
 .canvas:focus-visible {
-  outline: 2px solid var(--trace);
+  outline: 2px solid var(--accent-action);
   outline-offset: -2px;
 }
 .svg {
@@ -164,100 +161,101 @@
 }
 
 .dot {
-  fill: var(--field);
+  fill: var(--ink-field);
 }
 .columnTitle {
-  font-family: var(--mono);
+  font-family: var(--font-mono);
   font-size: 10.5px;
   font-weight: 600;
   letter-spacing: 0.05em;
-  fill: var(--muted);
+  fill: var(--ink-secondary);
 }
 
 .wire path {
   fill: none;
-  stroke: var(--rule);
+  stroke: var(--ink-wire);
   stroke-width: 1;
 }
 .arrowHead {
   fill: none;
-  stroke: var(--rule);
+  stroke: var(--ink-wire);
   stroke-width: 1.2;
   stroke-linejoin: round;
 }
 
 .container rect {
-  fill: #ffffff;
-  stroke: var(--rule);
+  fill: var(--ink-fill);
+  stroke: var(--ink-primary);
   stroke-width: 1;
 }
 .containerTitle {
   font-size: 15px;
   font-weight: 600;
   text-anchor: middle;
-  fill: var(--ink);
+  fill: var(--ink-primary);
 }
 .containerDetail {
-  font-family: var(--mono);
+  font-family: var(--font-mono);
   font-size: 10.5px;
   text-anchor: middle;
-  fill: var(--muted);
+  fill: var(--ink-secondary);
 }
 
 .box rect {
-  fill: #ffffff;
-  stroke: var(--rule);
+  fill: var(--ink-fill);
+  stroke: var(--ink-primary);
   stroke-width: 1;
 }
 .box .icon {
   fill: none;
-  stroke: var(--ink);
+  stroke: var(--ink-primary);
   stroke-width: 1.3;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 .box .frozen {
-  stroke: var(--rule);
+  stroke: var(--ink-secondary);
   stroke-width: 1;
 }
 .title {
   font-size: 13px;
   font-weight: 550;
-  fill: var(--ink);
+  fill: var(--ink-primary);
 }
 .detail {
-  font-family: var(--mono);
+  font-family: var(--font-mono);
   font-size: 10.5px;
-  fill: var(--muted);
+  fill: var(--ink-secondary);
 }
 .box[data-absent] rect {
-  stroke: var(--faint-rule);
+  stroke: var(--ink-muted);
   stroke-dasharray: 4 3;
 }
 .box[data-absent] .icon {
-  stroke: #9ca3af;
+  stroke: var(--ink-muted);
 }
 .box[data-absent] .title,
 .box[data-absent] .detail {
-  fill: #6b7280;
+  fill: var(--text-tertiary);
 }
 .box[data-traced] rect {
-  stroke: var(--trace);
+  stroke: var(--accent-action);
   stroke-width: 1.6;
 }
 .box[data-traced] .icon {
-  stroke: var(--trace);
+  stroke: var(--accent-action);
 }
 
 .trace {
   fill: none;
-  stroke: var(--trace);
+  stroke: var(--accent-action);
   stroke-width: 1.8;
   stroke-linejoin: round;
 }
 .packet {
-  fill: var(--trace);
-  stroke: #ffffff;
+  fill: var(--accent-action);
+  /* Knocked out of the wire it rides, so the head of the path stays legible. */
+  stroke: var(--bg-void);
   stroke-width: 2;
 }
 
@@ -267,10 +265,10 @@
   justify-content: space-between;
   gap: 6px 20px;
   padding: 12px 28px 18px;
-  border-top: 1px solid #e5e7eb;
-  font-family: var(--mono);
+  border-top: 1px solid var(--border-subtle);
+  font-family: var(--font-mono);
   font-size: 11px;
-  color: var(--muted);
+  color: var(--text-tertiary);
 }
 
 @media (max-width: 820px) {

@@ -19,10 +19,11 @@ import styles from "./TelemetryPanel.module.css";
 /**
  * Live loop telemetry: an ISA-101 style trend beside a faceplate.
  *
- * The trend is drawn in greys; colour appears only where the process deviates — amber past
- * H or L, red past HH or LL — so an excursion is the first thing seen. The chart is measured
- * and drawn in CSS pixels rather than scaled from a viewBox, so its labels stay the size of
- * the text around them at any panel width.
+ * Each pen keeps one series colour end to end. An excursion past H or L is redrawn over the
+ * trace at a heavier weight rather than in a second colour, and the alarm itself is a sparse
+ * mark: a short rule at the limit and a point at each activation. The chart is measured and
+ * drawn in CSS pixels rather than scaled from a viewBox, so its labels stay the size of the
+ * text around them at any panel width.
  *
  * The clock advances one scan every five seconds while the tab is visible and the trend is
  * not paused; pausing freezes the window for reading, as a historian's trend does.

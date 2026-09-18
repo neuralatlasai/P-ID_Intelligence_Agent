@@ -25,8 +25,6 @@ export const EVAL_SECONDS = 720;
 export function evalEvery(stage: Stage): number {
   const { run } = stage;
   switch (stage.id) {
-    case "rl":
-      return 2500;
     case "distillation":
       // Every checkpoint is evaluated, including the quantisation-aware deployment pass.
       return run.checkpointEvery;

@@ -94,7 +94,8 @@ describe("checkpoints", () => {
             event.kind === "checkpoint-written" &&
             event.id === `ckpt-write:${stage.run.checkpointEvery * 6}`,
         );
-        if (writing?.phase === "serialize") expect(logged, `${id} @${seconds}s`).toBe(false);
+        if (writing?.phase === "serialize")
+          expect(logged, `${id} @${seconds}s`).toBe(false);
         else expect(logged, `${id} @${seconds}s`).toBe(true);
       }
     }
@@ -102,7 +103,12 @@ describe("checkpoints", () => {
 
   it("scores evaluated checkpoints with the harness's number for that step", () => {
     const stage = effective("distillation");
-    const life = checkpointLifecycle(stage, stage.run.openingStep, stage.run.stepsPerSecond, NOW);
+    const life = checkpointLifecycle(
+      stage,
+      stage.run.openingStep,
+      stage.run.stepsPerSecond,
+      NOW,
+    );
     for (const record of life.records) {
       if (record.evalScore !== undefined)
         expect(record.evalScore).toBe(evalScoreAt(stage, record.step));

@@ -20,36 +20,42 @@
 
 /* Sizes. Medium reaches the 44px touch target through its padding on coarse pointers. */
 .sm {
-  min-block-size: 28px;
+  min-block-size: var(--control-height-sm);
   padding-inline: var(--space-3);
   font-size: var(--text-base);
 }
 
 .md {
-  min-block-size: 34px;
+  min-block-size: var(--control-height-md);
   padding-inline: var(--space-4);
-  font-size: var(--text-md);
+  font-size: var(--text-base);
 }
 
 .lg {
-  min-block-size: 40px;
+  min-block-size: var(--control-height-lg);
   padding-inline: var(--space-5);
   font-size: var(--text-md);
 }
 
+/*
+ * The one filled action per view. It is filled with white rather than a colour: on a dark
+ * engineering surface the brightest thing in the frame is the strongest call to action
+ * available, and it costs no saturation to say so.
+ */
 .primary {
-  background: var(--accent-action);
-  border-color: var(--accent-action);
-  color: #fff;
+  background: var(--action-fill);
+  border-color: var(--action-fill);
+  color: var(--action-fill-text);
 }
 
 .primary:hover:not(:disabled) {
-  background: var(--accent-action-hover);
-  border-color: var(--accent-action-hover);
+  background: var(--action-fill-hover);
+  border-color: var(--action-fill-hover);
 }
 
 .primary:active:not(:disabled) {
-  background: var(--accent-action-active);
+  background: var(--text-secondary);
+  border-color: var(--text-secondary);
 }
 
 .secondary {
@@ -74,6 +80,11 @@
   color: var(--text-primary);
 }
 
+/*
+ * Destructive actions are a default button whose label carries the status colour. A red
+ * fill would outrank the view's dominant action, which is rarely what a destructive
+ * control deserves.
+ */
 .danger {
   background: var(--bg-surface);
   border-color: var(--border-default);

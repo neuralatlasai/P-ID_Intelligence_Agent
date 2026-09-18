@@ -21,6 +21,7 @@ import local from "./ContractLiveCard.module.css";
 import { Icon } from "./icons";
 import type { LiveCardProps } from "./live";
 import styles from "./ModelLab.module.css";
+import { scaleColour, seriesColour } from "@/lib/series";
 
 const number = (value: number) => value.toLocaleString("en-US");
 
@@ -81,7 +82,7 @@ export function ContractLiveCard({
                     <td>
                       <i
                         className={styles.dot}
-                        style={{ background: row.colour }}
+                        style={{ background: seriesColour(index) }}
                         aria-hidden="true"
                       />
                       {row.name}
@@ -157,7 +158,7 @@ export function ContractLiveCard({
                 </tr>
               </thead>
               <tbody>
-                {stage.contract.map((row) => {
+                {stage.contract.map((row, index) => {
                   const have = available.get(row.id);
                   const share = have ? Math.min(1, have.count / row.target) : 0;
                   const pipe = ingestion.get(row.id);
@@ -168,7 +169,7 @@ export function ContractLiveCard({
                       <td>
                         <i
                           className={styles.dot}
-                          style={{ background: row.colour }}
+                          style={{ background: seriesColour(index) }}
                           aria-hidden="true"
                         />
                         {row.name}
@@ -334,10 +335,7 @@ function AlignmentHeatmap({ facts }: { readonly facts: CorpusFacts }) {
                       className={local.cell}
                       data-zero={value === 0 || undefined}
                       style={{
-                        background:
-                          value > 0
-                            ? `rgba(37, 99, 235, ${(0.12 + 0.8 * intensity).toFixed(3)})`
-                            : undefined,
+                        background: value > 0 ? scaleColour(intensity) : undefined,
                       }}
                       aria-expanded={selected}
                       aria-controls={selected ? popoverId : undefined}

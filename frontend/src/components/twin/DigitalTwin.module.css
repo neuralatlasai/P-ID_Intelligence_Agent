@@ -1,49 +1,54 @@
 /*
- * Digital twin view. Renders inside `.workspace` and uses its tokens. Rules are scoped under
- * `.twin` so they outrank the workspace's generic `button` styling without !important.
+ * Digital twin view: field photograph, 3D model, drawing crop and the mapping register.
+ *
+ * Rules are scoped under `.twin` so they outrank the workspace's generic `button` styling
+ * on specificity alone. Every colour is a token: the photograph and the 3D stage are
+ * engineering artefacts and sit on the void, the cards are panels, and the only saturation
+ * in the view marks state the simulation has determined.
  */
 
 .twin {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 14px 16px 18px;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-4) var(--space-5);
 }
 
 .head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--space-3);
   flex-wrap: wrap;
 }
 .head h2 {
-  font-size: 15px;
-  color: var(--ink);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+  color: var(--text-primary);
   text-transform: none;
   letter-spacing: -0.01em;
 }
 .head p {
-  color: var(--muted);
-  font-size: 11.5px;
-  margin-top: 2px;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  margin-top: var(--space-1);
 }
 .headBadges {
   display: flex;
-  gap: 6px;
+  gap: var(--space-2);
   flex-wrap: wrap;
 }
 .caution {
-  border: 1px solid var(--warn-line);
-  background: var(--warn-soft);
-  color: var(--warn);
+  border: 1px solid var(--status-degraded);
+  background: var(--status-degraded-bg);
+  color: var(--status-degraded);
   border-radius: var(--radius-sm);
-  padding: 7px 10px;
-  font-size: 11.5px;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
 }
 .muted {
-  color: var(--muted);
-  font-size: 11.5px;
+  color: var(--text-tertiary);
+  font-size: var(--text-sm);
 }
 
 /* ── cards ─────────────────────────────────────────────────────────────────────────── */
@@ -52,51 +57,51 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--card);
-  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
   overflow: hidden;
 }
 .card > header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--line-soft);
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--rule-subtle);
+  background: var(--bg-surface-high);
   min-height: 40px;
 }
 .card h3 {
-  font-size: 12px;
-  font-weight: 650;
-  color: var(--ink);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+  color: var(--text-primary);
 }
 .card h4 {
-  font-size: 11.5px;
-  font-weight: 650;
-  color: var(--ink);
-  margin: 8px 12px 4px;
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  color: var(--text-primary);
+  margin: var(--space-2) var(--space-3) var(--space-1);
 }
 .twin .card > header button {
-  padding: 3px 10px;
-  font-size: 11px;
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-sm);
 }
 .twin .card > header button[aria-pressed="true"] {
-  background: var(--accent-soft);
-  border-color: var(--accent-line);
-  color: var(--accent-deep);
+  background: var(--accent-action-subtle);
+  border-color: var(--accent-action);
+  color: var(--text-active);
 }
 
 .views {
   display: grid;
   grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
-  gap: 12px;
+  gap: var(--space-3);
 }
 .details {
   display: grid;
   grid-template-columns: minmax(0, 1.05fr) minmax(0, 1.2fr) minmax(0, 1fr);
-  gap: 12px;
+  gap: var(--space-3);
 }
 @container (max-width: 980px) {
   .views,
@@ -117,65 +122,75 @@
   display: block;
   width: 100%;
   height: auto;
-  background: #1b222d;
+  background: var(--bg-void);
 }
 .box {
   cursor: pointer;
   outline: none;
 }
+/*
+ * Detection boxes. Hover, selection and scenario state are told apart by stroke weight and
+ * dash first; the overlay tokens keep all three reading the same way here as they do on the
+ * P&ID and on the 3D view. Stroke widths stay in SVG user units — the photograph is 1448
+ * units wide, so a token in CSS pixels would be invisible at this scale.
+ */
 .box > rect {
-  fill: rgba(255, 255, 255, 0);
-  stroke: #38bdf8;
+  fill: transparent;
+  stroke: var(--overlay-related);
   stroke-width: 3;
   stroke-dasharray: 10 6;
   transition:
-    fill 0.12s ease,
-    stroke 0.12s ease;
+    fill var(--duration-hover) var(--easing-standard),
+    stroke var(--duration-hover) var(--easing-standard);
 }
 .box[data-hover] > rect,
 .box:focus-visible > rect {
-  fill: rgba(56, 189, 248, 0.14);
+  fill: var(--overlay-hover-bg);
+  stroke: var(--overlay-hover);
   stroke-dasharray: none;
 }
 .box:focus-visible > rect {
-  stroke: #ffffff;
+  stroke: var(--overlay-selected);
   stroke-width: 5;
 }
 .box[data-tint="selected"] > rect {
-  stroke: #3b82f6;
+  stroke: var(--overlay-selected);
   stroke-width: 6;
   stroke-dasharray: none;
-  fill: rgba(59, 130, 246, 0.16);
+  fill: var(--overlay-selected-bg);
 }
 .box[data-tint="warn"] > rect {
-  stroke: #f59e0b;
+  stroke: var(--status-degraded-mark);
   stroke-width: 5;
   stroke-dasharray: none;
-  fill: rgba(245, 158, 11, 0.14);
+  fill: var(--status-degraded-bg);
 }
 .box[data-tint="alarm"] > rect {
-  stroke: #ef4444;
+  stroke: var(--status-down-mark);
   stroke-width: 6;
   stroke-dasharray: none;
-  fill: rgba(239, 68, 68, 0.18);
+  fill: var(--status-down-bg);
 }
 .chipBg {
-  fill: rgba(15, 23, 36, 0.86);
+  fill: var(--bg-surface);
 }
 .box text {
-  fill: #ffffff;
+  fill: var(--text-primary);
   font-size: 17px;
-  font-weight: 650;
-  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-weight: var(--weight-semibold);
+  font-family: var(--font-mono);
 }
 .box[data-tint="selected"] .chipBg {
-  fill: #1d4ed8;
+  fill: var(--bg-surface-high);
 }
-.box[data-tint="alarm"] .chipBg {
-  fill: #b91c1c;
+.box[data-tint="selected"] text {
+  fill: var(--text-active);
 }
-.box[data-tint="warn"] .chipBg {
-  fill: #92400e;
+.box[data-tint="alarm"] text {
+  fill: var(--status-down);
+}
+.box[data-tint="warn"] text {
+  fill: var(--status-degraded);
 }
 
 /* ── 3D model ──────────────────────────────────────────────────────────────────────── */
@@ -184,30 +199,34 @@
   position: relative;
   flex: 1;
   min-height: 300px;
-  background: radial-gradient(circle at 50% 30%, #ffffff, #e6ebf2 75%);
+  background: var(--scene-bg);
 }
 .modelHost {
   position: absolute;
   inset: 0;
 }
+/* three.js is asked for a backing buffer without inline styles, so the canvas simply fills
+   its host. */
 .modelHost canvas {
   display: block;
-  width: 100% !important;
-  height: 100% !important;
+  width: 100%;
+  height: 100%;
   cursor: grab;
   touch-action: none;
 }
 .modelHud {
   position: absolute;
-  left: 10px;
-  bottom: 10px;
+  left: var(--space-3);
+  bottom: var(--space-3);
   max-width: calc(100% - 120px);
-  padding: 4px 9px;
-  border-radius: 6px;
-  background: rgba(15, 23, 36, 0.84);
-  color: #ffffff;
-  font-size: 11px;
-  font-weight: 600;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
   pointer-events: none;
   white-space: nowrap;
   overflow: hidden;
@@ -215,24 +234,24 @@
 }
 .twin .modelReset {
   position: absolute;
-  right: 10px;
-  bottom: 10px;
-  padding: 4px 10px;
-  font-size: 11px;
+  right: var(--space-3);
+  bottom: var(--space-3);
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-sm);
 }
 .modelFallback {
   display: grid;
   place-content: center;
-  gap: 4px;
+  gap: var(--space-1);
   flex: 1;
   min-height: 300px;
-  padding: 16px;
+  padding: var(--space-4);
   text-align: center;
-  color: var(--muted);
-  background: var(--sunken);
+  color: var(--text-secondary);
+  background: var(--bg-void);
 }
 .modelFallback strong {
-  color: var(--ink);
+  color: var(--text-primary);
 }
 
 /* ── selection ─────────────────────────────────────────────────────────────────────── */
@@ -240,96 +259,107 @@
 .idChip,
 .tint {
   display: inline-flex;
-  padding: 1px 8px;
-  border-radius: 999px;
-  font-size: 10.5px;
-  font-weight: 700;
-  background: var(--accent-soft);
-  color: var(--accent-deep);
-  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  background: var(--accent-action-subtle);
+  color: var(--text-active);
+  font-family: var(--font-mono);
 }
 .tint[data-tint="warn"] {
-  background: var(--warn-soft);
-  color: var(--warn);
-  font-family: inherit;
+  background: var(--status-degraded-bg);
+  color: var(--status-degraded);
+  font-family: var(--font-sans);
 }
 .tint[data-tint="alarm"] {
-  background: var(--bad-soft);
-  color: var(--bad);
-  font-family: inherit;
+  background: var(--status-down-bg);
+  color: var(--status-down);
+  font-family: var(--font-sans);
 }
 .selection {
   display: grid;
   grid-template-columns: 140px minmax(0, 1fr);
-  gap: 12px;
-  padding: 12px;
+  gap: var(--space-3);
+  padding: var(--space-3);
 }
 .selection strong {
-  color: var(--ink);
-  font-size: 13px;
+  color: var(--text-primary);
+  font-size: var(--text-md);
 }
 .crop,
 .cropEmpty {
   width: 140px;
   height: 140px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
-  background: #ffffff;
+  background: var(--bg-void);
 }
 .cropEmpty {
   display: grid;
   place-content: center;
   text-align: center;
-  font-size: 11px;
-  color: var(--muted);
-  padding: 8px;
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+  padding: var(--space-2);
 }
 .facts {
   display: grid;
-  gap: 6px;
-  margin: 8px 0 10px;
+  gap: var(--space-2);
+  margin: var(--space-2) 0 var(--space-3);
 }
 .facts dt {
-  font-size: 10px;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--faint);
-  font-weight: 650;
+  letter-spacing: var(--tracking-label);
+  color: var(--text-tertiary);
+  font-weight: var(--weight-medium);
 }
 .facts dd {
-  color: var(--body);
-  font-size: 12px;
+  color: var(--text-primary);
+  font-size: var(--text-base);
 }
-.alarmText {
-  color: var(--bad) !important;
-  font-weight: 600;
+.twin .alarmText {
+  color: var(--status-down);
+  font-weight: var(--weight-semibold);
 }
 .actions {
   display: flex;
-  gap: 6px;
+  gap: var(--space-2);
   flex-wrap: wrap;
 }
 .twin .actions button {
-  padding: 5px 11px;
-  font-size: 11.5px;
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-sm);
 }
-.twin .primaryAction,
+/*
+ * One filled action in the view — asking the agent about the selected component. The
+ * scenario question beside it is the same request at a wider scope, so it stays a default
+ * dark button rather than competing for the same emphasis.
+ */
+.twin .primaryAction {
+  color: var(--action-fill-text);
+  background: var(--action-fill);
+  border-color: var(--action-fill);
+}
+.twin .primaryAction:hover:not(:disabled) {
+  color: var(--action-fill-text);
+  background: var(--action-fill-hover);
+  border-color: var(--action-fill-hover);
+}
 .twin .askScenario {
-  color: #ffffff;
-  background: linear-gradient(180deg, #2a5ce0, #1d4ed8);
-  border-color: #1b45bd;
-}
-.twin .primaryAction:hover:not(:disabled),
-.twin .askScenario:hover:not(:disabled) {
-  color: #ffffff;
-  background: linear-gradient(180deg, #2f66ee, #1f52e4);
-  border-color: #1b45bd;
-}
-.twin .askScenario {
-  margin: 8px 12px 12px;
-  padding: 6px 12px;
-  font-size: 11.5px;
+  margin: var(--space-2) var(--space-3) var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
   align-self: flex-start;
+  color: var(--text-primary);
+  background: var(--bg-surface-high);
+  border-color: var(--border-subtle);
+}
+.twin .askScenario:hover:not(:disabled) {
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
 }
 
 /* ── simulation ────────────────────────────────────────────────────────────────────── */
@@ -337,43 +367,46 @@
 .scenarios {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  padding: 10px 12px 4px;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-3) var(--space-1);
 }
 .twin .scenarios button {
-  padding: 4px 10px;
-  font-size: 11.5px;
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-sm);
   display: inline-flex;
-  gap: 6px;
+  gap: var(--space-2);
   align-items: center;
 }
+/* The ISO 14224 code names a failure mode: an identifier, so mono type carries it rather
+   than a status colour, which is reserved for state the simulation has determined. */
 .scenarios b {
-  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
-  font-size: 10px;
-  color: var(--bad);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  color: var(--text-tertiary);
 }
 .twin .scenarios button[aria-pressed="true"],
 .twin .scenarios button[aria-pressed="true"]:hover:not(:disabled) {
-  background: var(--ink);
-  border-color: var(--ink);
-  color: #ffffff;
+  background: var(--bg-selected);
+  border-color: var(--accent-action);
+  color: var(--text-active);
 }
 .twin .scenarios button[aria-pressed="true"] b {
-  color: #fecaca;
+  color: var(--text-secondary);
 }
 .scenarios + p {
-  padding: 4px 12px 0;
-  line-height: 1.5;
+  padding: var(--space-1) var(--space-3) 0;
+  line-height: var(--leading-normal);
 }
 .clock {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
 }
 .twin .clock button {
-  padding: 4px 10px;
-  font-size: 11.5px;
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-sm);
   min-width: 78px;
 }
 .clock label {
@@ -382,84 +415,93 @@
 }
 .clock input {
   width: 100%;
-  accent-color: var(--accent);
+  accent-color: var(--accent-action);
 }
 .clock output {
-  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
-  font-size: 12px;
-  color: var(--ink);
-  font-weight: 650;
+  font-family: var(--font-mono);
+  font-size: var(--text-base);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+  font-weight: var(--weight-medium);
 }
 .kpis {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 6px;
-  padding: 0 12px 12px;
+  grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
+  gap: var(--space-2);
+  padding: 0 var(--space-3) var(--space-3);
 }
 .twin .kpi {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 1px;
-  padding: 7px 9px;
+  min-width: 0;
+  padding: var(--space-2);
   text-align: left;
-  background: var(--sunken);
-  border-color: var(--line-soft);
+  background: var(--bg-sunken);
+  border-color: var(--rule-subtle);
 }
 .twin .kpi[aria-pressed="true"] {
-  border-color: var(--accent);
-  box-shadow: inset 0 0 0 1px var(--accent);
-  background: #ffffff;
+  border-color: var(--accent-action);
+  box-shadow: inset 0 0 0 1px var(--accent-action);
+  background: var(--bg-surface-high);
 }
 .kpi small {
-  font-size: 10px;
-  color: var(--muted);
-  font-weight: 600;
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  font-weight: var(--weight-medium);
 }
 .kpi strong {
-  font-size: 15px;
-  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-medium);
+  color: var(--text-primary);
   font-variant-numeric: tabular-nums;
 }
 .kpi strong span {
-  font-size: 10px;
-  color: var(--muted);
-  font-weight: 600;
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  font-weight: var(--weight-medium);
 }
 .kpi em {
   font-style: normal;
-  font-size: 10px;
-  color: var(--ok);
-  font-weight: 600;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--status-ready);
+  font-weight: var(--weight-medium);
 }
 .twin .kpi[data-off] {
-  background: var(--bad-soft);
-  border-color: var(--bad-line);
+  background: var(--status-down-bg);
+  border-color: var(--status-down);
 }
 .twin .kpi[data-off] em {
-  color: var(--bad);
+  color: var(--status-down);
 }
 
 .trend {
   display: block;
   width: 100%;
   height: auto;
-  padding: 8px 8px 0;
+  padding: var(--space-2) var(--space-2) 0;
 }
+/* Tick and band labels live in the chart's 520-unit coordinate space, so their size is a
+   user-unit figure rather than a type token. */
 .trend text {
+  font-family: var(--font-mono);
   font-size: 10px;
-  fill: #5d6b86;
+  fill: var(--text-tertiary);
 }
 .findings {
-  margin: 0 12px;
-  padding-left: 16px;
+  margin: 0 var(--space-3);
+  padding-left: var(--space-4);
   display: grid;
-  gap: 3px;
-  font-size: 11.5px;
-  color: var(--body);
+  gap: var(--space-1);
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+  color: var(--text-primary);
 }
 .details .card > p.muted {
-  padding: 0 12px;
+  padding: 0 var(--space-3);
 }
 
 /* ── mapping register ──────────────────────────────────────────────────────────────── */
@@ -470,36 +512,42 @@
 .table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 12px;
+  font-size: var(--text-base);
 }
 .table th {
   text-align: left;
-  font-size: 10px;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--muted);
-  font-weight: 650;
-  padding: 7px 10px;
-  background: var(--sunken);
+  letter-spacing: var(--tracking-label);
+  color: var(--text-secondary);
+  font-weight: var(--weight-medium);
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg-surface-high);
   white-space: nowrap;
 }
 .table td {
-  padding: 6px 10px;
-  border-top: 1px solid var(--line-soft);
+  padding: var(--space-2) var(--space-3);
+  border-top: 1px solid var(--rule-subtle);
   vertical-align: top;
 }
 .table td:nth-child(3) {
   text-transform: capitalize;
   white-space: nowrap;
 }
+/* A selected row is carried by the left indicator and brighter text, not by a bright fill. */
 .table tr[aria-selected="true"] td {
-  background: var(--accent-soft);
+  background: var(--bg-selected);
+  color: var(--text-active);
+}
+.table tr[aria-selected="true"] td:first-child {
+  box-shadow: inset 2px 0 0 var(--accent-action);
 }
 .twin .table button {
-  padding: 1px 8px;
-  font-size: 11px;
-  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
-  font-weight: 700;
+  padding: 1px var(--space-2);
+  font-size: var(--text-sm);
+  font-family: var(--font-mono);
+  font-weight: var(--weight-medium);
 }
 
 .empty {
@@ -507,31 +555,31 @@
   max-width: 460px;
   text-align: center;
   display: grid;
-  gap: 6px;
-  padding: 40px 16px;
+  gap: var(--space-2);
+  padding: var(--space-10) var(--space-4);
 }
 .empty strong {
-  color: var(--ink);
+  color: var(--text-primary);
 }
 
 .confidence {
   display: inline-flex;
-  padding: 1px 8px;
-  border-radius: 999px;
-  font-size: 10.5px;
-  font-weight: 700;
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
   text-transform: capitalize;
   white-space: nowrap;
 }
 .confidence[data-level="high"] {
-  background: var(--ok-soft);
-  color: var(--ok);
+  background: var(--status-ready-bg);
+  color: var(--status-ready);
 }
 .confidence[data-level="medium"] {
-  background: var(--accent-soft);
-  color: var(--accent-deep);
+  background: var(--accent-action-subtle);
+  color: var(--accent-action);
 }
 .confidence[data-level="low"] {
-  background: var(--warn-soft);
-  color: var(--warn);
+  background: var(--status-degraded-bg);
+  color: var(--status-degraded);
 }
