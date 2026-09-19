@@ -444,14 +444,23 @@ export function ModelLab({
                 <span>{item.label}</span>
               </button>
             ) : (
-              <Link
-                key={item.label}
-                href={item.href!}
-                aria-current={item.label === "Model Lab" ? "page" : undefined}
-              >
-                <Icon name={item.icon} />
-                <span>{item.label}</span>
-              </Link>
+              <Fragment key={item.label}>
+                <Link
+                  href={item.href!}
+                  aria-current={item.label === "Model Lab" ? "page" : undefined}
+                >
+                  <Icon name={item.icon} />
+                  <span>{item.label}</span>
+                </Link>
+                {item.label === "Model Lab" && (
+                  <StageNav
+                    current={stage.id}
+                    session={session}
+                    effective={effective}
+                    now={now}
+                  />
+                )}
+              </Fragment>
             ),
           )}
         </nav>
@@ -720,6 +729,69 @@ function storage(): Storage | undefined {
   } catch {
     return undefined;
   }
+}
+
+// ────────────────────────────────────────────────────────────────────────────────────────────
+// Stage navigation: the four training stages under Model Lab in the sidebar
+// ────────────────────────────────────────────────────────────────────────────────────────────
+
+const STAGE_SHORT: Record<StageId, string> = {
+  pretraining: "Pretraining",
+  sft: "SFT",
+  rl: "RL",
+  distillation: "Distillation",
+};
+const MINI_R = 6;
+const MINI_C = 2 * Math.PI * MINI_R;
+
+/** One link per stage, each with its run's progress ring and live state. */
+function StageNav({
+  current,
+  session,
+  effective,
+  now,
+}: {
+  readonly current: StageId;
+  readonly session: LabSession;
+  readonly effective: Record<StageId, ReturnType<typeof effectiveStage>>;
+  readonly now: number;
+}) {
+  return (
+    <ol className={styles.stageNav} aria-label="Training stages">
+      {STAGES.map((plan) => {
+        const stage = effective[plan.id].stage;
+        const control = session.controls[stage.id];
+        const share = Math.min(1, stepAt(control, stage.run, now) / stage.run.totalSteps);
+        const state =
+          share >= 1 ? "done" : control.status === "running" ? "live" : "paused";
+        return (
+          <li key={stage.id}>
+            <Link
+              href={`/model-lab/${stage.id}`}
+              className={styles.stageLink}
+              aria-current={stage.id === current ? "step" : undefined}
+              aria-label={`${stage.number} ${STAGE_SHORT[stage.id]}: ${Math.floor(share * 100)} percent, ${state}`}
+              data-state={state}
+            >
+              <svg viewBox="0 0 16 16" className={styles.stageMini} aria-hidden="true">
+                <circle cx="8" cy="8" r={MINI_R} className={styles.pipeTrack} />
+                <circle
+                  cx="8"
+                  cy="8"
+                  r={MINI_R}
+                  className={styles.pipeArc}
+                  strokeDasharray={`${(share * MINI_C).toFixed(2)} ${MINI_C.toFixed(2)}`}
+                  transform="rotate(-90 8 8)"
+                />
+              </svg>
+              <span className={styles.stageNavNumber}>{stage.number}</span>
+              <span>{STAGE_SHORT[stage.id]}</span>
+            </Link>
+          </li>
+        );
+      })}
+    </ol>
+  );
 }
 
 // ────────────────────────────────────────────────────────────────────────────────────────────
