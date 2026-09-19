@@ -4,18 +4,27 @@ import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
+import {
+  buildModel,
+  disposeModel,
+  SCENE_MODELS,
+  type ModelSpec,
+  type Tone,
+} from "./models";
 import styles from "./DigitalTwin.module.css";
 
 /**
- * Procedural 3D model of the exchanger skid in the field photograph.
+ * Procedural 3D model of the equipment in the selected field photograph.
  *
- * Every part is built from primitives and tagged with the detection id of the matching box in
- * the photo, so the model, the photo and the drawing share one selection. The layout follows
- * the photo — shell left to right, channel head at the right end, inlet nozzle on top, outlet
- * underneath — so a part is where an engineer who has just looked at the photo expects it.
+ * One renderer serves every scene. The lights, grid, controls and canvas are created once;
+ * choosing another scene disposes the previous model's geometry and materials and builds the
+ * new one in the same WebGL context, so paging through the filmstrip never allocates a
+ * second renderer.
  *
- * Rendering is on demand: a frame is drawn when the camera moves, the size changes, or the
- * selection or highlight does. Nothing spins in a loop, so an idle twin costs no GPU time.
+ * Every part is tagged with the detection id of the matching box in the photo, so the model,
+ * the photo and the drawing share one selection. Rendering is on demand: a frame is drawn
+ * when the camera moves, the size changes, or the selection, highlight or scene does. Nothing
+ * spins in a loop, so an idle twin costs no GPU time.
  */
 
 export type PartTint = "selected" | "hover" | "warn" | "alarm";
@@ -25,21 +34,16 @@ export type PartTint = "selected" | "hover" | "warn" | "alarm";
  *
  * The scene is technical, not cinematic: the materials are neutral, and one part is told
  * from the next by geometry, edge contrast and the light falling on it — never by hue. The
- * separation that is left is value, and the three steps of that ladder live in tokens.css,
- * so the scene is retuned by editing the token file rather than this component.
- *
- * Every part therefore sits on one of exactly three steps, grouped by what the part is made
- * of. Parts sharing a material role share a value; nothing is interpolated between steps.
+ * three steps of that value ladder live in tokens.css, so the scene is retuned by editing the
+ * token file rather than this component.
  */
-type Tone = "structure" | "body" | "machined";
-
 const TONE_TOKEN: Record<Tone, string> = {
-  /* Structure, fastening and ancillary hardware: saddles, skid, bolting, handwheels and
+  /* Structure, fastening and ancillary hardware: supports, bolting, handwheels, cable and
      instrument enclosures — everything that carries or clamps rather than contains. */
   structure: "--scene-material-low",
-  /* The painted pressure envelope: shells, heads, nozzles, valve bodies, bonnets, bezels. */
+  /* The painted pressure envelope: shells, heads, nozzles, valve bodies, bonnets, housings. */
   body: "--scene-material",
-  /* Bare machined steel and instrument faces: flanges, stems, pipe runs, elbows, dials. */
+  /* Bare machined steel and instrument faces: flanges, stems, pipe runs, dials. */
   machined: "--scene-material-high",
 };
 
@@ -80,161 +84,6 @@ function tokenDuration(name: string, fallback: number): number {
 const easeInOut = (t: number) =>
   t < 0.5 ? 2 * t * t : 1 - ((-2 * t + 2) * (-2 * t + 2)) / 2;
 
-type PartBuilder = (group: THREE.Group, material: (tone: Tone) => THREE.Material) => void;
-
-const cylinder = (
-  radius: number,
-  length: number,
-  material: THREE.Material,
-  axis: "x" | "y" | "z" = "y",
-) => {
-  const mesh = new THREE.Mesh(
-    new THREE.CylinderGeometry(radius, radius, length, 36),
-    material,
-  );
-  if (axis === "x") mesh.rotation.z = Math.PI / 2;
-  if (axis === "z") mesh.rotation.x = Math.PI / 2;
-  return mesh;
-};
-
-const at = <T extends THREE.Object3D>(object: T, x: number, y: number, z = 0): T => {
-  object.position.set(x, y, z);
-  return object;
-};
-
-/** A gate valve: body, bonnet, stem and handwheel, oriented along a pipe axis. */
-function valve(
-  group: THREE.Group,
-  material: (tone: Tone) => THREE.Material,
-  pipeAxis: "x" | "y",
-) {
-  const body = new THREE.Mesh(new THREE.SphereGeometry(0.26, 24, 16), material("body"));
-  body.scale.set(pipeAxis === "x" ? 1.25 : 1, pipeAxis === "y" ? 1.25 : 1, 1);
-  group.add(body);
-  for (const side of [-1, 1]) {
-    const flange = cylinder(0.3, 0.06, material("machined"), pipeAxis);
-    if (pipeAxis === "x") flange.position.x = side * 0.32;
-    else flange.position.y = side * 0.32;
-    group.add(flange);
-  }
-  // The bonnet stands off the pipe on z for a vertical pipe, on y for a horizontal one.
-  const bonnet = cylinder(0.1, 0.42, material("body"), pipeAxis === "x" ? "y" : "z");
-  const wheel = new THREE.Mesh(
-    new THREE.TorusGeometry(0.24, 0.035, 10, 32),
-    material("structure"),
-  );
-  if (pipeAxis === "x") {
-    group.add(at(bonnet, 0, 0.34));
-    wheel.rotation.x = Math.PI / 2;
-    group.add(at(wheel, 0, 0.58));
-  } else {
-    group.add(at(bonnet, 0, 0, 0.34));
-    group.add(at(wheel, 0, 0, 0.58));
-  }
-}
-
-/** Geometry for each detection id. Coordinates in metres, origin at the shell centre. */
-const PARTS: Record<string, PartBuilder> = {
-  D1: (group, material) => {
-    const shell = cylinder(0.85, 5.2, material("body"), "x");
-    group.add(at(shell, -0.3, 0));
-    const cap = new THREE.Mesh(
-      new THREE.SphereGeometry(0.85, 36, 18, 0, Math.PI * 2, 0, Math.PI / 2),
-      material("body"),
-    );
-    cap.rotation.z = Math.PI / 2;
-    cap.scale.set(0.45, 1, 1);
-    group.add(at(cap, -2.9, 0));
-    for (const x of [-1.4, 0.9])
-      group.add(at(cylinder(0.88, 0.05, material("machined"), "x"), x, 0));
-  },
-  D2: (group, material) => {
-    group.add(at(cylinder(1.02, 0.12, material("machined"), "x"), 2.36, 0));
-    group.add(at(cylinder(0.86, 0.9, material("body"), "x"), 2.86, 0));
-    group.add(at(cylinder(1.02, 0.12, material("machined"), "x"), 3.36, 0));
-    const bolts = material("structure");
-    for (let index = 0; index < 20; index += 1) {
-      const angle = (index / 20) * Math.PI * 2;
-      const bolt = cylinder(0.035, 0.3, bolts, "x");
-      group.add(at(bolt, 2.36, Math.sin(angle) * 0.95, Math.cos(angle) * 0.95));
-    }
-  },
-  D3: (group, material) => {
-    group.add(at(cylinder(0.2, 0.7, material("body")), 1.2, 1.1));
-    group.add(at(cylinder(0.32, 0.08, material("machined")), 1.2, 1.46));
-  },
-  D4: (group, material) => {
-    group.add(at(cylinder(0.18, 0.6, material("body")), 1.5, -1.05));
-    group.add(at(cylinder(0.3, 0.08, material("machined")), 1.5, -1.36));
-  },
-  D5: (group, material) => {
-    group.add(at(cylinder(0.2, 0.5, material("machined")), 1.2, 1.75));
-    const holder = at(new THREE.Group(), 1.2, 2.32);
-    valve(holder, material, "y");
-    group.add(holder);
-    group.add(at(cylinder(0.2, 0.9, material("machined")), 1.2, 3.0));
-  },
-  D6: (group, material) => {
-    group.add(at(cylinder(0.16, 2.2, material("machined")), -5.2, 1.1));
-    const holder = at(new THREE.Group(), -5.2, 1.3);
-    valve(holder, material, "y");
-    group.add(holder);
-  },
-  D7: (group, material) => {
-    const holder = at(new THREE.Group(), 3.9, -2.05);
-    valve(holder, material, "x");
-    group.add(holder);
-    group.add(at(cylinder(0.18, 0.9, material("machined"), "x"), 4.8, -2.05));
-  },
-  D8: (group, material) => {
-    group.add(at(cylinder(0.04, 0.5, material("machined")), 2.86, 1.1));
-    const dial = cylinder(0.2, 0.08, material("machined"), "z");
-    group.add(at(dial, 2.86, 1.5, 0.02));
-    group.add(
-      at(
-        new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.025, 8, 28), material("body")),
-        2.86,
-        1.5,
-        0.07,
-      ),
-    );
-  },
-  D9: (group, material) => {
-    group.add(at(cylinder(0.04, 0.3, material("machined")), -2.0, 0.98));
-    group.add(
-      at(
-        new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.2, 0.18), material("structure")),
-        -2.0,
-        1.22,
-      ),
-    );
-    group.add(at(cylinder(0.1, 0.1, material("machined"), "z"), -2.0, 1.22, 0.12));
-  },
-  D10: (group, material) => saddle(group, material, -1.9),
-  D11: (group, material) => saddle(group, material, 1.2),
-  D12: (group, material) => {
-    group.add(at(cylinder(0.2, 2.0, material("machined"), "x"), -4.2, 0));
-    group.add(at(cylinder(0.32, 0.08, material("machined"), "x"), -3.24, 0));
-    const elbow = new THREE.Mesh(
-      new THREE.TorusGeometry(0.2, 0.17, 12, 24, Math.PI / 2),
-      material("machined"),
-    );
-    elbow.rotation.z = Math.PI;
-    group.add(at(elbow, -5.2, 0.0));
-  },
-  D13: (group, material) => {
-    group.add(at(cylinder(0.18, 0.55, material("machined")), 1.5, -1.68));
-    group.add(at(cylinder(0.18, 2.1, material("machined"), "x"), 2.5, -2.05));
-  },
-};
-
-function saddle(group: THREE.Group, material: (tone: Tone) => THREE.Material, x: number) {
-  const web = new THREE.Mesh(new THREE.BoxGeometry(0.22, 1.25, 1.5), material("structure"));
-  group.add(at(web, x, -1.0));
-  const base = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.08, 1.8), material("structure"));
-  group.add(at(base, x, -1.62));
-}
-
 function supportsWebGL(): boolean {
   try {
     const probe = document.createElement("canvas");
@@ -244,27 +93,36 @@ function supportsWebGL(): boolean {
   }
 }
 
+interface ModelApi {
+  show: (
+    sceneId: string,
+    selected: string | undefined,
+    hover: string | undefined,
+    tints: ReadonlyMap<string, PartTint>,
+  ) => void;
+  reset: () => void;
+}
+
 export function TwinModel({
+  sceneId,
   selected,
   tints,
   onSelect,
   labelOf,
+  summary,
 }: {
+  /** The field scene whose model to show; the model is rebuilt when it changes. */
+  readonly sceneId: string;
   readonly selected: string | undefined;
   /** Detection id → tint for scenario highlighting. Selection wins over scenario tint. */
   readonly tints: ReadonlyMap<string, PartTint>;
   readonly onSelect: (id: string) => void;
   readonly labelOf: (id: string) => string;
+  /** Text alternative: what the model shows and what is selected in it. */
+  readonly summary: string;
 }) {
   const host = useRef<HTMLDivElement>(null);
-  const api = useRef<{
-    paint: (
-      selected: string | undefined,
-      hover: string | undefined,
-      tints: ReadonlyMap<string, PartTint>,
-    ) => void;
-    reset: () => void;
-  } | null>(null);
+  const api = useRef<ModelApi | null>(null);
   // Checked once, before any renderer exists; the model is client-only, so window is there.
   const [failed] = useState(() => !supportsWebGL());
   const [hover, setHover] = useState<string>();
@@ -287,8 +145,8 @@ export function TwinModel({
     // Expensive 3D clamps its backing buffer, so a 3× display does not pay for 9× the pixels.
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
-    // Shadows here establish contact between the equipment and the skid. They are soft and
-    // shallow: depth cue, not drama.
+    // Shadows establish contact between the equipment and what carries it. Soft and shallow:
+    // a depth cue, not drama.
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     element.appendChild(renderer.domElement);
@@ -312,74 +170,38 @@ export function TwinModel({
     // Just enough haze to let the far end of the grid recede; the equipment sits in front
     // of it and is never touched.
     scene.fog = new THREE.Fog(tokenColour("--scene-fog"), 22, 58);
-    const camera = new THREE.PerspectiveCamera(34, 1, 0.1, 200);
-    const home = new THREE.Vector3(5.5, 4.6, 13.5);
-    camera.position.copy(home);
+    const camera = new THREE.PerspectiveCamera(34, 1, 0.05, 200);
 
     // One soft key light and a weak ambient fill — the lighting of a workshop bay, not a
     // product shot. Form comes from the key; the ambient only keeps the shadow side readable.
     scene.add(new THREE.AmbientLight(tokenColour("--scene-ambient"), 0.6));
     const sun = new THREE.DirectionalLight(tokenColour("--scene-key-light"), 1.4);
-    sun.position.set(6, 10, 8);
     sun.castShadow = true;
     sun.shadow.mapSize.set(1024, 1024);
-    sun.shadow.camera.near = 1;
-    sun.shadow.camera.far = 34;
-    sun.shadow.camera.left = -9;
-    sun.shadow.camera.right = 9;
-    sun.shadow.camera.top = 9;
-    sun.shadow.camera.bottom = -9;
     // Curved primitives self-shadow badly without a normal bias; this keeps the contact
-    // shadows on the skid without speckling the shells.
+    // shadows without speckling the shells.
     sun.shadow.bias = -0.0008;
     sun.shadow.normalBias = 0.02;
     scene.add(sun);
+    scene.add(sun.target);
 
-    // Skid and ground grid: context, not parts, so they are not pickable.
-    const skid = new THREE.Mesh(
-      new THREE.BoxGeometry(11.5, 0.16, 3.2),
-      new THREE.MeshStandardMaterial({
-        color: TONES.structure,
-        roughness: 0.95,
-        metalness: 0,
-      }),
-    );
-    skid.position.set(-0.4, -1.74, 0);
-    skid.receiveShadow = true;
-    scene.add(skid);
+    // Reference grid: context, not a part, so it is not pickable. Moved to each model's floor.
     const grid = new THREE.GridHelper(
       24,
       24,
       tokenColour("--rule-strong"),
       TONES.structure,
     );
-    grid.position.y = -1.83;
     scene.add(grid);
 
-    const groups = new Map<string, THREE.Group>();
-    const pickable: THREE.Object3D[] = [];
-    for (const [id, build] of Object.entries(PARTS)) {
-      const group = new THREE.Group();
-      group.userData.detection = id;
-      build(group, (tone) => {
-        const material = new THREE.MeshStandardMaterial({
-          color: TONES[tone],
-          ...TONE_FINISH[tone],
-        });
-        material.userData.tone = tone;
-        return material;
+    const createMaterial = (tone: Tone) => {
+      const material = new THREE.MeshStandardMaterial({
+        color: TONES[tone],
+        ...TONE_FINISH[tone],
       });
-      group.traverse((child) => {
-        child.userData.detection = id;
-        if (child instanceof THREE.Mesh) {
-          child.castShadow = true;
-          child.receiveShadow = true;
-          pickable.push(child);
-        }
-      });
-      groups.set(id, group);
-      scene.add(group);
-    }
+      material.userData.tone = tone;
+      return material;
+    };
 
     /*
      * Selection edge.
@@ -390,32 +212,15 @@ export function TwinModel({
     const outlineMaterial = new THREE.LineBasicMaterial({ color: OUTLINE, fog: false });
     const outlines = new THREE.Group();
     scene.add(outlines);
-    const outlineSelection = (id: string | undefined) => {
+    const clearOutlines = () => {
       for (const edge of [...outlines.children]) {
         outlines.remove(edge);
         if (edge instanceof THREE.LineSegments) edge.geometry.dispose();
       }
-      const group = id ? groups.get(id) : undefined;
-      if (!group) return;
-      scene.updateMatrixWorld(true);
-      group.traverse((child) => {
-        if (!(child instanceof THREE.Mesh)) return;
-        const edge = new THREE.LineSegments(
-          new THREE.EdgesGeometry(child.geometry, 26),
-          outlineMaterial,
-        );
-        edge.matrixAutoUpdate = false;
-        edge.matrix.copy(child.matrixWorld);
-        outlines.add(edge);
-      });
     };
 
     const controls = new OrbitControls(camera, renderer.domElement);
-    controls.target.set(-0.4, 0.2, 0);
-    controls.minDistance = 5;
-    controls.maxDistance = 30;
     controls.maxPolarAngle = Math.PI * 0.52;
-    controls.update();
 
     const render = () => renderer.render(scene, camera);
     controls.addEventListener("change", render);
@@ -430,19 +235,78 @@ export function TwinModel({
     };
     const observer = new ResizeObserver(resize);
     observer.observe(element);
-    resize();
+
+    // The loaded model. Replaced wholesale on a scene change.
+    let loaded:
+      | {
+          readonly id: string;
+          readonly spec: ModelSpec;
+          readonly root: THREE.Group;
+          readonly parts: ReadonlyMap<string, THREE.Group>;
+          readonly pickable: readonly THREE.Object3D[];
+        }
+      | undefined;
+
+    const home = new THREE.Vector3();
+    const homeTarget = new THREE.Vector3();
+
+    const load = (id: string) => {
+      const spec = SCENE_MODELS[id];
+      clearOutlines();
+      if (loaded) {
+        scene.remove(loaded.root);
+        disposeModel(loaded.root);
+        loaded = undefined;
+      }
+      if (!spec) return;
+      const { root, parts } = buildModel(spec, createMaterial);
+      const pickable: THREE.Object3D[] = [];
+      root.traverse((child) => {
+        if (!(child instanceof THREE.Mesh)) return;
+        child.castShadow = true;
+        child.receiveShadow = true;
+        if (typeof child.userData.detection === "string") pickable.push(child);
+      });
+      scene.add(root);
+      loaded = { id, spec, root, parts, pickable };
+
+      // Camera, orbit limits, light and grid follow the model's scale.
+      home.set(...spec.camera);
+      homeTarget.set(...spec.target);
+      camera.position.copy(home);
+      controls.target.copy(homeTarget);
+      controls.minDistance = spec.distance[0];
+      controls.maxDistance = spec.distance[1];
+      controls.update();
+      grid.position.y = spec.floor;
+      const e = spec.extent;
+      sun.position.set(
+        homeTarget.x + e * 0.66,
+        homeTarget.y + e * 1.1,
+        homeTarget.z + e * 0.9,
+      );
+      sun.target.position.copy(homeTarget);
+      sun.shadow.camera.left = -e;
+      sun.shadow.camera.right = e;
+      sun.shadow.camera.top = e;
+      sun.shadow.camera.bottom = -e;
+      sun.shadow.camera.near = 0.1;
+      sun.shadow.camera.far = e * 4;
+      sun.shadow.camera.updateProjectionMatrix();
+    };
 
     const raycaster = new THREE.Raycaster();
     const pointer = new THREE.Vector2();
     const pick = (event: PointerEvent): string | undefined => {
+      if (!loaded) return undefined;
       const rect = renderer.domElement.getBoundingClientRect();
       pointer.set(
         ((event.clientX - rect.left) / rect.width) * 2 - 1,
         -((event.clientY - rect.top) / rect.height) * 2 + 1,
       );
       raycaster.setFromCamera(pointer, camera);
-      return raycaster.intersectObjects(pickable, false)[0]?.object.userData.detection as
-        string | undefined;
+      return raycaster.intersectObjects([...loaded.pickable], false)[0]?.object.userData
+        .detection as string | undefined;
     };
 
     // A click is a press and release without a drag; a drag orbits the camera.
@@ -476,9 +340,9 @@ export function TwinModel({
      * A camera move is a move, not a cut: the view travels to its home over
      * `--duration-camera` with ease-in-out, so the eye keeps hold of the model on the way.
      * Under `prefers-reduced-motion` the token reads 0ms and the move lands immediately.
+     * (Changing scene is a cut: it is a different object, not a new view of the same one.)
      */
     let flight = 0;
-    const homeTarget = new THREE.Vector3(-0.4, 0.2, 0);
     const flyHome = () => {
       if (flight) cancelAnimationFrame(flight);
       const ms = tokenDuration("--duration-camera", 480);
@@ -504,10 +368,23 @@ export function TwinModel({
     };
 
     api.current = {
-      paint: (current, hovered, highlight) => {
-        for (const [id, group] of groups) {
+      show: (id, current, hovered, highlight) => {
+        if (loaded?.id !== id) {
+          if (flight) cancelAnimationFrame(flight);
+          flight = 0;
+          load(id);
+        }
+        if (!loaded) {
+          render();
+          return;
+        }
+        for (const [partId, group] of loaded.parts) {
           const tint: PartTint | undefined =
-            id === current ? "selected" : id === hovered ? "hover" : highlight.get(id);
+            partId === current
+              ? "selected"
+              : partId === hovered
+                ? "hover"
+                : highlight.get(partId);
           group.traverse((child) => {
             if (!(child instanceof THREE.Mesh)) return;
             const material = child.material as THREE.MeshStandardMaterial;
@@ -525,11 +402,26 @@ export function TwinModel({
               tint === "alarm" ? 0.34 : tint === "warn" ? 0.2 : 0;
           });
         }
-        outlineSelection(current);
+        clearOutlines();
+        const group = current ? loaded.parts.get(current) : undefined;
+        if (group) {
+          scene.updateMatrixWorld(true);
+          group.traverse((child) => {
+            if (!(child instanceof THREE.Mesh)) return;
+            const edge = new THREE.LineSegments(
+              new THREE.EdgesGeometry(child.geometry, 26),
+              outlineMaterial,
+            );
+            edge.matrixAutoUpdate = false;
+            edge.matrix.copy(child.matrixWorld);
+            outlines.add(edge);
+          });
+        }
         render();
       },
       reset: flyHome,
     };
+    resize();
 
     return () => {
       api.current = null;
@@ -541,24 +433,23 @@ export function TwinModel({
       canvas.removeEventListener("pointerup", onUp);
       canvas.removeEventListener("pointermove", onMove);
       canvas.removeEventListener("pointerleave", onLeave);
-      scene.traverse((child) => {
-        if (child instanceof THREE.Mesh || child instanceof THREE.Line) {
-          child.geometry.dispose();
-          (child.material as THREE.Material).dispose();
-        }
-      });
+      clearOutlines();
+      if (loaded) disposeModel(loaded.root);
+      outlineMaterial.dispose();
+      grid.geometry.dispose();
+      (grid.material as THREE.Material).dispose();
       renderer.dispose();
       canvas.remove();
     };
   }, [failed]);
 
   useEffect(() => {
-    api.current?.paint(selected, hover, tints);
-  }, [selected, hover, tints]);
+    api.current?.show(sceneId, selected, hover, tints);
+  }, [sceneId, selected, hover, tints]);
 
   if (failed) {
     return (
-      <div className={styles.modelFallback}>
+      <div className={styles.modelFallback} role="note" aria-label={summary}>
         <strong>3D view unavailable</strong>
         <p>
           This browser did not provide WebGL. The photograph and mapping table stay fully
@@ -574,7 +465,7 @@ export function TwinModel({
         ref={host}
         className={styles.modelHost}
         role="img"
-        aria-label="3D model of the exchanger skid. Drag to orbit, scroll to zoom, click a part to select it. Every part is also listed in the mapping table."
+        aria-label={`${summary} Drag to orbit, scroll to zoom, click a part to select it. Every part is also listed in the mapping table.`}
       />
       <div className={styles.modelHud} aria-live="polite">
         {hover

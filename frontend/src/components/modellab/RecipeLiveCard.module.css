@@ -1,87 +1,220 @@
-/* Live recipe: the objectives row spans the card and lists weight, loss and share. */
+/*
+ * The recipe as four instrument glyphs. Grammar is the architecture figure's: trainable
+ * parameters solid in the optimizer-update series, frozen ones outlined and hatched;
+ * identifiers and numbers mono.
+ */
 
-.objectivesRow.objectivesRow {
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--space-1);
-}
-
-.objectivesHint {
-  margin-left: var(--space-2);
-  font-size: var(--text-xs);
-  color: var(--text-tertiary);
-}
-
-.objectives {
-  display: grid;
-  gap: 5px;
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
   margin: 0;
-  padding: 0;
+  padding: 0 var(--space-4) var(--space-3);
   list-style: none;
 }
-
-.objectiveLine {
-  display: grid;
-  grid-template-columns: 8px minmax(0, 1fr) auto 52px 34px;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: var(--text-base);
-}
-
-.objectiveLine i {
-  width: var(--space-2);
-  height: var(--space-2);
-  border-radius: var(--radius-pill);
-}
-
-.objectiveLine strong {
-  overflow: hidden;
-  color: var(--text-primary);
+.chips li {
+  padding: 1px var(--space-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xs);
+  background: var(--bg-surface-high);
   font-family: var(--font-mono);
-  font-weight: var(--weight-medium);
-  text-overflow: ellipsis;
+  font-size: var(--text-sm);
+  color: var(--text-primary);
   white-space: nowrap;
 }
 
-.objectiveLine small {
-  color: var(--text-tertiary);
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  font-variant-numeric: tabular-nums;
-  text-align: right;
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+  padding: 0 var(--space-4) var(--space-4);
 }
-
-.objectiveLine .loss {
-  color: var(--text-primary);
-}
-
-.objectiveLine .share {
-  color: var(--text-secondary);
-  font-weight: var(--weight-medium);
-}
-
-.track {
-  height: 3px;
-  margin-left: var(--space-4);
+.panel {
+  min-width: 0;
+  margin: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-xs);
   background: var(--bg-sunken);
-  overflow: hidden;
 }
-
-.fill {
-  height: 100%;
-  border-radius: var(--radius-xs);
-  transition: width var(--duration-slow) var(--easing-standard);
-}
-
-.footnote {
-  display: block;
-  margin-top: var(--space-1);
+.panel figcaption {
+  margin-bottom: var(--space-2);
+  font-family: var(--font-mono);
   font-size: var(--text-xs);
+  letter-spacing: var(--tracking-label);
   color: var(--text-tertiary);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .fill {
-    transition: none;
+.glyph {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+.glyph text {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.label {
+  font-size: 10px;
+  fill: var(--text-tertiary);
+}
+.value {
+  font-size: 11px;
+  fill: var(--text-primary);
+}
+.inBar {
+  font-size: 10px;
+  fill: var(--bg-void);
+}
+
+/* Parameters by role. */
+.trained {
+  fill: var(--series-4);
+}
+.trained[data-part="1"] {
+  fill-opacity: 0.7;
+}
+.frozen {
+  fill: var(--ink-fill);
+  stroke: var(--ink-primary);
+  stroke-width: 1;
+}
+.hatch {
+  stroke: none;
+}
+.hatchLine {
+  stroke: var(--border-strong);
+  stroke-width: 1.2;
+}
+.projection {
+  fill: none;
+  stroke: var(--ink-wire);
+  stroke-width: 1;
+  stroke-dasharray: 2 2;
+}
+
+/* Batch geometry: nodes of GPUs; one rank's accumulation slices of micro-batch sequences. */
+.node {
+  fill: none;
+  stroke: var(--ink-muted);
+  stroke-width: 1;
+}
+.gpu {
+  fill: var(--ink-secondary);
+}
+.slice {
+  fill: var(--ink-fill);
+  stroke: var(--ink-primary);
+  stroke-width: 1;
+}
+.sliceBack {
+  fill: var(--bg-sunken);
+  stroke: var(--ink-muted);
+  stroke-width: 1;
+}
+.sequence {
+  fill: var(--series-1);
+  fill-opacity: 0.75;
+}
+
+/* Learning-rate schedule. */
+.baseline {
+  fill: none;
+  stroke: var(--chart-axis);
+}
+.schedule {
+  fill: none;
+  stroke: var(--ink-muted);
+  stroke-width: 1.2;
+  stroke-dasharray: 3 2;
+}
+.scheduleDone {
+  fill: none;
+  stroke: var(--series-4);
+  stroke-width: 1.8;
+}
+.now {
+  fill: none;
+  stroke: var(--chart-crosshair);
+  stroke-width: 1;
+}
+.nowDot {
+  fill: var(--series-4);
+  stroke: var(--bg-sunken);
+  stroke-width: 1.5;
+}
+
+/* Data (or reward) ring. */
+.ring {
+  display: grid;
+  grid-template-columns: minmax(84px, 112px) minmax(0, 1fr);
+  gap: var(--space-3);
+  align-items: center;
+}
+.ring svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.arc {
+  fill-opacity: 0.8;
+  stroke-width: 0.6;
+}
+.arc[data-penalty] {
+  fill-opacity: 0.15;
+  stroke-dasharray: 2 1.5;
+}
+.ringValue {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-anchor: middle;
+  fill: var(--text-primary);
+}
+.ringUnit {
+  font-family: var(--font-mono);
+  font-size: 7px;
+  text-anchor: middle;
+  fill: var(--text-tertiary);
+}
+.ring ul {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  min-width: 0;
+}
+.ring li {
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+.ring li span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ring li b {
+  font-weight: var(--weight-medium);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+.ring li i {
+  width: 8px;
+  height: 8px;
+}
+.ring li i[data-penalty] {
+  border: 1px dashed;
+}
+
+@media (max-width: 720px) {
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

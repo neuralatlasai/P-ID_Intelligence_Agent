@@ -89,6 +89,36 @@ export function trainingSignals(stage: Stage, step: number): SignalSnapshot {
     };
   }
 
+  // A stage whose total objective is defined as a weighted sum carries its weights in that
+  // definition; read them there, so this panel and the architecture figure agree.
+  const primary = stage.curves[0]?.curves[0];
+  const all = stage.curves.flatMap((tab) => tab.curves);
+  if (primary?.sumOf) {
+    const signals = primary.sumOf.slice(0, MAX_SIGNALS).flatMap((term) => {
+      const curve = all.find((item) => item.key === term.key);
+      if (!curve) return [];
+      const value = curveAt(curve, end, stage);
+      return [
+        {
+          id: curve.key,
+          label: curve.label,
+          value,
+          weight: term.weight,
+          contribution: term.weight * value,
+          history: steps.map((at) => curveAt(curve, at, stage)),
+          derived: false,
+        },
+      ];
+    });
+    return {
+      kind: "loss",
+      signals,
+      total: signals.reduce((sum, signal) => sum + (signal.contribution ?? 0), 0),
+      start,
+      end,
+    };
+  }
+
   const signals = (stage.curves[0]?.curves ?? []).slice(0, MAX_SIGNALS).map((curve) => ({
     id: curve.key,
     label: curve.label,

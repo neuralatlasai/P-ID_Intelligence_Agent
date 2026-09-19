@@ -190,3 +190,125 @@ describe("markers", () => {
     expect(evalMarkers(stage("pretraining"), 500)).toEqual([]);
   });
 });
+
+describe("promotion gates", () => {
+  it("gates on the target, else on beating a comparable reference", async () => {
+    const { gateOf, gatePass, gapClosed } = await import("@/lib/modellab/gates");
+    const pre = stage("pretraining");
+    const r1 = pre.metrics.find((metric) =>
+      metric.label.startsWith("Cross-modal retrieval R@1"),
+    )!;
+    expect(gateOf(r1)).toBe(0.6);
+    // Judged on the displayed figure: 0.597 shows as "0.60" and passes a ≥ 0.60 target.
+    expect(gatePass(r1, 0.597)).toBe(true);
+    expect(gatePass(r1, 0.58)).toBe(false);
+    expect(gapClosed(r1, r1.start)).toBe(0);
+    expect(gapClosed(r1, 0.6)).toBeCloseTo(1, 12);
+
+    const rl = stage("rl");
+    const pass1 = rl.metrics.find((metric) => metric.label.startsWith("pass@1"))!;
+    // No target: the SFT baseline is the bar, and matching it is not an improvement.
+    expect(gateOf(pass1)).toBe(pass1.reference);
+    expect(gatePass(pass1, pass1.start)).toBe(false);
+    expect(gatePass(pass1, pass1.final)).toBe(true);
+    const winRate = rl.metrics.find((metric) =>
+      metric.label.startsWith("Policy win-rate"),
+    )!;
+    expect(gateOf(winRate)).toBeUndefined();
+
+    const kd = stage("distillation");
+    // A retained-vs-teacher ratio is reported, never gated on the teacher's 1.0.
+    for (const metric of kd.metrics.filter((item) => item.format === "ratio")) {
+      expect(gateOf(metric)).toBeUndefined();
+    }
+    const ttft = kd.metrics.find((metric) =>
+      metric.label.startsWith("Time to first token"),
+    )!;
+    expect(gatePass(ttft, 140)).toBe(true);
+    expect(gatePass(ttft, 240)).toBe(false);
+  });
+});
+
+describe("evaluation and handoff cards", () => {
+  it("render as figures for every stage, with the handoff controls intact", async () => {
+    const { createElement } = await import("react");
+    const { renderToStaticMarkup } = await import("react-dom/server");
+    const { DEFAULT_CONFIG, runProfile } = await import("@/lib/modellab/config");
+    const { MetricsLiveCard } = await import("@/components/modellab/MetricsLiveCard");
+    const { CurvesLiveCard } = await import("@/components/modellab/CurvesLiveCard");
+    const { CheckpointsLiveCard } =
+      await import("@/components/modellab/CheckpointsLiveCard");
+    const { DeploymentLiveCard } = await import("@/components/modellab/DeploymentLiveCard");
+    const { ArtifactsRow, RewardBreakdownCard, TeacherStudentRuntimeCard } =
+      await import("@/components/modellab/Cards");
+    const NOW = Date.UTC(2026, 8, 16, 15, 0, 0);
+    for (const base of STAGES) {
+      const config = DEFAULT_CONFIG[base.id];
+      const profile = runProfile(base.id, config);
+      const item = {
+        ...base,
+        run: { ...base.run, stepsPerSecond: profile.stepsPerSecond },
+      };
+      for (const step of [0, item.run.openingStep, item.run.totalSteps]) {
+        const progress = step / item.run.totalSteps;
+        const props = {
+          stage: item,
+          step,
+          progress,
+          now: NOW,
+          running: true,
+          config,
+          profile,
+        };
+        const html = [
+          renderToStaticMarkup(createElement(MetricsLiveCard, props)),
+          renderToStaticMarkup(createElement(CurvesLiveCard, props)),
+          renderToStaticMarkup(createElement(CheckpointsLiveCard, props)),
+          item.id === "distillation"
+            ? renderToStaticMarkup(createElement(DeploymentLiveCard, props))
+            : "",
+          item.teacherStudent
+            ? renderToStaticMarkup(
+                createElement(TeacherStudentRuntimeCard, { stage: item, step }),
+              )
+            : "",
+          item.rewards
+            ? renderToStaticMarkup(
+                createElement(RewardBreakdownCard, {
+                  stage: item,
+                  step,
+                  progress,
+                  liveCount: 0,
+                }),
+              )
+            : "",
+        ].join("");
+        expect(html).not.toContain("NaN");
+        expect(html).toContain('role="img"');
+        // No data tables left in these cards except the visually hidden accessible one.
+        expect(html.match(/<table/g)?.length ?? 0).toBeLessThanOrEqual(
+          item.teacherStudent ? 1 : 0,
+        );
+
+        const outputs = renderToStaticMarkup(
+          createElement(ArtifactsRow, {
+            stage: item,
+            progress,
+            step,
+            sheet: "main-steam.png",
+            verifications: [],
+            now: NOW,
+            running: true,
+          }),
+        );
+        expect(outputs).not.toContain("NaN");
+        expect(outputs).toContain(item.experimentId);
+        for (const spec of item.outputs) {
+          if (spec.download === "weights" && progress < spec.readyAt) {
+            expect(outputs).toContain(`${spec.title}: `);
+          }
+        }
+      }
+    }
+  });
+});

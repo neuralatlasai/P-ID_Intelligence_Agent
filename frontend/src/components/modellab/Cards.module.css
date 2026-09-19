@@ -1,0 +1,683 @@
+/*
+ * Figures for the shared model-lab cards: teacher → student transfer, reward breakdown and
+ * the artifact handoff. The grammar is the architecture figure's: solid = forward, dashed =
+ * backward gradient, hatched outline = frozen, dotted = not connected, width = share.
+ */
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 18px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xs);
+  background: var(--bg-surface-high);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--tracking-label);
+  white-space: nowrap;
+}
+.chip[data-tone="sim"] {
+  border-color: transparent;
+  background: var(--evidence-inferred-bg);
+  color: var(--evidence-inferred);
+}
+.chip[data-tone="ok"] {
+  border-color: transparent;
+  background: var(--status-ready-bg);
+  color: var(--status-ready);
+}
+.chip[data-tone="warn"] {
+  border-color: transparent;
+  background: var(--status-degraded-bg);
+  color: var(--status-degraded);
+}
+.chip[data-tone="run"] {
+  border-color: transparent;
+  background: var(--accent-action-subtle);
+  color: var(--text-active);
+}
+
+.mark {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+.mark[data-pass="true"] {
+  color: var(--status-ready);
+}
+.mark[data-pass="false"] {
+  color: var(--status-degraded);
+}
+
+.asideValue {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+.asideValue b {
+  color: var(--text-primary);
+  font-weight: var(--weight-medium);
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  fill: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── teacher → student ─────────────────────────────────────────────────────────────── */
+
+.figure {
+  min-width: 0;
+  padding: 0 var(--space-4);
+}
+.svg {
+  display: block;
+  overflow: visible;
+}
+.hatchLine {
+  stroke: var(--border-strong);
+  stroke-width: 1.2;
+}
+.frozenBox {
+  fill: var(--ink-fill);
+  stroke: var(--ink-primary);
+  stroke-width: 1;
+}
+.trainBox {
+  fill: var(--bg-selected);
+  stroke: var(--series-1);
+  stroke-width: 1.5;
+}
+.projector {
+  fill: var(--ink-fill);
+  stroke: var(--ink-secondary);
+  stroke-width: 1;
+}
+.dataBox {
+  fill: var(--bg-sunken);
+  stroke: var(--border-strong);
+  stroke-width: 1;
+}
+.chipText {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  fill: var(--text-tertiary);
+}
+.forward {
+  fill: none;
+  stroke: var(--series-1);
+  stroke-linecap: round;
+  stroke-opacity: 0.85;
+}
+.gradient {
+  fill: none;
+  stroke: var(--series-3);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 2.5;
+}
+.arrowHead {
+  fill: var(--series-3);
+}
+.lossNode {
+  fill: var(--bg-surface-high);
+  stroke: var(--text-secondary);
+  stroke-width: 1;
+}
+.lossText {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  fill: var(--text-primary);
+}
+
+.pairs {
+  display: grid;
+  gap: 6px;
+  padding: var(--space-3) var(--space-4) var(--space-2);
+}
+.pairRow {
+  display: grid;
+  grid-template-columns: minmax(84px, 22%) minmax(0, 1fr);
+  gap: var(--space-2);
+  align-items: center;
+}
+.pairLabel {
+  overflow: hidden;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pairBars {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.pairTrack {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  height: 11px;
+}
+.pairTrack i {
+  display: block;
+  flex: none;
+  height: 100%;
+  max-width: calc(100% - 76px);
+  border-radius: var(--radius-xs);
+  transition: width var(--duration-slow) var(--easing-standard);
+}
+.pairTrack b {
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-regular);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.teacherBar {
+  border: 1px solid var(--ink-primary);
+  background: var(--ink-fill);
+}
+.studentBar {
+  background: var(--series-1);
+}
+.chipPair {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.idChip {
+  padding: 0 6px;
+  border: 1px solid var(--series-1);
+  border-radius: var(--radius-xs);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  overflow-wrap: anywhere;
+}
+.idChip[data-role="teacher"] {
+  border-color: var(--ink-primary);
+  color: var(--text-secondary);
+}
+.chipArrow {
+  color: var(--text-tertiary);
+  font-size: var(--text-xs);
+}
+
+.key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+  padding: 0 var(--space-4) var(--space-3);
+  list-style: none;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+.key li {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.key i {
+  display: inline-block;
+  width: 14px;
+  height: 8px;
+  border-radius: var(--radius-xs);
+}
+.key i[data-kind="teacher"] {
+  border: 1px solid var(--ink-primary);
+  background: var(--ink-fill);
+}
+.key i[data-kind="student"] {
+  background: var(--series-1);
+}
+.key i[data-kind="forward"] {
+  height: 0;
+  border-top: 2px solid var(--series-1);
+  border-radius: 0;
+}
+.key i[data-kind="gradient"] {
+  height: 0;
+  border-top: 2px dashed var(--series-3);
+  border-radius: 0;
+}
+.key i[data-kind="arc"] {
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--text-secondary);
+  border-radius: var(--radius-pill);
+}
+.key i[data-kind="live"] {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--text-primary);
+}
+.key i[data-kind="net"] {
+  width: 2px;
+  height: 12px;
+  border-radius: 0;
+  background: var(--text-primary);
+}
+
+/* ── reward breakdown ──────────────────────────────────────────────────────────────── */
+
+.stack {
+  padding: 0 var(--space-4) var(--space-2);
+}
+.stackTrack {
+  position: relative;
+  height: 22px;
+  border-radius: var(--radius-xs);
+  background: var(--bg-sunken);
+}
+.stackTrack i {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  display: block;
+  border-right: 1px solid var(--bg-surface);
+  transition:
+    left var(--duration-slow) var(--easing-standard),
+    width var(--duration-slow) var(--easing-standard);
+}
+.stackTrack i[data-penalty] {
+  opacity: 0.55;
+}
+.zero {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 1px;
+  background: var(--chart-axis);
+}
+.net {
+  position: absolute;
+  top: -5px;
+  bottom: -5px;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--text-primary);
+  transition: left var(--duration-slow) var(--easing-standard);
+}
+.stackAxis {
+  position: relative;
+  height: 18px;
+  margin-top: 4px;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+.stackAxis span {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+.stackAxis span:first-child {
+  transform: none;
+}
+.stackAxis span:last-child {
+  transform: translateX(-100%);
+}
+.stackAxis span[data-net] {
+  top: 0;
+  color: var(--text-primary);
+  background: var(--bg-surface);
+  padding: 0 3px;
+  z-index: 1;
+}
+
+.rings {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-2) var(--space-4) var(--space-2);
+  list-style: none;
+}
+.rings li {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+.ringTrack {
+  fill: none;
+  stroke: var(--chart-grid);
+  stroke-width: 5;
+}
+.ringArc {
+  fill: none;
+  stroke-width: 5;
+  transition: stroke-dasharray var(--duration-slow) var(--easing-standard);
+}
+.ringArc[data-penalty] {
+  stroke-dasharray: none;
+  stroke-opacity: 0.6;
+}
+.liveDot {
+  fill: var(--text-primary);
+  stroke: var(--bg-surface);
+  stroke-width: 1.5;
+}
+.ringValue {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  fill: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+.ringName {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ringWeight {
+  color: var(--status-ready);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+}
+.ringWeight[data-negative] {
+  color: var(--status-down);
+}
+
+/* ── artifact handoff ──────────────────────────────────────────────────────────────── */
+
+.handoff {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin: 0;
+  padding: var(--space-2) var(--space-4) var(--space-3);
+  list-style: none;
+  overflow-x: auto;
+}
+.node {
+  display: grid;
+  justify-items: start;
+  gap: 2px;
+  flex: none;
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--ink-primary);
+  border-radius: var(--radius-sm);
+  background: var(--ink-fill);
+}
+.node code {
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}
+.node b {
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-regular);
+  font-variant-numeric: tabular-nums;
+}
+.nodeTag {
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+.node[data-kind="run"] {
+  border-color: var(--series-1);
+  background: var(--bg-selected);
+}
+.nodeBar {
+  display: block;
+  width: 100%;
+  min-width: 56px;
+  height: 3px;
+  background: var(--chart-grid);
+}
+.nodeBar i {
+  display: block;
+  height: 100%;
+  background: var(--series-1);
+  transition: width var(--duration-slow) linear;
+}
+.node[data-state="queued"],
+.node[data-state="writing"],
+.node[data-kind="next"]:not([data-live]) {
+  border-style: dashed;
+  border-color: var(--border-strong);
+  background: var(--bg-sunken);
+}
+.node[data-state="writing"] {
+  border-color: var(--accent-action);
+}
+.node[data-handoff] {
+  border-width: 2px;
+}
+.fan {
+  display: grid;
+  gap: var(--space-1);
+  flex: none;
+}
+.edgeCell {
+  flex: 1 1 36px;
+  min-width: 36px;
+  max-width: 120px;
+}
+.edge {
+  display: grid;
+  justify-items: center;
+  gap: 1px;
+  color: var(--border-strong);
+}
+.edge svg {
+  display: block;
+  width: 100%;
+  height: 20px;
+  overflow: visible;
+}
+.edgeLine {
+  fill: none;
+  stroke: var(--ink-muted);
+  stroke-dasharray: 1 3;
+  stroke-linecap: round;
+}
+.edgeHead {
+  fill: var(--ink-muted);
+}
+.edge[data-live] .edgeLine {
+  stroke: var(--series-1);
+  stroke-dasharray: none;
+  stroke-linecap: butt;
+}
+.edge[data-live] .edgeHead {
+  fill: var(--series-1);
+}
+.edge b {
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-regular);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.tree {
+  padding: 0 var(--space-4) var(--space-4);
+}
+.treeRoot {
+  display: block;
+  padding-bottom: var(--space-1);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+}
+.tree ul {
+  margin: 0;
+  padding: 0 0 0 var(--space-3);
+  list-style: none;
+  border-left: 1px solid var(--rule-strong);
+}
+.tree li {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 64px auto minmax(72px, 110px) 34px;
+  gap: var(--space-2);
+  align-items: center;
+  min-height: 40px;
+  padding: 2px 0 2px var(--space-2);
+  border-bottom: 1px solid var(--rule-subtle);
+}
+.tree li::before {
+  content: "";
+  position: absolute;
+  left: calc(-1 * var(--space-3));
+  top: 50%;
+  width: var(--space-3);
+  border-top: 1px solid var(--rule-strong);
+}
+.tree li[data-fresh] .fileName {
+  color: var(--status-ready);
+}
+.fileName {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fileGlyph {
+  flex: none;
+  width: 9px;
+  height: 11px;
+  border: 1px solid var(--text-tertiary);
+  border-radius: 1px;
+}
+.fileGlyph[data-dir] {
+  width: 12px;
+  height: 9px;
+  border-top-width: 3px;
+}
+.tree li[data-state="queued"] .fileGlyph,
+.tree li[data-state="writing"] .fileGlyph {
+  border-style: dashed;
+}
+.fileSize {
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.fileMeta {
+  min-width: 0;
+}
+.metaMono {
+  display: block;
+  overflow: hidden;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fileAction {
+  display: grid;
+  place-items: center;
+}
+.cycle {
+  position: absolute;
+  left: var(--space-2);
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  background: var(--rule-subtle);
+}
+.cycle i {
+  display: block;
+  height: 100%;
+  background: var(--rule-strong);
+  transition: width var(--duration-slow) linear;
+}
+.cycle[data-running] i {
+  background: var(--status-ready-mark);
+}
+
+@media (max-width: 640px) {
+  .handoff {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .edgeCell {
+    flex: none;
+    max-width: none;
+    min-height: 34px;
+  }
+  .edge {
+    grid-template-columns: 34px auto;
+    justify-content: center;
+    align-items: center;
+    gap: var(--space-2);
+    min-height: 34px;
+  }
+  .edge svg {
+    width: 34px;
+    height: 20px;
+    transform: rotate(90deg);
+  }
+  .node,
+  .fan {
+    justify-items: stretch;
+  }
+  .tree li {
+    grid-template-columns: minmax(0, 1fr) auto 34px;
+  }
+  .fileSize,
+  .fileMeta {
+    display: none;
+  }
+  .pairRow {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pairTrack i,
+  .stackTrack i,
+  .net,
+  .ringArc,
+  .nodeBar i,
+  .cycle i {
+    transition: none;
+  }
+}

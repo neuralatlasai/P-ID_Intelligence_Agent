@@ -1,7 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 
 import { buildPlantRegister } from "@/lib/canvas/engineering";
 import { buildAdjacency, type CanvasDrawing } from "@/lib/canvas/model";
@@ -32,6 +40,7 @@ import {
   effectiveStage,
   freshSession,
   lineageOf,
+  type Lineage,
   loadSession,
   replaySpeedOf,
   resumeFromCheckpoint,
@@ -48,6 +57,7 @@ import { RunConsole } from "./console/RunConsole";
 import { ContractLiveCard } from "./ContractLiveCard";
 import { CurvesLiveCard } from "./CurvesLiveCard";
 import { DeploymentLiveCard } from "./DeploymentLiveCard";
+import { RunClockProvider } from "./flow/RunClockContext";
 import { HardwareCard } from "./HardwareCard";
 import { ExecutionMonitor } from "./ExecutionMonitor";
 import {
@@ -61,8 +71,7 @@ import { MetricsLiveCard } from "./MetricsLiveCard";
 import { MixtureLiveCard } from "./MixtureLiveCard";
 import { ProgressLiveCard } from "./ProgressLiveCard";
 import { RecipeLiveCard } from "./RecipeLiveCard";
-import { RunControls, LineageBanner, Freshness } from "./RunControls";
-import { RunLogCard } from "./RunLogCard";
+import { RunControls, Freshness } from "./RunControls";
 import { RuntimeConfigCard } from "./RuntimeConfigCard";
 import { SampleStrip } from "./SampleStrip";
 import { Icon, type IconName } from "./icons";
@@ -71,8 +80,8 @@ import styles from "./ModelLab.module.css";
 const CYCLE_MS = 15_000;
 
 /**
- * What is simulated and what is real, said once per stage and only about that stage. The
- * training itself is simulated everywhere; what differs is which evidence on the page is live.
+ * What is simulated and what is real, per stage. On screen this is one "Simulated" chip; the
+ * sentence is its accessible description, so the disclosure is never lost to assistive tech.
  */
 const STAGE_NOTE: Record<StageId, string> = {
   pretraining:
@@ -458,220 +467,237 @@ export function ModelLab({
           onSettings={() => setSettingsOpen(true)}
         />
 
-        <main className={styles.main} id="model-lab">
-          <header className={styles.stageHeader}>
-            <div>
-              <h1>
-                <span className={styles.stageNumber}>{stage.number}</span> {stage.title}
-                <span className={stage.required ? styles.required : styles.optional}>
-                  {stage.required ? "Required" : "Optional"}
-                </span>
-              </h1>
-              <p>
-                {stage.subtitle} · <Freshness now={now} running={running} />
-              </p>
-            </div>
-            <div className={styles.headerActions}>
-              <Link
-                className={styles.secondaryButton}
-                href={
-                  sample ? `/canvas?node=${encodeURIComponent(sample.nodeId)}` : "/canvas"
-                }
-              >
-                <Icon name="external" size={15} />
-                Open in canvas
-              </Link>
-              <RunControls
-                stage={stage}
-                step={step}
-                running={running}
-                complete={complete}
-                blocked={blocked}
-                history={session.history}
-                now={now}
-                onToggle={toggleRun}
-                onStop={() => act((current, at) => stopRun(current, stageId, at))}
-                onResumeFrom={resumeFrom}
-              />
-            </div>
-          </header>
-
-          <p className={styles.truth} role="note">
-            <Icon name="info" size={14} />
-            <span>
-              {STAGE_NOTE[stage.id]}
-              {source === "demo"
-                ? ` Backend offline (${offlineReason ?? "unavailable"}) — using the bundled sheet.`
-                : ""}
-            </span>
-          </p>
-
-          <LineageBanner lineage={lineage} stage={stage} />
-
-          <Stepper current={stage.id} session={session} effective={effective} now={now} />
-
-          <RunConsole
-            key={`console:${stage.id}:${stage.experimentId}`}
-            stage={stage}
-            profile={profile}
-            config={config}
-            control={control}
-            now={now}
-            running={running}
-            blocked={blocked}
-            speed={replaySpeedOf(session)}
-            onSpeed={(speed) => act((current, at) => setReplaySpeed(current, speed, at))}
-          />
-
-          <ExecutionMonitor
-            key={`${stage.id}:${stage.experimentId}`}
-            {...liveProps}
-            samples={samples}
-            sourceId={drawing.source}
-            blocked={blocked}
-          />
-
-          <LifecycleOverview stage={stage} />
-
-          <LifecycleSection
-            index={0}
-            description="Inspect source availability, modality joins and the evidence required by this stage."
-          >
-            <ContractLiveCard {...liveProps} facts={facts} />
-          </LifecycleSection>
-
-          <LifecycleSection
-            index={1}
-            description="Follow one selected example through source geometry, conversion rules and the model-side input contract."
-          >
-            <div className={styles.sampleSlot}>
-              {sample ? (
-                <SampleStrip
-                  stage={stage}
-                  sample={sample}
-                  samples={samples}
-                  index={sampleIndex}
-                  onChoose={choose}
-                  autoCycle={autoCycle && running}
-                  onToggleCycle={() => {
-                    freezeCycle();
-                    setAutoCycle((value) => !value);
-                  }}
-                  drawing={drawing}
-                  imageUrl={imageUrl}
-                  register={register}
-                  answer={answer}
-                  student={student}
-                  verification={verification}
-                  studentVerification={studentVerification}
-                  now={now}
-                  running={running}
-                  policy={policy}
-                  teacherPolicy={teacherPolicy}
-                  studentPolicy={studentPolicy}
-                  provenance={provenance}
-                  rolloutLabel={provenance?.rolloutId}
-                  cycleSecondsLeft={Math.max(
-                    0,
-                    Math.ceil((CYCLE_MS - (cycleElapsed % CYCLE_MS)) / 1000),
+        <RunClockProvider
+          control={control}
+          stage={stage}
+          profile={profile}
+          config={config}
+          now={now}
+          blocked={blocked}
+        >
+          <main className={styles.main} id="model-lab">
+            <header className={styles.stageHeader}>
+              <div className={styles.stageTitle}>
+                <h1>
+                  <span className={styles.stageNumber}>{stage.number}</span> {stage.title}
+                  <span className={stage.required ? styles.required : styles.optional}>
+                    {stage.required ? "Required" : "Optional"}
+                  </span>
+                </h1>
+                <div className={styles.liveRow}>
+                  {statusChip}
+                  <span
+                    className={styles.headerProgress}
+                    role="img"
+                    aria-label={`Step ${Math.floor(step).toLocaleString("en-US")} of ${stage.run.totalSteps.toLocaleString("en-US")}, ${(progress * 100).toFixed(1)} percent`}
+                  >
+                    <span className={styles.headerBar} aria-hidden="true">
+                      <i
+                        style={{ width: `${Math.min(100, progress * 100).toFixed(2)}%` }}
+                      />
+                    </span>
+                    <code aria-hidden="true">
+                      {Math.floor(step).toLocaleString("en-US")}
+                      <small> / {stage.run.totalSteps.toLocaleString("en-US")}</small>
+                    </code>
+                  </span>
+                  <Freshness now={now} running={running} />
+                  <span className={styles.simChip} role="note">
+                    <i aria-hidden="true" />
+                    Simulated
+                    <span className={styles.srOnly}>: {STAGE_NOTE[stage.id]}</span>
+                  </span>
+                  {source === "demo" && (
+                    <span
+                      className={styles.offlineChip}
+                      title={`Backend offline: ${offlineReason ?? "unavailable"}`}
+                    >
+                      <i aria-hidden="true" />
+                      Offline
+                      <span className={styles.srOnly}>
+                        : backend {offlineReason ?? "unavailable"}, using the bundled sheet
+                      </span>
+                    </span>
                   )}
-                  cyclePeriodSeconds={CYCLE_MS / 1000}
-                />
-              ) : (
-                <div className={styles.card}>
-                  <p className={styles.quiet}>
-                    This sheet has no registered field references, so there is no sample to
-                    align.
-                  </p>
                 </div>
-              )}
-            </div>
-            <InputConversion
-              {...liveProps}
-              sample={sample}
-              drawing={drawing}
-              answer={answer}
-            />
-          </LifecycleSection>
+              </div>
+              <div className={styles.headerActions}>
+                <Link
+                  className={styles.secondaryButton}
+                  href={
+                    sample ? `/canvas?node=${encodeURIComponent(sample.nodeId)}` : "/canvas"
+                  }
+                >
+                  <Icon name="external" size={15} />
+                  Open in canvas
+                </Link>
+                <RunControls
+                  stage={stage}
+                  step={step}
+                  running={running}
+                  complete={complete}
+                  blocked={blocked}
+                  history={session.history}
+                  now={now}
+                  onToggle={toggleRun}
+                  onStop={() => act((current, at) => stopRun(current, stageId, at))}
+                  onResumeFrom={resumeFrom}
+                />
+              </div>
+            </header>
 
-          <LifecycleSection
-            index={2}
-            description="Read the forward path, supervision and parameter update in execution order."
-          >
-            <ModelComputation key={stage.id} {...liveProps} sample={sample} facts={facts} />
-            <RecipeLiveCard {...liveProps} />
-          </LifecycleSection>
-
-          <LifecycleSection
-            index={3}
-            description="Apply the runtime configuration, inspect the memory plan and track the simulated run."
-          >
-            <ExecutionArchitecture {...liveProps} />
-            <div className={styles.executionRow} id="runtime">
-              {stage.teacherStudent && (
-                <TeacherStudentRuntimeCard stage={stage} step={step} />
-              )}
-              <RuntimeConfigCard
-                {...liveProps}
-                draft={draft}
-                onDraft={(next) =>
-                  setDrafts((current) => ({ ...current, [stageId]: next }))
-                }
-                onApply={() => {
-                  act((current, at) => applyConfig(current, stageId, draft, at));
-                  clearDraft();
-                }}
-                onDiscard={clearDraft}
-                statusChip={statusChip}
-              />
-              <ProgressLiveCard
-                {...liveProps}
-                livePass={{
-                  passed: allVerifications.filter((item) => item.pass).length,
-                  total: allVerifications.length,
-                }}
-              />
-            </div>
-            <HardwareCard {...liveProps} />
-            <RunLogCard {...liveProps} />
-          </LifecycleSection>
-
-          <LifecycleSection
-            index={4}
-            description="Compare held-out metrics, objective curves and checkpoint evidence before stage promotion."
-          >
-            <div className={styles.evaluationRow}>
-              <MetricsLiveCard {...liveProps} />
-              {stage.id === "rl" ? (
-                <>
-                  {sideCard}
-                  <CurvesLiveCard {...liveProps} />
-                </>
-              ) : (
-                <>
-                  <CurvesLiveCard {...liveProps} />
-                  {sideCard}
-                </>
-              )}
-            </div>
-            {stage.id !== "pretraining" && checkpointsCard}
-          </LifecycleSection>
-
-          <LifecycleSection
-            index={5}
-            description="Inspect generated configuration files and the planned checkpoint handoff to the next stage."
-          >
-            <ArtifactsRow
-              stage={stage}
-              progress={progress}
-              step={step}
-              sheet={sheet}
-              verifications={artifactSamples}
+            <Pipeline
+              current={stage.id}
+              session={session}
+              effective={effective}
               now={now}
-              running={running}
+              lineage={lineage}
             />
-          </LifecycleSection>
-        </main>
+
+            <LifecycleOverview stage={stage} running={running} />
+
+            <LifecycleSection index={0}>
+              <ContractLiveCard {...liveProps} facts={facts} />
+            </LifecycleSection>
+
+            <LifecycleSection index={1}>
+              <div className={styles.sampleSlot}>
+                {sample ? (
+                  <SampleStrip
+                    stage={stage}
+                    sample={sample}
+                    samples={samples}
+                    index={sampleIndex}
+                    onChoose={choose}
+                    autoCycle={autoCycle && running}
+                    onToggleCycle={() => {
+                      freezeCycle();
+                      setAutoCycle((value) => !value);
+                    }}
+                    drawing={drawing}
+                    imageUrl={imageUrl}
+                    register={register}
+                    answer={answer}
+                    student={student}
+                    verification={verification}
+                    studentVerification={studentVerification}
+                    now={now}
+                    running={running}
+                    policy={policy}
+                    teacherPolicy={teacherPolicy}
+                    studentPolicy={studentPolicy}
+                    provenance={provenance}
+                    rolloutLabel={provenance?.rolloutId}
+                    cycleSecondsLeft={Math.max(
+                      0,
+                      Math.ceil((CYCLE_MS - (cycleElapsed % CYCLE_MS)) / 1000),
+                    )}
+                    cyclePeriodSeconds={CYCLE_MS / 1000}
+                  />
+                ) : (
+                  <div className={styles.card}>
+                    <p className={styles.quiet}>
+                      This sheet has no registered field references, so there is no sample
+                      to align.
+                    </p>
+                  </div>
+                )}
+              </div>
+              <InputConversion
+                {...liveProps}
+                sample={sample}
+                drawing={drawing}
+                answer={answer}
+                imageUrl={imageUrl}
+              />
+            </LifecycleSection>
+
+            <LifecycleSection index={2}>
+              <ModelComputation
+                key={stage.id}
+                {...liveProps}
+                sample={sample}
+                facts={facts}
+              />
+              <RecipeLiveCard {...liveProps} />
+            </LifecycleSection>
+
+            <LifecycleSection index={3}>
+              <RunConsole
+                key={`console:${stage.id}:${stage.experimentId}`}
+                stage={stage}
+                profile={profile}
+                config={config}
+                control={control}
+                now={now}
+                running={running}
+                blocked={blocked}
+                speed={replaySpeedOf(session)}
+                onSpeed={(speed) =>
+                  act((current, at) => setReplaySpeed(current, speed, at))
+                }
+              />
+              <ExecutionMonitor
+                key={`${stage.id}:${stage.experimentId}`}
+                {...liveProps}
+                samples={samples}
+                sourceId={drawing.source}
+                blocked={blocked}
+              />
+              <ExecutionArchitecture {...liveProps} />
+              <div className={styles.executionRow} id="runtime">
+                {stage.teacherStudent && (
+                  <TeacherStudentRuntimeCard stage={stage} step={step} />
+                )}
+                <RuntimeConfigCard
+                  {...liveProps}
+                  draft={draft}
+                  onDraft={(next) =>
+                    setDrafts((current) => ({ ...current, [stageId]: next }))
+                  }
+                  onApply={() => {
+                    act((current, at) => applyConfig(current, stageId, draft, at));
+                    clearDraft();
+                  }}
+                  onDiscard={clearDraft}
+                  statusChip={statusChip}
+                />
+                <ProgressLiveCard {...liveProps} />
+              </div>
+              <HardwareCard {...liveProps} />
+            </LifecycleSection>
+
+            <LifecycleSection index={4}>
+              <div className={styles.evaluationRow}>
+                <MetricsLiveCard {...liveProps} />
+                {stage.id === "rl" ? (
+                  <>
+                    {sideCard}
+                    <CurvesLiveCard {...liveProps} />
+                  </>
+                ) : (
+                  <>
+                    <CurvesLiveCard {...liveProps} />
+                    {sideCard}
+                  </>
+                )}
+              </div>
+              {stage.id !== "pretraining" && checkpointsCard}
+            </LifecycleSection>
+
+            <LifecycleSection index={5}>
+              <ArtifactsRow
+                stage={stage}
+                progress={progress}
+                step={step}
+                sheet={sheet}
+                verifications={artifactSamples}
+                now={now}
+                running={running}
+              />
+            </LifecycleSection>
+          </main>
+        </RunClockProvider>
       </div>
 
       {settingsOpen && (
@@ -697,62 +723,165 @@ function storage(): Storage | undefined {
 }
 
 // ────────────────────────────────────────────────────────────────────────────────────────────
-// Stepper
+// Pipeline: the four stages as nodes with live progress arcs, joined by checkpoint handoffs
 // ────────────────────────────────────────────────────────────────────────────────────────────
 
-function Stepper({
+const RING_R = 17;
+const RING_C = 2 * Math.PI * RING_R;
+const compactStep = new Intl.NumberFormat("en-US", {
+  notation: "compact",
+  maximumFractionDigits: 1,
+});
+
+/**
+ * The training lifecycle as a pipeline. Each stage is a node whose ring is its run's progress;
+ * between nodes, the checkpoint handoff that warm-starts the next stage — solid with a filled
+ * checkpoint when the upstream stage has finished, solid with a hollow checkpoint while it is
+ * an interim snapshot, dotted (not connected) while no checkpoint exists. The first stage is
+ * fed by the public backbone.
+ */
+function Pipeline({
   current,
   session,
   effective,
   now,
+  lineage,
 }: {
   readonly current: StageId;
   readonly session: LabSession;
   readonly effective: Record<StageId, ReturnType<typeof effectiveStage>>;
   readonly now: number;
+  /** The stage on screen's own lineage, already computed by the page. */
+  readonly lineage: Lineage;
 }) {
+  const backbone = effective[STAGES[0]!.id].profile.backbone.name;
   return (
-    <nav className={styles.stepper} aria-label="Training lifecycle stages">
+    <nav className={styles.pipeline} aria-label="Training lifecycle stages">
+      <span
+        className={styles.pipeOrigin}
+        role="img"
+        aria-label={`Public backbone checkpoint ${backbone} initialises stage ${STAGES[0]!.number}`}
+        data-current={
+          (current === STAGES[0]!.id && lineage.source === "backbone") || undefined
+        }
+      >
+        <CheckpointMark state="final" />
+        <code>{backbone}</code>
+      </span>
+      <Handoff state="final" live={false} label="base" origin />
       {STAGES.map((plan, index) => {
         const stage = effective[plan.id].stage;
-        const step = stepAt(session.controls[stage.id], stage.run, now);
-        const share = step / stage.run.totalSteps;
-        const running = session.controls[stage.id].status === "running" && share < 1;
+        const control = session.controls[stage.id];
+        const step = stepAt(control, stage.run, now);
+        const share = Math.min(1, step / stage.run.totalSteps);
+        const done = share >= 1;
+        const running = control.status === "running" && !done;
+        const next = STAGES[index + 1];
+        const handoff = next ? lineageOf(session, next.id, now) : undefined;
+        const state = done ? "done" : running ? "live" : "paused";
         return (
-          <div key={stage.id} className={styles.stepWrap}>
+          <Fragment key={stage.id}>
             <Link
               href={`/model-lab/${stage.id}`}
-              className={styles.step}
+              className={styles.pipeNode}
               aria-current={stage.id === current ? "page" : undefined}
+              aria-label={`${stage.number} ${stage.title}${stage.required ? "" : " (optional)"}: ${Math.floor(share * 100)} percent, ${state}`}
+              data-state={state}
             >
-              <span className={styles.stepNumber}>{stage.number}</span>
-              <span className={styles.stepText}>
+              <svg className={styles.pipeRing} viewBox="0 0 44 44" aria-hidden="true">
+                <circle cx="22" cy="22" r={RING_R} className={styles.pipeTrack} />
+                <circle
+                  cx="22"
+                  cy="22"
+                  r={RING_R}
+                  className={styles.pipeArc}
+                  strokeDasharray={`${(share * RING_C).toFixed(2)} ${RING_C.toFixed(2)}`}
+                  transform="rotate(-90 22 22)"
+                />
+                <text x="22" y="22" dominantBaseline="central" textAnchor="middle">
+                  {stage.number}
+                </text>
+              </svg>
+              <span className={styles.pipeText} aria-hidden="true">
                 <strong>{stage.title}</strong>
-                <small>{stage.tagline}</small>
-                <span className={styles.stepBar} aria-hidden="true">
-                  <i style={{ width: `${(share * 100).toFixed(1)}%` }} />
-                </span>
-              </span>
-              <span className={styles.stepMeta}>
-                <span className={stage.required ? styles.required : styles.optional}>
-                  {stage.required ? "Required" : "Optional"}
-                </span>
-                <small data-running={running || undefined}>
-                  {share >= 1
-                    ? "Done"
-                    : `${Math.floor(share * 100)}%${running ? " · live" : " · paused"}`}
+                <small>
+                  <b>{done ? "100%" : `${Math.floor(share * 100)}%`}</b>
+                  <i data-state={state} />
+                  {state}
+                  {!stage.required && <em>optional</em>}
                 </small>
               </span>
             </Link>
-            {index < STAGES.length - 1 && (
-              <span className={styles.stepArrow} aria-hidden="true">
-                <Icon name="arrow" size={16} />
-              </span>
+            {next && handoff && (
+              <Handoff
+                state={
+                  handoff.source === "blocked"
+                    ? "blocked"
+                    : handoff.parent?.interim
+                      ? "interim"
+                      : "final"
+                }
+                live={running}
+                incoming={next.id === current}
+                label={
+                  handoff.source === "blocked"
+                    ? "none"
+                    : `@${compactStep.format(handoff.parent?.step ?? 0)}`
+                }
+                description={
+                  handoff.source === "blocked"
+                    ? `No checkpoint from ${stage.number} yet: ${next.number} is blocked`
+                    : `${stage.number} hands ${handoff.parent?.interim ? "an interim snapshot" : "its final checkpoint"} at step ${(handoff.parent?.step ?? 0).toLocaleString("en-US")} to ${next.number}`
+                }
+              />
             )}
-          </div>
+          </Fragment>
         );
       })}
     </nav>
+  );
+}
+
+function CheckpointMark({ state }: { readonly state: "final" | "interim" | "blocked" }) {
+  return (
+    <svg className={styles.ckpt} viewBox="0 0 12 12" data-state={state} aria-hidden="true">
+      <path d="M6 1 11 6 6 11 1 6Z" />
+    </svg>
+  );
+}
+
+function Handoff({
+  state,
+  live,
+  label,
+  description,
+  incoming = false,
+  origin = false,
+}: {
+  readonly state: "final" | "interim" | "blocked";
+  readonly live: boolean;
+  readonly label: string;
+  readonly description?: string;
+  readonly incoming?: boolean;
+  readonly origin?: boolean;
+}) {
+  return (
+    <span
+      className={styles.handoff}
+      data-state={state}
+      data-live={(live && state !== "blocked") || undefined}
+      data-incoming={incoming || undefined}
+      data-origin={origin || undefined}
+      role={description ? "img" : undefined}
+      aria-label={description}
+      aria-hidden={description ? undefined : true}
+    >
+      <span className={styles.handoffLine}>
+        <i />
+      </span>
+      {!origin && <CheckpointMark state={state} />}
+      {!origin && <code>{label}</code>}
+    </span>
   );
 }
 

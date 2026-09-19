@@ -5,28 +5,168 @@ import { useMemo, useState } from "react";
 import {
   buildSyntheticCandidates,
   EXECUTION_RECIPES,
-  executionSnapshot,
   METHOD_SOURCES,
-  type DiagnosticScenario,
+  type SyntheticCandidate,
 } from "@/lib/modellab/execution";
 import type { LabSample } from "@/lib/modellab/samples";
 
 import type { LiveCardProps } from "./live";
 import css from "./ExecutionMonitor.module.css";
 
-const SCENARIOS = [
-  ["nominal", "Nominal execution"],
-  ["input-stall", "Input starvation"],
-  ["quality-regression", "Quality regression"],
-] as const;
+/** Seconds of run time per synthetic batch while following the replay. */
+const BATCH_SECONDS = 18;
 
-/** Shares the run clock; inspection and scenario state never mutate the underlying run. */
+type Decision = SyntheticCandidate["decision"];
+
+const DECISION: Record<Decision, { readonly label: string; readonly short: string }> = {
+  review: { label: "Awaiting review", short: "review" },
+  duplicate: { label: "Exact duplicate", short: "dup" },
+  "invalid-reference": { label: "Invalid reference", short: "invalid" },
+};
+
+type CheckState = "pass" | "fail" | "open";
+
+/**
+ * The QC gates a candidate passes through, in order. The first two execute here; the rest
+ * are named because admission requires them, and none of them has run.
+ */
+function checksFor(
+  candidate: SyntheticCandidate,
+): readonly (readonly [string, CheckState])[] {
+  const resolved = candidate.decision !== "invalid-reference";
+  const unique = candidate.decision !== "duplicate";
+  return [
+    ["entity ref", resolved ? "pass" : "fail"],
+    ["exact dedup", !resolved ? "open" : unique ? "pass" : "fail"],
+    ["split manifest", "open"],
+    ["semantic dedup", "open"],
+    ["contamination", "open"],
+    ["expert review", "open"],
+  ];
+}
+
+const CHECK_GLYPH: Record<CheckState, string> = { pass: "✓", fail: "✗", open: "○" };
+
+/**
+ * Flow of one batch through QC as a Sankey: generated → structural QC → review, duplicate or
+ * invalid; review → the admission gates, which admit nothing until they have run. Band width
+ * is candidate count.
+ */
+function QcFlow({
+  counts,
+  total,
+}: {
+  readonly counts: Record<Decision, number>;
+  readonly total: number;
+}) {
+  const W = 600;
+  const H = 132;
+  const unit = (H - 36) / Math.max(1, total);
+  const x0 = 70;
+  const x1 = 250;
+  const x2 = 430;
+  const col = 8;
+  const top = 18;
+  const order: readonly Decision[] = ["review", "duplicate", "invalid-reference"];
+  let cursor = top;
+  const bands = order.map((decision) => {
+    const height = counts[decision] * unit;
+    const band = { decision, y: cursor, height };
+    cursor += height + (height > 0 ? 6 : 0);
+    return band;
+  });
+  let source = top;
+  const ribbon = (y: number, h: number, targetY: number, from: number, to: number) => {
+    const mid = (from + to) / 2;
+    return `M${from} ${y}C${mid} ${y} ${mid} ${targetY} ${to} ${targetY}V${targetY + h}C${mid} ${targetY + h} ${mid} ${y + h} ${from} ${y + h}Z`;
+  };
+  const review = bands[0]!;
+  return (
+    <svg
+      className={css.flow}
+      viewBox={`0 0 ${W} ${H}`}
+      role="img"
+      aria-label={`Synthetic batch QC flow: ${total} generated candidates; ${counts.review} pass structural checks and await review, ${counts.duplicate} rejected as exact duplicates, ${counts["invalid-reference"]} rejected for an invalid entity reference; 0 admitted, because the source split manifest and independent review have not run.`}
+    >
+      <rect className={css.col} x={x0 - col} y={top} width={col} height={total * unit} />
+      <text className={css.flowLabel} x={x0 - col - 6} y={top + 10} textAnchor="end">
+        generated
+      </text>
+      <text className={css.flowCount} x={x0 - col - 6} y={top + 24} textAnchor="end">
+        {total}
+      </text>
+      {bands.map((band) => {
+        const y = source;
+        source += band.height;
+        if (band.height <= 0) return null;
+        return (
+          <path
+            key={band.decision}
+            className={css.ribbon}
+            data-decision={band.decision}
+            d={ribbon(y, band.height, band.y, x0, x1)}
+          />
+        );
+      })}
+      {bands.map((band) =>
+        band.height > 0 ? (
+          <g key={`n-${band.decision}`}>
+            <rect
+              className={css.col}
+              data-decision={band.decision}
+              x={x1}
+              y={band.y}
+              width={col}
+              height={band.height}
+            />
+            <text
+              className={css.flowLabel}
+              x={x1 + col + 6}
+              y={band.y + Math.min(10, band.height / 2 + 4)}
+            >
+              {DECISION[band.decision].short}{" "}
+              <tspan className={css.flowCount}>{counts[band.decision]}</tspan>
+            </text>
+          </g>
+        ) : null,
+      )}
+      {/* Review → the admission gates: the ribbon runs into a closed gate. */}
+      {review.height > 0 && (
+        <>
+          <path
+            className={css.ribbon}
+            data-decision="review"
+            data-held
+            d={ribbon(review.y, review.height, review.y, x1 + col + 70, x2)}
+          />
+          <line
+            className={css.gate}
+            x1={x2}
+            x2={x2}
+            y1={review.y - 6}
+            y2={review.y + review.height + 6}
+          />
+          <text className={css.flowLabel} x={x2 + 8} y={review.y + 10}>
+            split · review
+          </text>
+        </>
+      )}
+      <rect className={css.col} data-admitted x={W - 70} y={top} width={col} height={2} />
+      <text className={css.flowLabel} x={W - 70 + col + 6} y={top + 6}>
+        admitted
+      </text>
+      <text className={css.flowCount} x={W - 70 + col + 6} y={top + 20}>
+        0
+      </text>
+    </svg>
+  );
+}
+
+/** Shares the run clock; inspection state never mutates the underlying run. */
 export function ExecutionMonitor({
   stage,
   step,
   running,
-  config,
-  profile,
   samples,
   sourceId,
   blocked,
@@ -35,251 +175,90 @@ export function ExecutionMonitor({
   readonly sourceId: string;
   readonly blocked: boolean;
 }) {
-  const [scenario, setScenario] = useState<DiagnosticScenario>("nominal");
-  const [inspected, setInspected] = useState<number | undefined>();
   const [pinnedBatch, setPinnedBatch] = useState<number | undefined>();
   const [selected, setSelected] = useState(0);
-  const [tab, setTab] = useState<"diagnostics" | "synthetic" | "evaluation">("diagnostics");
   const recipe = EXECUTION_RECIPES[stage.id];
-  // The same telemetry the run console reads, so the two panels agree step for step.
-  const context = useMemo(() => ({ stage, profile, config }), [stage, profile, config]);
-  const snapshot = executionSnapshot(stage, blocked ? 0 : step, scenario, context);
-  const batch = pinnedBatch ?? Math.floor(snapshot.tick / 18);
-  const active = inspected ?? snapshot.phase;
-  const phase = recipe.phases[active]!;
+  // Run seconds elapsed at this step: the replay clock every panel shares.
+  const safeStep = blocked || !Number.isFinite(step) ? 0 : Math.max(0, step);
+  const tick = Math.floor(safeStep / Math.max(1e-6, stage.run.stepsPerSecond));
+  const batch = pinnedBatch ?? Math.floor(tick / BATCH_SECONDS);
   const candidates = useMemo(
     () => buildSyntheticCandidates(samples, sourceId, batch),
     [samples, sourceId, batch],
   );
   const candidate = candidates[selected] ?? candidates[0];
-  const review = candidates.filter((item) => item.decision === "review").length;
-  const complete = step >= stage.run.totalSteps;
-  const status = blocked
-    ? "Blocked by lineage"
-    : complete
-      ? "Run complete"
-      : running
-        ? "Replay advancing"
-        : "Replay paused";
-  // Scaled to at least 10 %, so a healthy few-percent wait is visible and a stall is a spike.
-  const traceMax = Math.max(10, ...snapshot.trace);
-  const points = snapshot.trace
-    .map((value, index) => `${index * 10},${65 - (value / traceMax) * 60}`)
-    .join(" ");
+  const counts: Record<Decision, number> = {
+    review: 0,
+    duplicate: 0,
+    "invalid-reference": 0,
+  };
+  for (const item of candidates) counts[item.decision] += 1;
+  const records = Math.ceil(candidates.length / 2);
 
   return (
     <section
       className={css.root}
       aria-label="Stage execution monitor"
-      data-tick={snapshot.tick}
+      data-tick={tick}
       data-running={running}
     >
       <header className={css.header}>
         <div>
-          <span className={css.eyebrow}>EXECUTION / {stage.id.toUpperCase()}</span>
-          <h2>{recipe.objective}</h2>
-          <p>
-            Workflow replay · training telemetry simulated · local record checks executed
-          </p>
+          <span className={css.fig}>FIGURE 04B · SYNTHETIC DATA QC</span>
+          <h3>Synthetic data QC</h3>
         </div>
-        <div className={css.status} role="status">
-          <i aria-hidden="true" />
-          {status}
-          <small>STEP {Math.floor(step).toLocaleString("en-US")}</small>
+        <div className={css.state}>
+          <code>batch {batch}</code>
+          <span className={css.chip} data-pinned={pinnedBatch !== undefined || undefined}>
+            {pinnedBatch === undefined ? "following" : "pinned"}
+          </span>
+          <span className={css.chip} data-tone="hold">
+            0 admitted
+          </span>
+          <span className="srOnly">
+            {pinnedBatch === undefined
+              ? `Following replay batches · ${BATCH_SECONDS}-second cadence`
+              : "Batch pinned for inspection"}
+            . {recipe.caveat} Local templates include deliberate duplicate and
+            invalid-reference controls; passing them does not establish semantic quality.
+          </span>
         </div>
       </header>
 
-      <div className={css.context}>
-        <span>{profile.backbone.name}</span>
-        <span>
-          {profile.gpus} × {profile.accelerator.name}
-        </span>
-        <span>
-          {config.precision.toUpperCase()} ·{" "}
-          {config.trainable === "full" ? "Full parameter" : "LoRA"}
-        </span>
-        <span>Global batch {config.globalBatch}</span>
-        <span>Worker connection: unattached</span>
-      </div>
-
-      <ol className={css.flow} aria-label="Execution phases">
-        {recipe.phases.map((item, index) => (
-          <li
-            key={item.name}
-            data-active={index === snapshot.phase}
-            data-inspected={index === active}
-          >
-            <button
-              type="button"
-              aria-pressed={index === active}
-              onClick={() => setInspected(index)}
-            >
-              <span className={css.phaseIndex}>
-                {String(index + 1).padStart(2, "0")}
-                <small>
-                  {index === snapshot.phase
-                    ? running
-                      ? "ACTIVE"
-                      : "HELD"
-                    : index < snapshot.phase
-                      ? "TRAVERSED"
-                      : "QUEUED"}
-                </small>
-              </span>
-              <strong>{item.name}</strong>
-              <span className={css.track}>
-                <span
-                  style={{
-                    width: `${index < snapshot.phase ? 100 : index === snapshot.phase ? snapshot.phaseProgress * 100 : 0}%`,
-                  }}
-                />
-              </span>
-            </button>
-          </li>
-        ))}
-      </ol>
-
-      <div className={css.inspector}>
-        <div>
-          <span className={css.eyebrow}>
-            {inspected === undefined ? "FOLLOWING EXECUTION" : "PHASE INSPECTION"}
-          </span>
-          <h3>{phase.name}</h3>
-          <p>{phase.operation}</p>
-        </div>
-        <div>
-          <span className={css.eyebrow}>OUTPUT CONTRACT</span>
-          <p>{phase.output}</p>
-          <button
-            type="button"
-            disabled={inspected === undefined}
-            onClick={() => setInspected(undefined)}
-          >
-            Follow execution
-          </button>
-        </div>
-      </div>
-
-      <div className={css.toolbar}>
-        <div className={css.tabs} role="group" aria-label="Execution analysis">
-          {(
-            [
-              ["diagnostics", "Training diagnostics"],
-              ["synthetic", "Synthetic data QC"],
-              ["evaluation", "Evaluation gates"],
-            ] as const
-          ).map(([id, label]) => (
-            <button
-              key={id}
-              type="button"
-              aria-pressed={tab === id}
-              onClick={() => setTab(id)}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-        <label>
-          Diagnostic scenario
-          <select
-            value={scenario}
-            onChange={(event) => setScenario(event.target.value as DiagnosticScenario)}
-          >
-            {SCENARIOS.map(([id, label]) => (
-              <option key={id} value={id}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-
-      {tab === "diagnostics" && (
-        <div className={css.diagnostics}>
-          <div className={css.metrics}>
-            <div>
-              <span>{recipe.diagnostics[0]}</span>
-              <strong>
-                {snapshot.wait.toFixed(1)}
-                <small>%</small>
-              </strong>
-              <svg
-                viewBox="0 0 230 70"
-                role="img"
-                aria-label={`Share of each step spent waiting, last 24 steps, scale 0–${traceMax.toFixed(0)} %`}
+      {candidate ? (
+        <div className={css.layout} data-batch={batch}>
+          <div className={css.left}>
+            <QcFlow counts={counts} total={candidates.length} />
+            <div className={css.matrixWrap}>
+              <div className={css.matrixRows} aria-hidden="true">
+                <span>v0</span>
+                <span>v1</span>
+              </div>
+              <div
+                className={css.matrix}
+                role="group"
+                aria-label="Synthetic candidates"
+                style={{ gridTemplateColumns: `repeat(${records}, minmax(0, 1fr))` }}
               >
-                <path d="M0 65H230 M0 35H230 M0 5H230" className={css.grid} />
-                <polyline points={points} />
-              </svg>
+                {candidates.map((item, index) => (
+                  <button
+                    type="button"
+                    key={item.id}
+                    className={css.cell}
+                    data-decision={item.decision}
+                    aria-pressed={candidate.id === item.id}
+                    aria-label={`${item.id} ${DECISION[item.decision].label}`}
+                    onClick={() => {
+                      setPinnedBatch(batch);
+                      setSelected(index);
+                    }}
+                  >
+                    <span aria-hidden="true">{DECISION[item.decision].short}</span>
+                  </button>
+                ))}
+              </div>
             </div>
-            <div>
-              <span>{recipe.diagnostics[1]}</span>
-              <strong>
-                {snapshot.secondary.toFixed(1)}
-                <small>%</small>
-              </strong>
-              <p>
-                {stage.id === "rl"
-                  ? "Prompt groups with no reward variation"
-                  : "Illustrative batch composition"}
-              </p>
-            </div>
-            <div>
-              <span>{recipe.diagnostics[2]}</span>
-              <strong>{snapshot.tertiary.toFixed(3)}</strong>
-              <p>
-                {stage.id === "rl"
-                  ? "Tokens affected by policy clipping"
-                  : "Global L2 norm before clipping"}
-              </p>
-            </div>
-            <div>
-              <span>Learning rate</span>
-              <strong>{snapshot.learningRate.toExponential(2)}</strong>
-              <p>Configured warmup → cosine decay</p>
-            </div>
-          </div>
-          <div className={css.diagnosticNote} data-alert={scenario !== "nominal"}>
-            <strong>
-              {scenario === "input-stall"
-                ? "Input starvation · update dispatch waiting"
-                : scenario === "quality-regression"
-                  ? stage.id === "rl"
-                    ? "Reward collapse · inspect zero-variance groups"
-                    : "Gradient excursion · inspect data and loss scaling"
-                  : "Optimizer trace · nominal scenario"}
-            </strong>
-            <p>
-              {scenario === "input-stall"
-                ? "The replay holds at input dispatch. Inspect shard availability, preprocessing latency and prefetch depth before increasing worker count."
-                : scenario === "quality-regression"
-                  ? "This injected diagnostic affects this panel only. Compare the failed slice and verifier outputs before accepting an update; the recorded evaluation gates remain unchanged."
-                  : `Proposed execution: ${config.trainable === "full" ? "parameter, gradient and optimizer-state sharding" : "frozen backbone with trainable adapters"}; activation checkpointing and gradient accumulation. Kernel support and memory must be measured on the selected device.`}
-            </p>
-            <small>
-              Scenario diagnostics are illustrative; they do not change the run
-              configuration or claim a worker failure.
-            </small>
-          </div>
-        </div>
-      )}
-
-      {tab === "synthetic" && (
-        <div className={css.synthetic} data-batch={batch}>
-          <div className={css.batchHeader}>
-            <div>
-              <h3>Source-grounded candidate batch</h3>
-              <p>
-                Template generation · {candidates.length} candidates · {review} awaiting
-                review · {candidates.length - review} rejected · 0 admitted
-              </p>
-              <p>
-                {pinnedBatch === undefined
-                  ? "Following replay batches · 18-second cadence"
-                  : "Batch pinned for inspection"}
-              </p>
-            </div>
-            <div className={css.batchActions}>
+            <div className={css.actions}>
               <button
                 type="button"
                 disabled={pinnedBatch === undefined}
@@ -302,105 +281,65 @@ export function ExecutionMonitor({
               </button>
             </div>
           </div>
-          <p className={css.note}>
-            Local templates include deliberate duplicate and invalid-reference controls.
-            Passing these checks does not establish semantic quality. Admission requires
-            source-group split assignment and independent review.
-          </p>
-          {candidate ? (
-            <div className={css.candidateLayout}>
-              <div
-                className={css.candidates}
-                role="group"
-                aria-label="Synthetic candidates"
-              >
-                {candidates.map((item, index) => (
-                  <button
-                    type="button"
-                    key={item.id}
-                    aria-pressed={candidate.id === item.id}
-                    onClick={() => {
-                      setPinnedBatch(batch);
-                      setSelected(index);
-                    }}
-                  >
-                    <code>{item.id}</code>
-                    <span data-decision={item.decision}>
-                      {item.decision === "review"
-                        ? "Awaiting review"
-                        : item.decision === "duplicate"
-                          ? "Exact duplicate"
-                          : "Invalid reference"}
-                    </span>
-                  </button>
-                ))}
-              </div>
-              <div className={css.record}>
-                <span className={css.eyebrow}>RECORD / {candidate.generator}</span>
-                <dl>
-                  <dt>Source</dt>
-                  <dd>
-                    {candidate.sourceId} · {candidate.nodeId}
-                  </dd>
-                  <dt>Instruction</dt>
-                  <dd>{candidate.prompt}</dd>
-                  <dt>Candidate target</dt>
-                  <dd>{candidate.response}</dd>
-                  <dt>QC decision</dt>
-                  <dd>
-                    {candidate.decision === "review"
-                      ? "Entity reference resolved. Quarantined pending source split and target review."
-                      : candidate.decision === "duplicate"
-                        ? "Rejected: identical source, instruction and response already occur in this batch."
-                        : "Rejected: target node does not exist in the source sample registry."}
-                  </dd>
-                  <dt>Unexecuted checks</dt>
-                  <dd>Semantic deduplication · contamination audit · expert review</dd>
-                </dl>
-              </div>
-            </div>
-          ) : (
-            <p>No source samples are available. Candidate generation is disabled.</p>
-          )}
-        </div>
-      )}
 
-      {tab === "evaluation" && (
-        <div className={css.evaluation}>
-          <div className={css.batchHeader}>
-            <div>
-              <h3>Checkpoint acceptance</h3>
-              <p>
-                Simulated evaluation at step{" "}
-                {snapshot.evaluationStep.toLocaleString("en-US")} · values update on
-                evaluation completion
-              </p>
+          <div
+            className={css.record}
+            role="group"
+            aria-label={`Candidate ${candidate.id}: ${DECISION[candidate.decision].label}`}
+          >
+            <div className={css.recordHead}>
+              <code>{candidate.id}</code>
+              <span className={css.decision} data-decision={candidate.decision}>
+                {DECISION[candidate.decision].label}
+              </span>
             </div>
-            <span className={css.hold}>Production release: unvalidated</span>
+            <dl className={css.fields}>
+              <dt>source</dt>
+              <dd>
+                <code>
+                  {candidate.sourceId} · {candidate.nodeId}
+                </code>
+              </dd>
+              <dt>prompt</dt>
+              <dd>
+                <code>{candidate.prompt}</code>
+              </dd>
+              <dt>target</dt>
+              <dd>
+                <code>{candidate.response}</code>
+              </dd>
+              <dt>generator</dt>
+              <dd>
+                <code>{candidate.generator}</code>
+              </dd>
+            </dl>
+            <ol className={css.checks} aria-label="QC gates">
+              {checksFor(candidate).map(([label, state]) => (
+                <li key={label} data-state={state}>
+                  <i aria-hidden="true">{CHECK_GLYPH[state]}</i>
+                  <span>{label}</span>
+                  <span className="srOnly">
+                    {state === "pass"
+                      ? " passed"
+                      : state === "fail"
+                        ? " failed"
+                        : " not run"}
+                  </span>
+                </li>
+              ))}
+            </ol>
           </div>
-          <div className={css.gates}>
-            {snapshot.gates.map((gate) => (
-              <div key={gate.label}>
-                <span>{gate.label}</span>
-                <strong>{gate.value.toFixed(gate.digits)}</strong>
-                <span>
-                  Target {gate.direction === "up" ? "≥" : "≤"}{" "}
-                  {gate.target.toFixed(gate.digits)}
-                </span>
-                <b data-pass={gate.pass}>{gate.pass ? "Replay pass" : "Replay hold"}</b>
-              </div>
-            ))}
-          </div>
-          <p>{recipe.evaluation}</p>
-          <p className={css.note}>
-            No measured benchmark run, confidence interval or serving profile is attached.
-            Simulated gates cannot authorize production release.
-          </p>
         </div>
+      ) : (
+        <p className={css.empty}>
+          <span aria-hidden="true">0 source records</span>
+          <span className="srOnly">
+            No source samples are available. Candidate generation is disabled.
+          </span>
+        </p>
       )}
 
       <footer className={css.footer}>
-        <p>{recipe.caveat}</p>
         <details>
           <summary>Method references · verified 18 Sep 2026</summary>
           <div>

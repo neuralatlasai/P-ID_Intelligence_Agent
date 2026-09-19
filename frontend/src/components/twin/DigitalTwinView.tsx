@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 
 import { SimulatedBadge } from "@/components/canvas/AssetPanels";
 import type { PlantRegister } from "@/lib/canvas/engineering";
@@ -9,6 +9,7 @@ import type { CanvasDrawing, DrawingNode } from "@/lib/canvas/model";
 import {
   exchangerState,
   mapScene,
+  resolveAnchor,
   SCENARIOS,
   scenarioTrend,
   type ExchangerState,
@@ -17,16 +18,20 @@ import {
   type ScenarioId,
 } from "@/lib/twin/scene";
 
+import { ProcessView } from "./ProcessViews";
 import type { PartTint } from "./TwinModel";
 import styles from "./DigitalTwin.module.css";
 
 /**
- * The digital twin view: field photograph, 3D model and P&ID, joined by one mapping.
+ * The digital twin view: field photograph, 3D model and P&ID, joined by one mapping — for
+ * each of several field scenes, chosen from a filmstrip.
  *
  * Selecting a component in any of the three — a box on the photo, a part of the model, a
- * row of the table — selects it in all of them and shows where it sits on the drawing. The
- * scenario panel runs the exchanger model over a shift and lights up the components each
- * failure acts on, in the photo and the model at once.
+ * row of the table — selects it in all of them and shows where it sits on the drawing.
+ * Selecting a scene swaps all of them at once. The process panel follows the asset class:
+ * the exchanger runs its ε-NTU model over a shift and lights up the components each failure
+ * acts on; a vessel, a valve or an instrument gets the one relation that describes it, and
+ * never the exchanger's physics.
  */
 
 // three.js is only paid for when the twin is opened.
@@ -34,6 +39,9 @@ const TwinModel = dynamic(() => import("./TwinModel"), {
   ssr: false,
   loading: () => <div className={styles.modelFallback}>Loading 3D model…</div>,
 });
+
+/** The query parameter that remembers the open scene across a reload. */
+const SCENE_PARAM = "twin";
 
 interface Kpi {
   readonly key: keyof ExchangerState;
@@ -65,6 +73,8 @@ const SEVERITY_WORD: Record<PartTint, string> = {
   warn: "Degrading",
   alarm: "Failure acting",
 };
+
+const NO_TINTS: ReadonlyMap<string, PartTint> = new Map();
 
 function severity(scenario: ScenarioId, hour: number): PartTint | undefined {
   const t = hour / 24;
@@ -103,6 +113,9 @@ function nodesFor(component: MappedComponent, register: PlantRegister): readonly
   }
   return [];
 }
+
+const nodeOf = (m: MappedComponent) =>
+  m.target.kind === "asset" || m.target.kind === "part" ? m.target.nodeId : undefined;
 
 /** The drawing around a component, cut from the real sheet, with the component ringed. */
 function DrawingCrop({
@@ -244,10 +257,114 @@ function TrendChart({
   );
 }
 
+interface SceneEntry {
+  readonly scene: FieldScene;
+  readonly anchorId: string | undefined;
+  readonly mapped: readonly MappedComponent[];
+}
+
+/**
+ * The scene filmstrip. One toggle button per scene in a single tab stop: the arrow keys,
+ * Home and End move along the strip and open the scene they land on, as a tab list does.
+ * The strip scrolls sideways inside itself on a narrow screen; the page never does.
+ */
+function SceneStrip({
+  entries,
+  active,
+  onChoose,
+  tagOf,
+}: {
+  readonly entries: readonly SceneEntry[];
+  readonly active: string;
+  readonly onChoose: (id: string) => void;
+  readonly tagOf: (nodeId: string) => string | undefined;
+}) {
+  const buttons = useRef<(HTMLButtonElement | null)[]>([]);
+  const move = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
+    const last = entries.length - 1;
+    const next =
+      event.key === "ArrowRight" || event.key === "ArrowDown"
+        ? index === last
+          ? 0
+          : index + 1
+        : event.key === "ArrowLeft" || event.key === "ArrowUp"
+          ? index === 0
+            ? last
+            : index - 1
+          : event.key === "Home"
+            ? 0
+            : event.key === "End"
+              ? last
+              : undefined;
+    if (next === undefined) return;
+    event.preventDefault();
+    buttons.current[next]?.focus();
+    onChoose(entries[next]!.scene.id);
+  };
+
+  return (
+    <div className={styles.strip} role="group" aria-label="Field scenes">
+      <ol>
+        {entries.map(({ scene, anchorId, mapped }, index) => {
+          const isActive = scene.id === active;
+          const mappedCount = mapped.filter((m) => m.target.kind !== "unmapped").length;
+          const tag = anchorId ? (tagOf(anchorId) ?? anchorId) : scene.preferredAnchors[0];
+          return (
+            <li key={scene.id}>
+              <button
+                ref={(element) => {
+                  buttons.current[index] = element;
+                }}
+                className={styles.stripItem}
+                aria-pressed={isActive}
+                tabIndex={isActive ? 0 : -1}
+                onClick={() => onChoose(scene.id)}
+                onKeyDown={(event) => move(event, index)}
+              >
+                {/* The same photograph, drawn small: the thumbnail costs no extra download. */}
+                {/* eslint-disable-next-line @next/next/no-img-element -- a static public asset shown at thumbnail size; the optimiser would fetch a second copy */}
+                <img src={scene.image} alt="" loading="lazy" decoding="async" />
+                <span className={styles.stripText}>
+                  <span className={styles.stripTag}>{tag}</span>
+                  <span className={styles.stripClass}>{scene.equipment}</span>
+                  <span className={styles.stripCounts}>
+                    {anchorId ? (
+                      <>
+                        {scene.detections.length} detections · {mappedCount} mapped
+                        {mapped.length - mappedCount > 0 && (
+                          <>
+                            {" "}
+                            · <em>{mapped.length - mappedCount} unmapped</em>
+                          </>
+                        )}
+                      </>
+                    ) : (
+                      <>{scene.detections.length} detections · not on this sheet</>
+                    )}
+                  </span>
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ol>
+    </div>
+  );
+}
+
+function initialScene(scenes: readonly FieldScene[]): string {
+  const fallback = scenes[0]!.id;
+  if (typeof window === "undefined") return fallback;
+  try {
+    const wanted = new URL(window.location.href).searchParams.get(SCENE_PARAM);
+    return scenes.find((scene) => scene.id === wanted)?.id ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 export function DigitalTwinView({
-  scene,
-  anchorId,
-  anchorConfirmed,
+  scenes,
   drawing,
   register,
   adjacency,
@@ -258,10 +375,8 @@ export function DigitalTwinView({
   onShowOnDrawing,
   onAsk,
 }: {
-  readonly scene: FieldScene;
-  readonly anchorId: string | undefined;
-  /** True when the anchor is a symbol the scene names, not the best guess on this sheet. */
-  readonly anchorConfirmed: boolean;
+  /** The scenes the filmstrip offers, the default first. */
+  readonly scenes: readonly FieldScene[];
   readonly drawing: CanvasDrawing;
   readonly register: PlantRegister;
   readonly adjacency: ReadonlyMap<string, readonly string[]>;
@@ -273,20 +388,39 @@ export function DigitalTwinView({
   readonly onShowOnDrawing: (nodeId: string) => void;
   readonly onAsk: (question: string) => void;
 }) {
-  const mapped = useMemo(
-    () => (anchorId ? mapScene(scene, anchorId, drawing, register, adjacency) : []),
-    [scene, anchorId, drawing, register, adjacency],
+  // Every scene is resolved and mapped up front: the filmstrip shows each one's counts, and
+  // the whole set is a few hundred graph steps.
+  const entries = useMemo<readonly SceneEntry[]>(
+    () =>
+      scenes.map((scene) => {
+        const anchorId = resolveAnchor(scene, drawing, adjacency);
+        return {
+          scene,
+          anchorId,
+          mapped: anchorId ? mapScene(scene, anchorId, drawing, register, adjacency) : [],
+        };
+      }),
+    [scenes, drawing, register, adjacency],
   );
-  const byId = useMemo(() => new Map(mapped.map((m) => [m.detection.id, m])), [mapped]);
   const nodeById = useMemo(() => new Map(drawing.nodes.map((n) => [n.id, n])), [drawing]);
 
-  const [selected, setSelected] = useState<string>(scene.detections[0]!.id);
+  const [sceneId, setSceneId] = useState(() => initialScene(scenes));
+  const entry = entries.find((e) => e.scene.id === sceneId) ?? entries[0]!;
+  const { scene, anchorId, mapped } = entry;
+  const byId = useMemo(() => new Map(mapped.map((m) => [m.detection.id, m])), [mapped]);
+
+  // A selection belongs to the scene it was made in; another scene opens on its first part.
+  const [selection, setSelection] = useState<{ scene: string; id: string }>();
+  const selected = selection?.scene === scene.id ? selection.id : scene.detections[0]!.id;
+  const setSelected = (id: string) => setSelection({ scene: scene.id, id });
+
   const [boxHover, setBoxHover] = useState<string>();
   const [labels, setLabels] = useState(true);
   const [scenario, setScenario] = useState<ScenarioId>("normal");
   const [hour, setHour] = useState(24);
   const [playing, setPlaying] = useState(false);
   const [kpiKey, setKpiKey] = useState<keyof ExchangerState>("shellOutletC");
+  const isExchanger = scene.process.kind === "exchanger";
 
   useEffect(() => {
     if (!playing) return;
@@ -303,33 +437,67 @@ export function DigitalTwinView({
     return () => window.clearInterval(timer);
   }, [playing]);
 
+  const chooseScene = (id: string) => {
+    setSceneId(id);
+    setBoxHover(undefined);
+    setPlaying(false);
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set(SCENE_PARAM, id);
+      window.history.replaceState(window.history.state, "", url);
+    } catch {
+      // A sandboxed frame may refuse history writes; the choice still holds for the session.
+    }
+  };
+
   const scenarioInfo = SCENARIOS.find((s) => s.id === scenario)!;
-  const level = severity(scenario, hour);
+  const level = isExchanger ? severity(scenario, hour) : undefined;
   // Stable between ticks of the same severity, so the 3D model repaints only on a change.
   const tints = useMemo(
     () =>
-      new Map<string, PartTint>(
-        level ? scenarioInfo.affects.map((id) => [id, level] as const) : [],
-      ),
+      level
+        ? new Map<string, PartTint>(scenarioInfo.affects.map((id) => [id, level] as const))
+        : NO_TINTS,
     [scenarioInfo, level],
+  );
+
+  const strip = (
+    <SceneStrip entries={entries} active={scene.id} onChoose={chooseScene} tagOf={tagOf} />
   );
 
   const anchor = anchorId ? register.assets.get(anchorId) : undefined;
   if (!anchorId || !anchor) {
     return (
       <div className={styles.twin}>
+        {strip}
         <div className={styles.empty}>
-          <strong>No vessel on this sheet to anchor the twin on</strong>
-          <p>
-            The field scene depicts a shell-and-tube exchanger. Open a sheet that carries a
-            vessel symbol — the OPEN100 main steam sheet anchors it on its steam generator.
-          </p>
+          {scene.anchorRule === "registered" ? (
+            <>
+              <strong>{scene.equipment} is not registered on this sheet</strong>
+              <p>
+                This photograph is registered to symbol{" "}
+                <code>{scene.preferredAnchors[0]}</code> on the OPEN100 main steam sheet
+                only. A photograph of one item says nothing about another, so no symbol here
+                is substituted for it.
+              </p>
+            </>
+          ) : (
+            <>
+              <strong>No vessel on this sheet to anchor the twin on</strong>
+              <p>
+                The field scene depicts a shell-and-tube exchanger. Open a sheet that
+                carries a vessel symbol — the OPEN100 main steam sheet anchors it on its
+                steam generator.
+              </p>
+            </>
+          )}
         </div>
       </div>
     );
   }
 
   const anchorTag = tagOf(anchorId) ?? anchor.tag;
+  const anchorConfirmed = scene.preferredAnchors.includes(anchorId);
   const component = byId.get(selected);
   const state = exchangerState(scenario, hour / 24);
   const normal = exchangerState("normal", hour / 24);
@@ -343,8 +511,6 @@ export function DigitalTwinView({
     const tag = node ? tagOf(node) : undefined;
     return `${m.detection.id} ${m.detection.label} → ${tag ?? targetText(m)}`;
   };
-  const nodeOf = (m: MappedComponent) =>
-    m.target.kind === "asset" || m.target.kind === "part" ? m.target.nodeId : undefined;
   const displayTarget = (m: MappedComponent) => {
     const node = nodeOf(m);
     const printed = node ? tagOf(node) : undefined;
@@ -381,8 +547,13 @@ export function DigitalTwinView({
     }
   };
 
+  const selectedSummary = component
+    ? `Selected: ${nameOf(component.detection.id)}.`
+    : "Nothing selected.";
+
   return (
     <div className={styles.twin}>
+      {strip}
       <header className={styles.head}>
         <div>
           <h2>
@@ -391,6 +562,9 @@ export function DigitalTwinView({
           <p>
             {hierarchy} · {mappedCount} of {mapped.length} field components mapped to{" "}
             {sheet}
+          </p>
+          <p className={styles.duty}>
+            {scene.equipment}. {scene.duty}
           </p>
         </div>
         <div className={styles.headBadges}>
@@ -404,6 +578,7 @@ export function DigitalTwinView({
           the vessel joined to the most equipment, as a working hypothesis.
         </p>
       )}
+      {scene.caveat && <p className={styles.caution}>{scene.caveat}</p>}
 
       <div className={styles.views}>
         <section className={styles.card} aria-label="Field image with detections">
@@ -417,7 +592,7 @@ export function DigitalTwinView({
             className={styles.photo}
             viewBox={`0 0 ${scene.imageWidth} ${scene.imageHeight}`}
             role="group"
-            aria-label="Field photograph. Each detected component is a selectable box."
+            aria-label={`Generated field photograph of the ${scene.equipment.toLowerCase()}. Each of the ${scene.detections.length} detected components is a selectable box. ${selectedSummary}`}
           >
             <image href={scene.image} width={scene.imageWidth} height={scene.imageHeight} />
             {scene.detections.map((d) => {
@@ -427,6 +602,10 @@ export function DigitalTwinView({
               const node = m ? nodeOf(m) : undefined;
               const chip = `${d.id} · ${node ? (tagOf(node) ?? "") : m?.target.kind === "line" ? m.target.number : d.label}`;
               const show = labels || d.id === selected || d.id === boxHover;
+              // Chips sit above their box, or inside it when the box touches the top edge.
+              const chipY = y0 >= 30 ? y0 - 30 : y0 + 2;
+              const chipWidth = chip.length * 12.5 + 18;
+              const chipX = Math.min(x0, scene.imageWidth - chipWidth);
               return (
                 <g
                   key={d.id}
@@ -444,10 +623,10 @@ export function DigitalTwinView({
                 >
                   <rect x={x0} y={y0} width={x1 - x0} height={y1 - y0} rx={6} />
                   {show && (
-                    <g transform={`translate(${x0}, ${Math.max(0, y0 - 30)})`}>
+                    <g transform={`translate(${chipX}, ${chipY})`}>
                       <rect
                         className={styles.chipBg}
-                        width={chip.length * 12.5 + 18}
+                        width={chipWidth}
                         height={28}
                         rx={5}
                       />
@@ -468,15 +647,17 @@ export function DigitalTwinView({
             <span className={styles.muted}>Procedural · parts share detection ids</span>
           </header>
           <TwinModel
+            sceneId={scene.id}
             selected={selected}
             tints={tints}
             onSelect={setSelected}
             labelOf={nameOf}
+            summary={`Procedural 3D model of the ${scene.equipment.toLowerCase()}, ${anchorTag}. ${selectedSummary}`}
           />
         </section>
       </div>
 
-      <div className={styles.details}>
+      <div className={styles.details} data-layout={isExchanger ? "exchanger" : "pair"}>
         <section className={styles.card} aria-label="Selected component">
           <header>
             <h3>Selected component</h3>
@@ -530,7 +711,7 @@ export function DigitalTwinView({
                     className={styles.primaryAction}
                     onClick={() =>
                       onAsk(
-                        `On ${sheet}, the field photo component "${component.detection.label}" maps to ${displayTarget(component)} of ${anchorTag}. Explain what it does, everything it is connected to, how it is most likely to fail and what each failure would do to ${anchorTag}'s duty and outlet temperature.`,
+                        `On ${sheet}, the field photo component "${component.detection.label}" of the ${scene.equipment.toLowerCase()} maps to ${displayTarget(component)} of ${anchorTag}. Explain what it does, everything it is connected to, how it is most likely to fail and what each failure would do to ${anchorTag}'s ${scene.impact}.`,
                       )
                     }
                   >
@@ -542,127 +723,139 @@ export function DigitalTwinView({
           )}
         </section>
 
-        <section className={styles.card} aria-label="Process simulation">
-          <header>
-            <h3>Process simulation · ε-NTU</h3>
-            <SimulatedBadge />
-          </header>
-          <div className={styles.scenarios} role="group" aria-label="Scenario">
-            {SCENARIOS.map((s) => (
-              <button
-                key={s.id}
-                aria-pressed={scenario === s.id}
-                onClick={() => {
-                  setScenario(s.id);
-                  if (s.affects[0]) setSelected(s.affects[0]);
-                }}
-              >
-                {s.failureCode ? <b>{s.failureCode}</b> : null}
-                {s.name}
-              </button>
-            ))}
-          </div>
-          <p className={styles.muted}>{scenarioInfo.summary}</p>
-          <div className={styles.clock}>
-            <button
-              onClick={() => {
-                if (hour >= 24) setHour(0);
-                setPlaying((v) => !v);
-              }}
-            >
-              {playing ? "Pause" : "Play shift"}
-            </button>
-            <label>
-              <span className="srOnly">Hour of shift</span>
-              <input
-                type="range"
-                min={0}
-                max={24}
-                step={0.5}
-                value={hour}
-                onChange={(event) => {
-                  setPlaying(false);
-                  setHour(Number(event.target.value));
-                }}
-              />
-            </label>
-            <output>
-              {String(Math.floor(hour)).padStart(2, "0")}:{hour % 1 ? "30" : "00"}
-            </output>
-          </div>
-          <div className={styles.kpis}>
-            {KPIS.map((k) => {
-              const value = state[k.key];
-              const off = value < k.band[0] || value > k.band[1];
-              const delta = value - normal[k.key];
-              return (
+        {scene.process.kind !== "exchanger" ? (
+          <ProcessView
+            key={scene.id}
+            spec={scene.process}
+            anchor={anchor}
+            register={register}
+            tagOf={tagOf}
+          />
+        ) : (
+          <>
+            <section className={styles.card} aria-label="Process simulation">
+              <header>
+                <h3>Process simulation · ε-NTU</h3>
+                <SimulatedBadge />
+              </header>
+              <div className={styles.scenarios} role="group" aria-label="Scenario">
+                {SCENARIOS.map((s) => (
+                  <button
+                    key={s.id}
+                    aria-pressed={scenario === s.id}
+                    onClick={() => {
+                      setScenario(s.id);
+                      if (s.affects[0]) setSelected(s.affects[0]);
+                    }}
+                  >
+                    {s.failureCode ? <b>{s.failureCode}</b> : null}
+                    {s.name}
+                  </button>
+                ))}
+              </div>
+              <p className={styles.muted}>{scenarioInfo.summary}</p>
+              <div className={styles.clock}>
                 <button
-                  key={k.key}
-                  className={styles.kpi}
-                  data-off={off || undefined}
-                  aria-pressed={kpiKey === k.key}
-                  onClick={() => setKpiKey(k.key)}
-                  title="Plot this variable"
+                  onClick={() => {
+                    if (hour >= 24) setHour(0);
+                    setPlaying((v) => !v);
+                  }}
                 >
-                  <small>{k.label}</small>
-                  <strong>
-                    {format(value, k.digits)} <span>{k.unit}</span>
-                  </strong>
-                  <em>
-                    {scenario === "normal" || Math.abs(delta) < 10 ** -k.digits
-                      ? off
-                        ? "Out of band"
-                        : "In band"
-                      : `${delta > 0 ? "+" : "−"}${format(Math.abs(delta), k.digits)} vs clean`}
-                  </em>
+                  {playing ? "Pause" : "Play shift"}
                 </button>
-              );
-            })}
-          </div>
-        </section>
+                <label>
+                  <span className="srOnly">Hour of shift</span>
+                  <input
+                    type="range"
+                    min={0}
+                    max={24}
+                    step={0.5}
+                    value={hour}
+                    onChange={(event) => {
+                      setPlaying(false);
+                      setHour(Number(event.target.value));
+                    }}
+                  />
+                </label>
+                <output>
+                  {String(Math.floor(hour)).padStart(2, "0")}:{hour % 1 ? "30" : "00"}
+                </output>
+              </div>
+              <div className={styles.kpis}>
+                {KPIS.map((k) => {
+                  const value = state[k.key];
+                  const off = value < k.band[0] || value > k.band[1];
+                  const delta = value - normal[k.key];
+                  return (
+                    <button
+                      key={k.key}
+                      className={styles.kpi}
+                      data-off={off || undefined}
+                      aria-pressed={kpiKey === k.key}
+                      onClick={() => setKpiKey(k.key)}
+                      title="Plot this variable"
+                    >
+                      <small>{k.label}</small>
+                      <strong>
+                        {format(value, k.digits)} <span>{k.unit}</span>
+                      </strong>
+                      <em>
+                        {scenario === "normal" || Math.abs(delta) < 10 ** -k.digits
+                          ? off
+                            ? "Out of band"
+                            : "In band"
+                          : `${delta > 0 ? "+" : "−"}${format(Math.abs(delta), k.digits)} vs clean`}
+                      </em>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
 
-        <section className={styles.card} aria-label="Trend and diagnosis">
-          <header>
-            <h3>{kpi.label} · 24 h</h3>
-            <span className={styles.muted}>Band shaded · dashed = clean</span>
-          </header>
-          <TrendChart scenario={scenario} kpi={kpi} hour={hour} />
-          <h4>
-            Diagnosis at {String(Math.floor(hour)).padStart(2, "0")}:
-            {hour % 1 ? "30" : "00"}
-          </h4>
-          {findings.length ? (
-            <ul className={styles.findings}>
-              {findings.map((f) => (
-                <li key={f}>{f}.</li>
-              ))}
-              {level && (
-                <li>
-                  Consistent with ISO 14224 {scenarioInfo.failureCode} (
-                  {scenarioInfo.name.toLowerCase()}); acting on{" "}
-                  {scenarioInfo.affects
-                    .map((id) => byId.get(id)?.detection.label ?? id)
-                    .join(", ")}
-                  .
-                </li>
+            <section className={styles.card} aria-label="Trend and diagnosis">
+              <header>
+                <h3>{kpi.label} · 24 h</h3>
+                <span className={styles.muted}>Band shaded · dashed = clean</span>
+              </header>
+              <TrendChart scenario={scenario} kpi={kpi} hour={hour} />
+              <h4>
+                Diagnosis at {String(Math.floor(hour)).padStart(2, "0")}:
+                {hour % 1 ? "30" : "00"}
+              </h4>
+              {findings.length ? (
+                <ul className={styles.findings}>
+                  {findings.map((f) => (
+                    <li key={f}>{f}.</li>
+                  ))}
+                  {level && (
+                    <li>
+                      Consistent with ISO 14224 {scenarioInfo.failureCode} (
+                      {scenarioInfo.name.toLowerCase()}); acting on{" "}
+                      {scenarioInfo.affects
+                        .map((id) => byId.get(id)?.detection.label ?? id)
+                        .join(", ")}
+                      .
+                    </li>
+                  )}
+                </ul>
+              ) : (
+                <p className={styles.muted}>All six variables inside their normal bands.</p>
               )}
-            </ul>
-          ) : (
-            <p className={styles.muted}>All six variables inside their normal bands.</p>
-          )}
-          {scenario !== "normal" && (
-            <button
-              className={styles.askScenario}
-              onClick={() =>
-                onAsk(
-                  `${anchorTag} (${anchor.name}) on ${sheet} is showing ${scenarioInfo.name.toLowerCase()}: ${findings.join("; ") || "no deviation yet"}. Using the drawing, list the connected valves, instruments and lines that would detect or be affected by this, and recommend the isolation and inspection steps in order.`,
-                )
-              }
-            >
-              Ask agent about this scenario
-            </button>
-          )}
-        </section>
+              {scenario !== "normal" && (
+                <button
+                  className={styles.askScenario}
+                  onClick={() =>
+                    onAsk(
+                      `${anchorTag} (${anchor.name}) on ${sheet} is showing ${scenarioInfo.name.toLowerCase()}: ${findings.join("; ") || "no deviation yet"}. Using the drawing, list the connected valves, instruments and lines that would detect or be affected by this, and recommend the isolation and inspection steps in order.`,
+                    )
+                  }
+                >
+                  Ask agent about this scenario
+                </button>
+              )}
+            </section>
+          </>
+        )}
       </div>
 
       <section className={styles.card} aria-label="Mapping register">
@@ -682,7 +875,7 @@ export function DigitalTwinView({
                 <th scope="col">P&ID target</th>
                 <th scope="col">Confidence</th>
                 <th scope="col">Basis</th>
-                <th scope="col">Scenario</th>
+                {isExchanger && <th scope="col">Scenario</th>}
               </tr>
             </thead>
             <tbody>
@@ -715,15 +908,17 @@ export function DigitalTwinView({
                     <td className={styles.muted}>
                       {m.target.kind === "unmapped" ? m.target.reason : m.basis}
                     </td>
-                    <td>
-                      {tint ? (
-                        <span className={styles.tint} data-tint={tint}>
-                          {SEVERITY_WORD[tint]}
-                        </span>
-                      ) : (
-                        "—"
-                      )}
-                    </td>
+                    {isExchanger && (
+                      <td>
+                        {tint ? (
+                          <span className={styles.tint} data-tint={tint}>
+                            {SEVERITY_WORD[tint]}
+                          </span>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
+                    )}
                   </tr>
                 );
               })}

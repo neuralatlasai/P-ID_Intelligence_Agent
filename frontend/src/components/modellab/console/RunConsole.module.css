@@ -35,12 +35,20 @@
   min-inline-size: 0;
 }
 
-.consoleTitle h2 {
+.consoleTitle h3 {
   margin: 0;
   color: var(--text-primary);
-  font-size: var(--text-2xl);
+  font-size: var(--text-lg);
   font-weight: var(--weight-semibold);
   line-height: var(--leading-tight);
+}
+
+.fig {
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--tracking-label);
 }
 
 .consoleTitle p {
@@ -138,19 +146,6 @@
   }
 }
 
-.progress {
-  inline-size: 100%;
-  block-size: 2px;
-  background: var(--bg-sunken);
-  overflow: hidden;
-}
-
-.progress span {
-  display: block;
-  block-size: 100%;
-  background: var(--accent-action);
-}
-
 .speed {
   display: flex;
   gap: var(--space-2);
@@ -165,10 +160,18 @@
 .blocked {
   margin: 0;
   padding: var(--space-5);
-  border: 1px dashed var(--border-strong);
+  border: 1px dotted var(--border-strong);
   border-radius: var(--radius-sm);
-  color: var(--text-secondary);
-  font-size: var(--text-md);
+}
+
+.blockedChip {
+  padding: 1px var(--space-2);
+  border: 1px solid var(--status-degraded-mark);
+  border-radius: var(--radius-xs);
+  background: var(--status-degraded-bg);
+  color: var(--status-degraded);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
 }
 
 /* ── shared controls ──────────────────────────────────────────────────────────────────── */
@@ -795,6 +798,15 @@
   background: var(--accent-action);
 }
 
+/* The step under the pointer in a chart or the log. */
+.trackCursor {
+  position: absolute;
+  inset-block: -1px;
+  inline-size: 0;
+  border-inline-start: 1px dashed var(--chart-crosshair);
+  pointer-events: none;
+}
+
 .trackScale {
   display: flex;
   justify-content: space-between;
@@ -861,6 +873,7 @@
 .log {
   position: relative;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 0;
   padding-block-start: var(--space-3);
   border-block-start: 1px solid var(--rule-subtle);
@@ -895,7 +908,7 @@
 }
 
 .logBody {
-  block-size: 400px;
+  block-size: 196px;
   overflow: auto;
   overscroll-behavior: contain;
   background: var(--bg-void);
@@ -917,13 +930,14 @@
 
 .logBody li {
   display: grid;
-  grid-template-columns: 7.5em 5.5em 4.5em minmax(0, 1fr);
+  grid-template-columns: 36px 7em 5em 4em minmax(0, 1fr);
+  align-items: baseline;
   gap: var(--space-3);
-  padding: 2px var(--space-3);
+  padding: 1px var(--space-3);
   color: var(--text-secondary);
   font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  line-height: 1.55;
+  font-size: var(--text-xs);
+  line-height: 1.5;
   animation: arrive var(--duration-panel) var(--easing-standard);
 }
 
@@ -966,6 +980,33 @@
 
 .logSource {
   color: var(--text-tertiary);
+}
+
+/* Where on the run timeline the line was written: the same track, in miniature. */
+.logRun {
+  position: relative;
+  align-self: center;
+  block-size: 6px;
+  border-block-end: 1px solid var(--chart-axis);
+}
+
+.logRun i {
+  position: absolute;
+  inset-block: 0;
+  inline-size: 0;
+  border-inline-start: 1px solid var(--ink-secondary);
+}
+
+.logBody li[data-level="WARNING"] .logRun i {
+  border-inline-start: 2px solid var(--status-degraded-mark);
+}
+
+.logBody li[data-level="ERROR"] .logRun i {
+  border-inline-start: 2px solid var(--status-down-mark);
+}
+
+.logBody li[data-source="checkpoint"] .logRun i {
+  border-inline-start-color: var(--ink-primary);
 }
 
 .logBody code {
@@ -1019,7 +1060,7 @@
 
 @media (min-width: 900px) {
   .tiles {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   }
 }
 
@@ -1031,7 +1072,7 @@
 
 @media (min-width: 1440px) {
   .tiles {
-    grid-template-columns: repeat(8, minmax(0, 1fr));
+    grid-template-columns: repeat(var(--tiles, 6), minmax(0, 1fr));
   }
 }
 
@@ -1050,11 +1091,15 @@
   }
 
   .logBody {
-    block-size: 320px;
+    block-size: 180px;
   }
 
   .logBody li {
-    grid-template-columns: 6.5em minmax(0, 1fr);
+    grid-template-columns: 28px minmax(0, 1fr);
+  }
+
+  .logBody time {
+    display: none;
   }
 
   .logBody li b,

@@ -1,4 +1,4 @@
-/* Run controls, lineage banner and freshness stamp. Uses the tokens defined on .app. */
+/* Run controls and freshness stamp. Uses the tokens defined on .app. */
 
 .controls {
   display: flex;
@@ -180,53 +180,6 @@
   cursor: not-allowed;
 }
 
-/* Weight lineage, in the same specification-note form as the simulation boundary. */
-.lineage {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-3);
-  margin: 0;
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
-  background: var(--bg-surface);
-  color: var(--text-secondary);
-  font-size: var(--text-base);
-  line-height: var(--leading-normal);
-}
-.lineage::before {
-  content: "WEIGHT LINEAGE";
-  flex: none;
-  min-width: 158px;
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  font-weight: var(--weight-medium);
-  letter-spacing: var(--tracking-label);
-  line-height: 19px;
-  color: var(--text-tertiary);
-}
-.lineage svg {
-  flex: none;
-  margin-top: 3px;
-  color: var(--text-tertiary);
-}
-/* The attribute selector carries enough specificity to beat the app-level link reset. */
-.lineage[data-state] a {
-  color: var(--text-link);
-  font-weight: var(--weight-semibold);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-/* An interim parent is a caveat, not an alarm: a dashed rule says "not final". */
-.lineage[data-state="interim"] {
-  border-style: dashed;
-  border-color: var(--border-strong);
-}
-.lineage[data-state="blocked"] {
-  border-color: var(--status-down-mark);
-  color: var(--status-down);
-}
-
 .freshness {
   display: inline-flex;
   align-items: center;
@@ -262,15 +215,5 @@
   }
   .freshness {
     display: none;
-  }
-}
-
-@media (max-width: 820px) {
-  .lineage {
-    flex-wrap: wrap;
-  }
-  .lineage::before {
-    flex-basis: 100%;
-    min-width: 0;
   }
 }

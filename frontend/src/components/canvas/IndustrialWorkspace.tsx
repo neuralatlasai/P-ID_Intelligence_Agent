@@ -57,6 +57,7 @@ import { DocumentViewer } from "@/components/canvas/DocumentViewer";
 import { ConnectedResponse } from "@/components/canvas/ConnectedResponse";
 import { TelemetryPanel } from "@/components/canvas/TelemetryPanel";
 import { HEAT_EXCHANGER_SCENE, resolveAnchor } from "@/lib/twin/scene";
+import { TWIN_SCENES } from "@/lib/twin/field-scenes";
 import { groupCounts, groupOf, GROUPS } from "@/lib/canvas/groups";
 import { fieldClassesFor } from "@/lib/investigation/model";
 import { DigitalTwinView } from "@/components/twin/DigitalTwinView";
@@ -947,9 +948,7 @@ export function IndustrialWorkspace({
 
           {view === "Twin" && (
             <DigitalTwinView
-              scene={HEAT_EXCHANGER_SCENE}
-              anchorId={twinAnchor}
-              anchorConfirmed={twinConfirmed}
+              scenes={TWIN_SCENES}
               drawing={drawing}
               register={plant}
               adjacency={adjacency}

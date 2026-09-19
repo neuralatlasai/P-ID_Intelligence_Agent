@@ -2,21 +2,41 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 
 import type { PlantRegister } from "@/lib/canvas/engineering";
 import type { CanvasDrawing, DrawingNode } from "@/lib/canvas/model";
+import { GROUP_SIZE } from "@/lib/modellab/config";
 import {
   verifierFindings,
+  type Finding,
   type InjectedError,
+  type PolicyErrorKind,
   type SampleProvenance,
 } from "@/lib/modellab/policy";
-import type { GroundedAnswer, LabSample, Verification } from "@/lib/modellab/samples";
+import { stepAt } from "@/lib/modellab/run";
+import type {
+  CheckId,
+  GroundedAnswer,
+  LabSample,
+  Verification,
+} from "@/lib/modellab/samples";
 import type { Stage } from "@/lib/modellab/stages";
+import { frameAt, type StepFrame } from "@/lib/modellab/telemetry";
 
+import { useRunClock } from "./flow/RunClockContext";
+import { groupAdvantages } from "./flow/stepFlow";
 import { Icon, type IconName } from "./icons";
 import styles from "./ModelLab.module.css";
 import local from "./SampleStrip.module.css";
+import { MODALITY_COLOUR, pidCropWindow, textTokens } from "./visual/conversion";
+import {
+  KD_TEMPERATURE,
+  claimsOf,
+  groupRewards,
+  kdDistributions,
+  type ClaimKind,
+} from "./visual/sampleVisuals";
 
 /** A policy's answer for one rollout, the errors injected into it, and the verifier's verdict. */
 export interface PolicyResult {
@@ -33,6 +53,23 @@ const DeviceModel = dynamic(() => import("./DeviceModel"), {
 
 const canvasHref = (nodeId: string, view?: string) =>
   `/canvas?node=${encodeURIComponent(nodeId)}${view ? `&view=${view}` : ""}`;
+
+/** The run's step frame, when the strip sits inside the run clock; undefined in isolation. */
+function useStepFrame(now: number): StepFrame | undefined {
+  const clock = useRunClock();
+  const step = clock && !clock.blocked ? stepAt(clock.control, clock.stage.run, now) : 0;
+  const completed = Math.max(1, Math.floor(step));
+  return useMemo(
+    () =>
+      clock
+        ? frameAt(
+            { stage: clock.stage, profile: clock.profile, config: clock.config },
+            completed,
+          )
+        : undefined,
+    [clock, completed],
+  );
+}
 
 export function SampleStrip({
   stage,
@@ -87,6 +124,7 @@ export function SampleStrip({
   readonly cycleSecondsLeft?: number;
   readonly cyclePeriodSeconds?: number;
 }) {
+  const frame = useStepFrame(now);
   const rlVerification = policy?.verification ?? verification;
   const teacherAnswer = teacherPolicy?.answer ?? answer;
   const studentAnswer = studentPolicy?.answer ?? student;
@@ -99,10 +137,7 @@ export function SampleStrip({
   };
 
   const panels: ReactNode[] = [
-    <Panel
-      key="image"
-      title={stage.id === "sft" ? "Field image (asset photo)" : "Field image (RGB)"}
-    >
+    <Panel key="image" title={stage.id === "sft" ? "Asset photo" : "Field RGB"}>
       <FieldImage
         sample={sample}
         label={label}
@@ -110,52 +145,60 @@ export function SampleStrip({
         zoomable={stage.id === "rl"}
       />
     </Panel>,
-    <Panel key="pid" title={stage.id === "sft" ? "P&ID source (linked)" : "P&ID crop"}>
+    <Panel key="pid" title="P&ID crop" note={stage.id === "sft" ? "linked" : undefined}>
       <PidCrop
-        node={sample.node}
+        sample={sample}
         drawing={drawing}
         imageUrl={imageUrl}
         label={label}
         line={sample.line?.number}
-        nodeId={sample.nodeId}
       />
     </Panel>,
   ];
 
   if (stage.id === "pretraining") {
     panels.push(
-      <Panel key="3d" title="3D twin / CAD geometry" note="Procedural">
+      <Panel key="3d" title="3D twin" note="procedural">
         <DeviceModel fieldClass={sample.fieldClass} label={label} />
       </Panel>,
-      <Panel key="graph" title="Local topology graph" note={`${sample.joinedCount} joined`}>
+      <Panel key="graph" title="Topology" note={`${sample.joinedCount} joined`}>
         <Topology sample={sample} onChoose={choose} legend="equipment" />
       </Panel>,
     );
   } else if (stage.id === "sft") {
     panels.push(
-      <Panel key="evidence" title="Evidence map (multi-modal)">
+      <Panel key="evidence" title="Evidence map">
         <EvidenceMap sample={sample} label={label} />
       </Panel>,
-      <Panel key="trace" title="Reasoning trace (excerpt)" wide>
-        {answer && <ReasoningTrace answer={answer} sample={sample} />}
+      <Panel key="trace" title="Response grounding" note="loss mask" wide>
+        {answer && <ResponseGrounding answer={answer} sample={sample} />}
       </Panel>,
     );
   } else if (stage.id === "rl") {
     panels.push(
-      <Panel key="graph" title="Topology graph" note={`${sample.joinedCount} joined`}>
+      <Panel key="graph" title="Topology" note={`${sample.joinedCount} joined`}>
         <Topology sample={sample} onChoose={choose} legend="none" />
       </Panel>,
-      <Panel key="verifier" title="Verifier result (simulator response)">
-        {rlVerification && <VerifierResult verification={rlVerification} />}
-        {policy && (
-          <RolloutFindings
-            policy={policy}
-            rolloutLabel={rolloutLabel ?? provenance?.rolloutId}
-          />
-        )}
+      <Panel key="verifier" title="Verifier" note={rolloutLabel ?? provenance?.rolloutId}>
+        <div
+          className={local.verifierPanel}
+          tabIndex={0}
+          role="region"
+          aria-label="Verifier results, scrollable"
+        >
+          {rlVerification && (
+            <VerifierMatrix
+              verification={rlVerification}
+              findings={
+                policy ? verifierFindings(policy.injected, policy.verification) : []
+              }
+            />
+          )}
+          {frame?.rl && <RolloutGroup frame={frame} />}
+        </div>
       </Panel>,
-      <Panel key="actions" title="Action trace" narrow>
-        <ActionTrace
+      <Panel key="actions" title="Action chain" narrow>
+        <ActionChain
           sample={sample}
           verification={rlVerification}
           now={now}
@@ -166,10 +209,10 @@ export function SampleStrip({
     );
   } else {
     panels.push(
-      <Panel key="graph" title="Topology graph" note={`${sample.joinedCount} joined`}>
+      <Panel key="graph" title="Topology" note={`${sample.joinedCount} joined`}>
         <Topology sample={sample} onChoose={choose} legend="process" />
       </Panel>,
-      <Panel key="compare" title="Teacher → Student response comparison" wide>
+      <Panel key="compare" title="Teacher → student" note={`T ${KD_TEMPERATURE}`} wide>
         {teacherAnswer && studentAnswer && teacherCheck && studentCheck && (
           <TeacherStudent
             teacher={teacherAnswer}
@@ -179,6 +222,8 @@ export function SampleStrip({
             teacherInjected={teacherPolicy?.injected}
             studentInjected={studentPolicy?.injected}
             register={register}
+            frame={frame}
+            sampleKey={sample.nodeId}
           />
         )}
       </Panel>,
@@ -308,7 +353,9 @@ function FieldImage({
           <b>{label}</b>
         </span>
       </div>
-      <figcaption>Generated reference · {sample.fieldClass}</figcaption>
+      <figcaption>
+        <span className={local.genChip}>gen</span> {sample.fieldClass}
+      </figcaption>
       {zoomable && (
         <span className={styles.zoom}>
           <button
@@ -329,55 +376,82 @@ function FieldImage({
   );
 }
 
+/**
+ * The located symbol on the sheet, with every other symbol in the window drawn as a
+ * detection and the sample's graph neighbours at the related weight.
+ */
 function PidCrop({
-  node,
+  sample,
   drawing,
   imageUrl,
   label,
   line,
-  nodeId,
 }: {
-  readonly node: DrawingNode;
+  readonly sample: LabSample;
   readonly drawing: CanvasDrawing;
   readonly imageUrl: string;
   readonly label: string;
   readonly line: string | undefined;
-  readonly nodeId: string;
 }) {
-  const span = Math.max(node.width, node.height, 40) * 4.2;
-  const width = span * 1.35;
-  const height = span;
+  const node = sample.node;
+  const window = pidCropWindow(node);
+  const span = window.height;
   const pad = Math.max(node.width, node.height) * 0.35;
+  const related = useMemo(
+    () => new Set(sample.neighbours.map((neighbour) => neighbour.id)),
+    [sample.neighbours],
+  );
+  const nearby = useMemo(
+    () =>
+      drawing.nodes.filter(
+        (other: DrawingNode) =>
+          other.positioned !== false &&
+          other.id !== node.id &&
+          Math.abs(other.x - node.x) < window.width / 2 + other.width / 2 &&
+          Math.abs(other.y - node.y) < window.height / 2 + other.height / 2,
+      ),
+    [drawing, node, window.width, window.height],
+  );
+  const relatedCount = nearby.filter((other) => related.has(other.id)).length;
   return (
     <Link
-      href={canvasHref(nodeId)}
+      href={canvasHref(sample.nodeId)}
       className={styles.pidCrop}
       title="Open this symbol on the canvas"
     >
       <svg
-        viewBox={`${node.x - width / 2} ${node.y - height / 2} ${width} ${height}`}
+        viewBox={`${window.x} ${window.y} ${window.width} ${window.height}`}
         preserveAspectRatio="xMidYMid slice"
         role="img"
-        aria-label={`${label} as drawn on the P&ID${line ? `, line ${line}` : ""}`}
+        aria-label={`${label} as drawn on the P&ID${line ? `, line ${line}` : ""}; ${nearby.length} other symbols in view, ${relatedCount} of them graph neighbours`}
       >
         <rect
-          x={node.x - width / 2}
-          y={node.y - height / 2}
-          width={width}
-          height={height}
+          x={window.x}
+          y={window.y}
+          width={window.width}
+          height={window.height}
           fill="var(--bg-void)"
         />
-        {/* Normalised to ink-on-void, the same as every other rendering of this sheet. The
-            class goes on the image alone so the detection marks above it are not inverted
-            with it. The field photograph beside this one is deliberately left alone —
-            inverting a photograph produces false colour, not dark mode. */}
+        {/* Normalised to ink-on-void; the class sits on the image alone so the detection
+            marks above it are not inverted with it. */}
         <image
           className="engineeringRaster"
           href={imageUrl}
           width={drawing.width}
           height={drawing.height}
         />
-        {/* The located symbol: a detection overlay, told by weight rather than by hue. */}
+        {nearby.map((other) => (
+          <rect
+            key={other.id}
+            className={local.detect}
+            data-related={related.has(other.id) || undefined}
+            x={other.x - other.width / 2}
+            y={other.y - other.height / 2}
+            width={other.width}
+            height={other.height}
+            style={{ strokeWidth: span / 160 }}
+          />
+        ))}
         <rect
           x={node.x - node.width / 2 - pad}
           y={node.y - node.height / 2 - pad}
@@ -523,7 +597,7 @@ function Topology({
 }
 
 // ────────────────────────────────────────────────────────────────────────────────────────────
-// Stage 2: evidence map and reasoning trace
+// Stage 2: evidence map and response grounding
 // ────────────────────────────────────────────────────────────────────────────────────────────
 
 function EvidenceMap({
@@ -632,131 +706,359 @@ function EvidenceMap({
   );
 }
 
-/** Reveal text progressively, as a streamed answer arrives; instant under reduced motion. */
-function useReveal(text: string): string {
-  const [shown, setShown] = useState(text.length);
+/** Evidence kinds take the colour of the modality lane they come from. */
+const CLAIM_COLOUR: Record<ClaimKind, string> = {
+  "P&ID": MODALITY_COLOUR.drawing,
+  Trend: MODALITY_COLOUR.telemetry,
+  Procedure: MODALITY_COLOUR.documents,
+  Topology: MODALITY_COLOUR.topology,
+};
+
+const CLAIM_ICON: Record<ClaimKind, IconName> = {
+  "P&ID": "reports",
+  Trend: "monitoring",
+  Procedure: "file",
+  Topology: "graph",
+};
+
+/** Reveal a count progressively, as a streamed answer arrives; instant under reduced motion. */
+function useReveal(total: number, key: string): number {
+  const [shown, setShown] = useState(total);
   useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (
+      typeof window.matchMedia !== "function" ||
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    )
+      return;
     let count = 0;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- restart the reveal for new text
     setShown(0);
     const timer = window.setInterval(() => {
-      count += 4;
-      setShown(Math.min(text.length, count));
-      if (count >= text.length) window.clearInterval(timer);
-    }, 16);
+      count += 1;
+      setShown(Math.min(total, count));
+      if (count >= total) window.clearInterval(timer);
+    }, 24);
     return () => window.clearInterval(timer);
-  }, [text]);
-  return text.slice(0, shown);
+  }, [total, key]);
+  return Math.min(total, shown);
 }
 
-function ReasoningTrace({
+/**
+ * The SFT example as its loss mask sees it: the instruction (−100, no loss) and the response
+ * split into its claims, each a span of tokens coloured by the evidence it is grounded in and
+ * linked to that evidence. Tokens stream in as the response is decoded.
+ */
+function ResponseGrounding({
   answer,
   sample,
 }: {
   readonly answer: GroundedAnswer;
   readonly sample: LabSample;
 }) {
-  const shown = useReveal(answer.text);
-  const hrefFor: Record<GroundedAnswer["cites"][number], string> = {
+  const claims = claimsOf(answer);
+  const prompt = textTokens(answer.question);
+  const response = claims.reduce((sum, claim) => sum + claim.tokens, 0);
+  const total = Math.max(1, prompt + response);
+  const shown = useReveal(response, answer.text);
+  const hrefFor: Record<ClaimKind, string> = {
     "P&ID": canvasHref(sample.nodeId),
     Trend: canvasHref(sample.nodeId),
     Procedure: canvasHref(sample.nodeId, "Files"),
     Topology: canvasHref(sample.nodeId, "Assets"),
   };
-  const icons: Record<GroundedAnswer["cites"][number], IconName> = {
-    "P&ID": "reports",
-    Trend: "monitoring",
-    Procedure: "file",
-    Topology: "graph",
-  };
+  const maxClaim = Math.max(1, ...claims.map((claim) => claim.tokens));
+  const starts = claims.map((_, i) =>
+    claims.slice(0, i).reduce((sum, claim) => sum + claim.tokens, 0),
+  );
   return (
-    <div className={styles.trace} tabIndex={0} aria-label="Reasoning trace">
-      <div className={styles.bubble} data-role="user">
-        <span className={styles.bubbleIcon}>
-          <code aria-hidden="true">x</code>
+    <div className={local.grounding} aria-label="Reasoning trace" role="group">
+      <p className="srOnly">
+        User: {answer.question} Model: {answer.text}
+      </p>
+      <div className={local.seq} aria-hidden="true">
+        <span className={local.seqRole}>x</span>
+        <span className={local.seqTrack}>
+          <i
+            className={local.masked}
+            style={{ flexGrow: prompt }}
+            title={`Instruction · ${prompt} tokens · label −100`}
+          />
+          {claims.map((claim, i) => {
+            const filled = Math.max(0, Math.min(1, (shown - starts[i]!) / claim.tokens));
+            return (
+              <i
+                key={i}
+                className={local.claimSpan}
+                style={
+                  {
+                    flexGrow: claim.tokens,
+                    "--claim": CLAIM_COLOUR[claim.kind],
+                    "--fill": `${(filled * 100).toFixed(1)}%`,
+                  } as CSSProperties
+                }
+                title={`${claim.kind} · ${claim.tokens} tokens · ${claim.text}`}
+              />
+            );
+          })}
         </span>
-        <div>
-          <strong>User</strong>
-          <p>{answer.question}</p>
-        </div>
-      </div>
-      <div className={styles.bubble} data-role="model">
-        <span className={styles.bubbleIcon}>
-          <code aria-hidden="true">fθ</code>
+        <span className={local.seqRole}>L</span>
+        <span className={local.seqScale}>
+          <b style={{ flexGrow: prompt }}>−100 · {prompt}</b>
+          <b style={{ flexGrow: response }}>CE · {response}</b>
         </span>
-        <div>
-          <strong>Model (grounded reasoning)</strong>
-          <p aria-live="polite">{shown}</p>
-          <span className={styles.chips}>
-            {answer.cites.map((cite) => (
-              <Link key={cite} href={hrefFor[cite]} className={styles.citeChip}>
-                <Icon name={icons[cite]} size={12} />
-                {cite}
-              </Link>
-            ))}
-          </span>
-        </div>
       </div>
+      <ol className={local.claims}>
+        {claims.map((claim, i) => (
+          <li key={i} style={{ "--claim": CLAIM_COLOUR[claim.kind] } as CSSProperties}>
+            <Link
+              href={hrefFor[claim.kind]}
+              className={local.claimCite}
+              title={claim.text}
+              aria-label={`${claim.kind}: ${claim.text}`}
+            >
+              <Icon name={CLAIM_ICON[claim.kind]} size={12} />
+              <span>{claim.kind}</span>
+            </Link>
+            <span className={local.claimBar} aria-hidden="true">
+              <i style={{ width: `${(claim.tokens / maxClaim) * 100}%` }} />
+            </span>
+            <code aria-hidden="true">{claim.tokens}</code>
+          </li>
+        ))}
+      </ol>
+      <span className={local.seqFoot} aria-hidden="true">
+        L {total} · fθ
+      </span>
     </div>
   );
 }
 
 // ────────────────────────────────────────────────────────────────────────────────────────────
-// Stage 3: verifier result and action trace
+// Stage 3: verifier matrix, rollout group and action chain
 // ────────────────────────────────────────────────────────────────────────────────────────────
 
-function VerifierResult({ verification }: { readonly verification: Verification }) {
-  // Every check is a gate: a high weighted score still fails when one check fails, so the
-  // verdict names the gate instead of leaving "Fail 0.90" to be puzzled over.
-  const gates = verification.checks
-    .filter((check) => !check.pass)
-    .map((check) => check.label);
+const PASS_MARK = 0.7;
+
+const CHECK_OF_ERROR: Record<PolicyErrorKind, CheckId | undefined> = {
+  hallucination: "grounding",
+  wrongConnection: "topology",
+  staleReading: "simulator",
+  missingCitation: "citation",
+  wrongLine: "grounding",
+};
+
+const ERROR_CODE: Record<PolicyErrorKind, string> = {
+  hallucination: "HAL",
+  wrongConnection: "CON",
+  staleReading: "STL",
+  missingCitation: "CIT",
+  wrongLine: "LIN",
+};
+
+/**
+ * Checks × (weight, score against the 0.70 pass mark, verdict, injected policy errors). Every
+ * check is a gate: the overall verdict fails when any one fails, whatever the weighted score.
+ */
+function VerifierMatrix({
+  verification,
+  findings,
+}: {
+  readonly verification: Verification;
+  readonly findings: readonly Finding[];
+}) {
+  const byCheck = new Map<CheckId, Finding[]>();
+  for (const finding of findings) {
+    const id = CHECK_OF_ERROR[finding.kind];
+    if (id) byCheck.set(id, [...(byCheck.get(id) ?? []), finding]);
+  }
+  const gates = verification.checks.filter((check) => !check.pass);
   const verdict = verification.pass
-    ? "Pass"
+    ? "pass"
     : verification.fabricated.length > 0
-      ? "Fail · fabricated tag"
+      ? "fabricated"
       : gates.length > 0
-        ? `Fail · ${gates[0]!.toLowerCase()} gate${gates.length > 1 ? ` +${gates.length - 1}` : ""}`
-        : "Fail · below threshold";
+        ? `gate ×${gates.length}`
+        : "< 0.70";
   return (
-    <table className={styles.verifier}>
+    <table className={local.matrix}>
+      <thead>
+        <tr>
+          <th scope="col">
+            <span className="srOnly">Check</span>
+          </th>
+          <th scope="col">w</th>
+          <th scope="col">score · 0.70</th>
+          <th scope="col">
+            <span className="srOnly">Verdict</span>
+          </th>
+          <th scope="col" title="Injected policy errors: filled caught, hollow missed">
+            err
+          </th>
+        </tr>
+      </thead>
       <tbody>
-        {verification.checks.map((check) => (
-          <tr key={check.id} title={check.detail}>
-            <th scope="row">{check.label}</th>
-            <td>
-              <span className={styles.passMark} data-pass={check.pass || undefined}>
-                <Icon name={check.pass ? "check" : "cross"} size={11} />
-              </span>
-              {check.pass ? "Pass" : "Fail"}
-            </td>
-            <td>{check.score.toFixed(2)}</td>
-          </tr>
-        ))}
-        <tr className={`${styles.overall} ${verification.pass ? "" : local.overallFail}`}>
-          <th scope="row">Overall verifier result</th>
+        {verification.checks.map((check) => {
+          const errors = byCheck.get(check.id) ?? [];
+          return (
+            <tr key={check.id} data-pass={check.pass || undefined} title={check.detail}>
+              <th scope="row">{check.label.split(" ")[0]}</th>
+              <td className={local.num}>{check.weight.toFixed(2)}</td>
+              <td>
+                <ScoreBar score={check.score} pass={check.pass} />
+              </td>
+              <td>
+                <span className={styles.passMark} data-pass={check.pass || undefined}>
+                  <Icon name={check.pass ? "check" : "cross"} size={11} />
+                </span>
+                <span className="srOnly">{check.pass ? "Pass" : "Fail"}</span>
+              </td>
+              <td className={local.errors}>
+                {errors.map((finding) => (
+                  <span
+                    key={finding.kind}
+                    className={local.errorMark}
+                    data-caught={finding.caught || undefined}
+                    title={finding.summary}
+                  >
+                    {ERROR_CODE[finding.kind]}
+                    <span className="srOnly">
+                      {finding.caught ? " caught" : " missed"}: {finding.summary}
+                    </span>
+                  </span>
+                ))}
+              </td>
+            </tr>
+          );
+        })}
+      </tbody>
+      <tfoot>
+        <tr data-pass={verification.pass || undefined} className={local.overallRow}>
+          <th scope="row">
+            Overall<span className="srOnly"> verifier result</span>
+          </th>
+          <td />
+          <td>
+            <ScoreBar score={verification.overall} pass={verification.pass} />
+          </td>
           <td>
             <span className={styles.passMark} data-pass={verification.pass || undefined}>
               <Icon name={verification.pass ? "check" : "cross"} size={11} />
             </span>
+          </td>
+          <td className={local.verdict} data-pass={verification.pass || undefined}>
             {verdict}
           </td>
-          <td title="Weighted score across checks; the verdict also requires every check to pass">
-            {verification.overall.toFixed(2)}
-          </td>
         </tr>
-      </tbody>
-      {verification.fabricated.length > 0 && (
-        <caption className={styles.fabricated}>
-          Fabricated: {verification.fabricated.join(", ")}
-        </caption>
-      )}
+        {verification.fabricated.length > 0 && (
+          <tr>
+            <td colSpan={5} className={local.fabricated}>
+              {verification.fabricated.map((tag) => (
+                <code key={tag} title="Fabricated: not in the register">
+                  ✕ {tag}
+                </code>
+              ))}
+            </td>
+          </tr>
+        )}
+      </tfoot>
     </table>
   );
 }
 
-function ActionTrace({
+function ScoreBar({ score, pass }: { readonly score: number; readonly pass: boolean }) {
+  return (
+    <span className={local.score} data-pass={pass || undefined}>
+      <span className={local.scoreTrack} aria-hidden="true">
+        <i style={{ width: `${Math.max(0, Math.min(1, score)) * 100}%` }} />
+        <b style={{ left: `${PASS_MARK * 100}%` }} />
+      </span>
+      <code>{score.toFixed(2)}</code>
+    </span>
+  );
+}
+
+/**
+ * The prompt group of the last completed step: G completion rewards and their group-relative
+ * advantages Â = (r − mean) / std — the same draw the architecture figure's advantage lanes
+ * use, so the two agree at every step.
+ */
+function RolloutGroup({ frame }: { readonly frame: StepFrame }) {
+  const rl = frame.rl!;
+  const rewards = groupRewards(frame.step, rl.scoreMean, rl.zeroVarianceGroups, GROUP_SIZE);
+  const advantages = groupAdvantages(
+    frame.step,
+    rl.scoreMean,
+    rl.zeroVarianceGroups,
+    GROUP_SIZE,
+  );
+  const flat = advantages.every((a) => a === 0);
+  const W = 200;
+  const colW = W / GROUP_SIZE;
+  const rTop = 4;
+  const rH = 30;
+  const aMid = 62;
+  const aH = 14;
+  const maxA = Math.max(1, ...advantages.map((a) => Math.abs(a)));
+  const mean = rewards.reduce((a, b) => a + b, 0) / rewards.length;
+  return (
+    <figure className={local.group}>
+      <svg
+        viewBox={`-26 0 ${W + 30} 82`}
+        role="img"
+        aria-label={`Prompt group at step ${frame.step}: ${GROUP_SIZE} completions, rewards ${rewards
+          .map((r) => r.toFixed(2))
+          .join(
+            ", ",
+          )}; advantages ${advantages.map((a) => a.toFixed(2)).join(", ")}${flat ? "; zero-variance group, no learning signal" : ""}`}
+      >
+        <text className={local.axisLabel} x={-4} y={rTop + rH / 2 + 3} textAnchor="end">
+          r
+        </text>
+        <text className={local.axisLabel} x={-4} y={aMid + 3} textAnchor="end">
+          Â
+        </text>
+        <line className={local.baseline} x1={0} x2={W} y1={rTop + rH} y2={rTop + rH} />
+        <line
+          className={local.meanLine}
+          x1={0}
+          x2={W}
+          y1={rTop + rH * (1 - mean)}
+          y2={rTop + rH * (1 - mean)}
+        />
+        <line className={local.baseline} x1={0} x2={W} y1={aMid} y2={aMid} />
+        {rewards.map((reward, k) => {
+          const a = advantages[k] ?? 0;
+          const h = (Math.abs(a) / maxA) * aH;
+          return (
+            <g key={k}>
+              <rect
+                className={local.reward}
+                x={k * colW + 3}
+                y={rTop + rH * (1 - reward)}
+                width={colW - 6}
+                height={rH * reward}
+              />
+              <rect
+                className={local.advantage}
+                data-negative={a < 0 || undefined}
+                x={k * colW + 3}
+                y={a >= 0 ? aMid - h : aMid}
+                width={colW - 6}
+                height={Math.max(flat ? 0 : 0.6, h)}
+              />
+            </g>
+          );
+        })}
+      </svg>
+      <figcaption aria-hidden="true">
+        G {GROUP_SIZE} · step {frame.step.toLocaleString("en-US")}
+        {flat ? " · σ 0" : ""}
+      </figcaption>
+    </figure>
+  );
+}
+
+function ActionChain({
   sample,
   verification,
   now,
@@ -770,17 +1072,24 @@ function ActionTrace({
   /** Policy rollouts that fail verification are sent back for revision rather than shown. */
   readonly revise?: boolean;
 }) {
-  const steps: [string, string][] = [
-    ["Observe", `Analyze image and P&ID (${sample.nodeId})`],
+  const answered = verification?.pass ?? false;
+  const steps: readonly (readonly [string, string, string])[] = [
+    ["Observe", sample.nodeId, `Analyze image and P&ID (${sample.nodeId})`],
     [
       "Retrieve",
+      `${sample.evidence.manuals}d · ${sample.evidence.timeSeries}ts`,
       `Fetch ${sample.evidence.manuals} documents, ${sample.evidence.timeSeries} trends`,
     ],
-    ["Verify", `Run ${verification?.checks.length ?? 5} verifier checks`],
-    ["Simulate", "Evaluate with process model"],
+    [
+      "Verify",
+      `${verification?.checks.length ?? 5} chk`,
+      `Run ${verification?.checks.length ?? 5} verifier checks`,
+    ],
+    ["Simulate", "proc", "Evaluate with process model"],
     [
       "Answer",
-      verification?.pass
+      answered ? "✓" : revise ? "revise" : "abstain",
+      answered
         ? "Provide grounded response"
         : revise
           ? "Abstain / revise"
@@ -790,14 +1099,18 @@ function ActionTrace({
   // While the stage runs, the rollout walks its five actions on a 1.4 s beat.
   const active = running ? Math.floor(now / 1400) % (steps.length + 1) : steps.length;
   return (
-    <ol className={styles.actions}>
-      {steps.map(([name, detail], i) => (
-        <li key={name} data-state={i < active ? "done" : i === active ? "active" : "todo"}>
-          <span>{i + 1}</span>
-          <div>
-            <strong>{name}</strong>
-            <small>{detail}</small>
-          </div>
+    <ol className={local.chain}>
+      {steps.map(([name, value, detail], i) => (
+        <li
+          key={name}
+          data-state={i < active ? "done" : i === active ? "active" : "todo"}
+          data-outcome={i === steps.length - 1 ? (answered ? "pass" : "fail") : undefined}
+          title={detail}
+        >
+          <span className={local.chainIndex}>{i + 1}</span>
+          <strong>{name}</strong>
+          <code>{value}</code>
+          <span className="srOnly">{detail}</span>
         </li>
       ))}
     </ol>
@@ -810,6 +1123,11 @@ function ActionTrace({
 
 const LINE = /\d{1,2}"-[A-Z]{2,3}-\d{4}-[A-Z]\d[A-Z]/;
 
+/**
+ * The distillation example: the next-token distributions the KL term compares (teacher
+ * outlined — frozen — student solid, top-8 at T = 2, one response position that advances with
+ * the step), then both rollouts through the same checks.
+ */
 function TeacherStudent({
   teacher,
   student,
@@ -818,6 +1136,8 @@ function TeacherStudent({
   teacherInjected,
   studentInjected,
   register,
+  frame,
+  sampleKey,
 }: {
   readonly teacher: GroundedAnswer;
   readonly student: GroundedAnswer;
@@ -826,9 +1146,11 @@ function TeacherStudent({
   readonly teacherInjected?: readonly InjectedError[];
   readonly studentInjected?: readonly InjectedError[];
   readonly register: PlantRegister;
+  readonly frame: StepFrame | undefined;
+  readonly sampleKey: string;
 }) {
   const lines = new Set([...register.lines.values()].map((line) => line.number));
-  const chips = (answer: GroundedAnswer, check: Verification) => {
+  const rows = (answer: GroundedAnswer, check: Verification) => {
     const byId = new Map(check.checks.map((c) => [c.id, c]));
     const citesPid = (answer.text.match(LINE) ?? []).some((line) => lines.has(line));
     return [
@@ -837,57 +1159,182 @@ function TeacherStudent({
       ["Cites P&ID", citesPid],
     ] as const;
   };
-  const block = (
-    role: string,
-    model: string,
-    answer: GroundedAnswer,
-    check: Verification,
-    injected: readonly InjectedError[] | undefined,
-  ) => (
-    <div className={styles.bubble} data-role="model">
-      <span className={styles.bubbleIcon}>
-        <code aria-hidden="true">{role === "Teacher" ? "fT" : "fS"}</code>
-      </span>
-      <div>
-        <strong>
-          {role} ({model}) · {check.overall.toFixed(2)}
-        </strong>
-        <p>{answer.text}</p>
-        <span className={styles.chips}>
-          {chips(answer, check).map(([name, ok]) => (
-            <span key={name} className={styles.verdict} data-pass={ok || undefined}>
-              {name} <Icon name={ok ? "check" : "cross"} size={11} />
-            </span>
-          ))}
-        </span>
-        {injected && injected.length > 0 && (
-          <ul
-            className={`${local.findings} ${local.rollout}`}
-            aria-label={`${role} errors`}
-          >
-            {verifierFindings(injected, check).map((finding) => (
-              <li key={finding.kind} data-caught={finding.caught || undefined}>
-                {finding.summary}
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    </div>
+  const teacherRows = rows(teacher, teacherCheck);
+  const studentRows = rows(student, studentCheck);
+  const teacherFindings = teacherInjected
+    ? verifierFindings(teacherInjected, teacherCheck)
+    : [];
+  const studentFindings = studentInjected
+    ? verifierFindings(studentInjected, studentCheck)
+    : [];
+
+  const length = Math.max(1, textTokens(student.text));
+  const position = frame ? frame.step % length : 0;
+  const kl = frame?.klTerm;
+  const dist = useMemo(
+    () => (kl === undefined ? undefined : kdDistributions(sampleKey, position, kl)),
+    [sampleKey, position, kl],
   );
+
+  const errorCell = (findings: readonly Finding[]) =>
+    findings.length === 0 ? (
+      <span className={local.muted}>0</span>
+    ) : (
+      findings.map((finding) => (
+        <span
+          key={finding.kind}
+          className={local.errorMark}
+          data-caught={finding.caught || undefined}
+          title={finding.summary}
+        >
+          {ERROR_CODE[finding.kind]}
+          <span className="srOnly">
+            {finding.caught ? " caught" : " missed"}: {finding.summary}
+          </span>
+        </span>
+      ))
+    );
+
   return (
-    <div className={styles.trace} tabIndex={0} aria-label="Teacher and student responses">
-      {block("Teacher", "Qwen3-VL-32B", teacher, teacherCheck, teacherInjected)}
-      <span className={styles.traceArrow} aria-hidden="true">
-        ↓
-      </span>
-      {block("Student", "Qwen3-VL-8B", student, studentCheck, studentInjected)}
+    <div className={local.kd} role="group" aria-label="Teacher and student responses">
+      <p className="srOnly">
+        Teacher Qwen3-VL-32B: {teacher.text} Student Qwen3-VL-8B: {student.text}
+      </p>
+      {dist && kl !== undefined && (
+        <TokenBars
+          teacher={dist.teacher}
+          student={dist.student}
+          kl={kl}
+          position={position}
+          length={length}
+        />
+      )}
+      <table className={local.matrix} data-compact>
+        <thead>
+          <tr>
+            <th scope="col">
+              <span className="srOnly">Check</span>
+            </th>
+            <th scope="col" title="Teacher · Qwen3-VL-32B · frozen">
+              <span className={local.modelKey} data-role="teacher" aria-hidden="true" />
+              fT <small>32B</small>
+            </th>
+            <th scope="col" title="Student · Qwen3-VL-8B">
+              <span className={local.modelKey} data-role="student" aria-hidden="true" />
+              fS <small>8B</small>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {teacherRows.map(([name, ok], i) => {
+            const studentOk = studentRows[i]![1];
+            return (
+              <tr key={name}>
+                <th scope="row">{name}</th>
+                {[ok, studentOk].map((pass, j) => (
+                  <td key={j}>
+                    <span className={styles.passMark} data-pass={pass || undefined}>
+                      <Icon name={pass ? "check" : "cross"} size={11} />
+                    </span>
+                    <span className="srOnly">{pass ? "Pass" : "Fail"}</span>
+                  </td>
+                ))}
+              </tr>
+            );
+          })}
+          <tr>
+            <th scope="row">Score</th>
+            <td>
+              <ScoreBar score={teacherCheck.overall} pass={teacherCheck.pass} />
+            </td>
+            <td>
+              <ScoreBar score={studentCheck.overall} pass={studentCheck.pass} />
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">err</th>
+            <td className={local.errors}>{errorCell(teacherFindings)}</td>
+            <td className={local.errors}>{errorCell(studentFindings)}</td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   );
 }
 
+function TokenBars({
+  teacher,
+  student,
+  kl,
+  position,
+  length,
+}: {
+  readonly teacher: readonly number[];
+  readonly student: readonly number[];
+  readonly kl: number;
+  readonly position: number;
+  readonly length: number;
+}) {
+  const W = 300;
+  const H = 70;
+  const top = Math.max(...teacher, ...student, 0.01);
+  const colW = W / teacher.length;
+  const barW = (colW - 6) / 2;
+  return (
+    <figure className={local.tokens}>
+      <figcaption aria-hidden="true">
+        <span>
+          <i className={local.modelKey} data-role="teacher" />p<sub>T</sub>
+        </span>
+        <span>
+          <i className={local.modelKey} data-role="student" />p<sub>S</sub>
+        </span>
+        <code>
+          pos {position + 1}/{length} · KL {kl.toFixed(3)}
+        </code>
+      </figcaption>
+      <svg
+        viewBox={`0 0 ${W} ${H + 12}`}
+        role="img"
+        aria-label={`Top-${teacher.length} next-token distributions at response position ${position + 1} of ${length}, temperature ${KD_TEMPERATURE}: teacher ${teacher
+          .map((p) => p.toFixed(2))
+          .join(
+            ", ",
+          )}; student ${student.map((p) => p.toFixed(2)).join(", ")}; forward KL ${kl.toFixed(3)}`}
+      >
+        <line className={local.baseline} x1={0} x2={W} y1={H} y2={H} />
+        {teacher.map((p, i) => {
+          const q = student[i] ?? 0;
+          const x = i * colW + 3;
+          return (
+            <g key={i}>
+              <rect
+                className={local.teacherBar}
+                x={x}
+                y={H - (p / top) * H}
+                width={barW}
+                height={(p / top) * H}
+              />
+              <rect
+                className={local.studentBar}
+                x={x + barW + 1}
+                y={H - (q / top) * H}
+                width={barW}
+                height={(q / top) * H}
+              />
+              <text className={local.axisLabel} x={x + barW} y={H + 10} textAnchor="middle">
+                {i + 1}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
+    </figure>
+  );
+}
+
 // ────────────────────────────────────────────────────────────────────────────────────────────
-// Header additions and stage 3 rollout findings
+// Header additions
 // ────────────────────────────────────────────────────────────────────────────────────────────
 
 function ProvenanceLine({ provenance }: { readonly provenance: SampleProvenance }) {
@@ -947,31 +1394,5 @@ function Countdown({
       </svg>
       <span aria-hidden="true">{left}</span>
     </span>
-  );
-}
-
-function RolloutFindings({
-  policy,
-  rolloutLabel,
-}: {
-  readonly policy: PolicyResult;
-  readonly rolloutLabel: string | undefined;
-}) {
-  const findings = verifierFindings(policy.injected, policy.verification);
-  return (
-    <div className={local.rollout} role="group" aria-label="Rollout errors">
-      <strong>Rollout{rolloutLabel ? ` · ${rolloutLabel}` : ""}</strong>
-      {findings.length === 0 ? (
-        <span className={local.clean}> · no policy errors in this rollout</span>
-      ) : (
-        <ul className={local.findings}>
-          {findings.map((finding) => (
-            <li key={finding.kind} data-caught={finding.caught || undefined}>
-              {finding.summary}
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
   );
 }

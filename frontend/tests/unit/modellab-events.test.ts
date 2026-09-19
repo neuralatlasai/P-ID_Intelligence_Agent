@@ -219,7 +219,6 @@ describe("live cards", () => {
     const { ProgressLiveCard } = await import("@/components/modellab/ProgressLiveCard");
     const { CheckpointsLiveCard } =
       await import("@/components/modellab/CheckpointsLiveCard");
-    const { RunLogCard } = await import("@/components/modellab/RunLogCard");
     for (const base of STAGES) {
       const config = DEFAULT_CONFIG[base.id];
       const profile = runProfile(base.id, config);
@@ -238,11 +237,8 @@ describe("live cards", () => {
         profile,
       };
       const html = [
-        renderToStaticMarkup(
-          createElement(ProgressLiveCard, { ...props, livePass: { passed: 4, total: 5 } }),
-        ),
+        renderToStaticMarkup(createElement(ProgressLiveCard, props)),
         renderToStaticMarkup(createElement(CheckpointsLiveCard, props)),
-        renderToStaticMarkup(createElement(RunLogCard, props)),
       ].join("");
       expect(html).toContain("Simulated");
       expect(html).not.toMatch(/confidence\s*[\d.]/i);

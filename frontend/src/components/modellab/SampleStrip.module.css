@@ -1,4 +1,8 @@
-/* Sample strip additions: provenance, auto-cycle countdown, policy rollout findings. */
+/*
+ * Sample strip: provenance, auto-cycle countdown, and the figures that replaced the answer,
+ * verifier and policy text: grounding spans, the verifier matrix, the rollout group, the
+ * action chain and the teacher/student token distributions.
+ */
 
 .cycleGroup {
   display: inline-flex;
@@ -76,45 +80,461 @@
   color: var(--text-tertiary);
 }
 
-/* Doubled so it outranks the shared .overall rule on specificity alone. */
-.overallFail.overallFail {
-  background: var(--status-down-bg);
+.genChip {
+  padding: 0 3px;
+  border-radius: var(--radius-xs);
+  background: var(--evidence-inferred-bg);
+  color: var(--evidence-inferred);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
 }
 
-.rollout {
-  margin-top: 6px;
-  padding-top: 5px;
-  border-top: 1px solid var(--rule-subtle);
-  font-size: 10.5px;
-  line-height: 1.4;
-  color: var(--text-secondary);
+/* ── P&ID crop detections ─────────────────────────────────────────────────────────────── */
+
+.detect {
+  fill: none;
+  stroke: var(--overlay-hover);
+  stroke-opacity: 0.7;
 }
-.rollout strong {
-  font-weight: 650;
-  color: var(--text-primary);
+.detect[data-related] {
+  stroke: var(--overlay-related);
+  stroke-opacity: 1;
 }
-.findings {
+
+/* ── response grounding (stage 2) ─────────────────────────────────────────────────────── */
+
+.grounding {
   display: grid;
-  gap: 2px;
-  margin: 3px 0 0;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: var(--space-2);
+  height: 100%;
+  padding: var(--space-2);
+  border: 1px solid var(--rule-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-void);
+}
+
+.seq {
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1fr);
+  align-items: center;
+  gap: 4px var(--space-2);
+}
+.seqRole {
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+.seqTrack,
+.seqScale {
+  display: flex;
+  gap: 1px;
+  min-width: 0;
+}
+.seqTrack i {
+  position: relative;
+  flex-basis: 0;
+  min-width: 2px;
+  height: 22px;
+}
+/* No loss on the instruction: an outlined, unfilled span. */
+.masked {
+  border: 1px dashed var(--ink-muted);
+}
+.claimSpan {
+  overflow: hidden;
+  border-top: 2px solid var(--claim);
+}
+.claimSpan::before,
+.claimSpan::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--claim);
+}
+.claimSpan::before {
+  opacity: 0.16;
+}
+.claimSpan::after {
+  right: auto;
+  width: var(--fill);
+  opacity: 0.7;
+}
+.seqScale b {
+  flex-basis: 0;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-regular);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.claims {
+  display: grid;
+  align-content: start;
+  gap: 3px;
+  margin: 0;
   padding: 0;
+  overflow: auto;
   list-style: none;
 }
-.findings li {
-  display: flex;
-  gap: 5px;
-  align-items: baseline;
+.claims li {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr) 28px;
+  align-items: center;
+  gap: var(--space-2);
 }
-.findings li::before {
-  content: "✕";
-  flex: none;
+.claimCite {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  gap: 4px;
+  padding: 1px var(--space-1);
+  border-left: 2px solid var(--claim);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.claimCite:hover,
+.claimCite:focus-visible {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+.claimBar {
+  height: 6px;
+  background: var(--bg-sunken);
+}
+.claimBar i {
+  display: block;
+  height: 100%;
+  background: var(--claim);
+  opacity: 0.75;
+}
+.claims code,
+.seqFoot {
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* ── verifier matrix (stage 3) and check matrix (stage 4) ─────────────────────────────── */
+
+.verifierPanel {
+  display: grid;
+  align-content: start;
+  gap: var(--space-2);
+  height: 100%;
+  overflow: auto;
+}
+
+.matrix {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+}
+.matrix th,
+.matrix td {
+  padding: 2px 3px;
+  border-bottom: 1px solid var(--rule-subtle);
+  text-align: left;
+  white-space: nowrap;
+}
+.matrix thead th {
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-weight: var(--weight-regular);
+  letter-spacing: var(--tracking-label);
+}
+.matrix thead small {
+  color: var(--text-tertiary);
+}
+.matrix tbody th,
+.matrix tfoot th {
+  color: var(--text-secondary);
+  font-weight: var(--weight-medium);
+}
+.num {
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+}
+.overallRow th,
+.overallRow td {
+  border-top: 1px solid var(--rule-strong);
+  border-bottom: 0;
+}
+.overallRow th {
+  color: var(--text-primary);
+}
+.verdict {
+  color: var(--status-down);
+  font-family: var(--font-mono);
+}
+.verdict[data-pass] {
+  color: var(--status-ready);
+}
+.fabricated {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+.fabricated code {
+  padding: 0 var(--space-1);
+  border: 1px solid var(--status-down-mark);
+  border-radius: var(--radius-xs);
+  color: var(--status-down);
+  font-family: var(--font-mono);
+}
+
+.score {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  width: 100%;
+  min-width: 70px;
+}
+.score code {
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+}
+.scoreTrack {
+  position: relative;
+  flex: 1;
+  height: 6px;
+  background: var(--bg-sunken);
+}
+.scoreTrack i {
+  display: block;
+  height: 100%;
+  background: var(--status-down-mark);
+  transition: width var(--duration-slow) var(--easing-standard);
+}
+.score[data-pass] .scoreTrack i {
+  background: var(--ink-secondary);
+}
+/* The 0.70 pass mark every check is gated on. */
+.scoreTrack b {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 1px;
+  background: var(--ink-primary);
+}
+
+.errors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+.errorMark {
+  padding: 0 3px;
+  border: 1px dashed var(--status-down-mark);
+  border-radius: var(--radius-xs);
+  color: var(--status-down);
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  line-height: 1.5;
+}
+/* Caught by the check it should trip: a solid mark. Missed: dashed, it slipped through. */
+.errorMark[data-caught] {
+  border-style: solid;
+  border-color: var(--status-ready-mark);
+  color: var(--status-ready);
+}
+.muted {
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+}
+
+/* ── rollout group ────────────────────────────────────────────────────────────────────── */
+
+.group {
+  margin: 0;
+}
+.group svg {
+  display: block;
+  width: 100%;
+  max-height: 88px;
+}
+.group figcaption,
+.tokens figcaption {
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+}
+.axisLabel {
+  fill: var(--text-tertiary);
+  font-family: var(--font-mono);
   font-size: 9px;
+}
+.baseline {
+  stroke: var(--chart-axis);
+  stroke-width: 1;
+}
+.meanLine {
+  stroke: var(--ink-primary);
+  stroke-width: 0.8;
+  stroke-dasharray: 2 2;
+}
+.reward {
+  fill: var(--ink-secondary);
+  fill-opacity: 0.55;
+}
+.advantage {
+  fill: var(--series-1);
+}
+.advantage[data-negative] {
+  fill: none;
+  stroke: var(--series-1);
+  stroke-width: 1;
+}
+
+/* ── action chain ─────────────────────────────────────────────────────────────────────── */
+
+.chain {
+  position: relative;
+  display: grid;
+  align-content: space-between;
+  height: 100%;
+  margin: 0;
+  padding: var(--space-1) 0;
+  list-style: none;
+}
+.chain::before {
+  content: "";
+  position: absolute;
+  left: 10px;
+  top: 14px;
+  bottom: 14px;
+  border-left: 1px solid var(--ink-wire);
+}
+.chain li {
+  position: relative;
+  display: grid;
+  grid-template-columns: 21px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+}
+.chainIndex {
+  display: grid;
+  place-items: center;
+  width: 21px;
+  height: 21px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  background: var(--bg-surface);
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+.chain strong {
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-weight: var(--weight-medium);
+  text-overflow: ellipsis;
+}
+.chain code {
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+.chain li[data-state="done"] .chainIndex {
+  border-color: var(--ink-secondary);
+  color: var(--text-primary);
+}
+.chain li[data-state="active"] .chainIndex {
+  border-color: var(--accent-action);
+  background: var(--accent-action-subtle);
+  color: var(--text-primary);
+}
+.chain li[data-state="active"] strong,
+.chain li[data-state="done"] strong {
+  color: var(--text-primary);
+}
+.chain li[data-state="todo"] strong,
+.chain li[data-state="todo"] code {
+  color: var(--text-tertiary);
+}
+.chain li[data-state="todo"] .chainIndex {
+  opacity: 0.55;
+}
+.chain li[data-outcome="pass"] code {
+  color: var(--status-ready);
+}
+.chain li[data-outcome="fail"] code {
   color: var(--status-down);
 }
-.findings li[data-caught]::before {
-  content: "✓";
-  color: var(--status-ready);
+
+/* ── teacher / student (stage 4) ──────────────────────────────────────────────────────── */
+
+.kd {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: var(--space-2);
+  height: 100%;
+  overflow: auto;
 }
-.clean {
-  color: var(--status-ready);
+.tokens {
+  margin: 0;
+}
+.tokens figcaption {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px var(--space-3);
+}
+.tokens figcaption span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-secondary);
+}
+.tokens figcaption code {
+  margin-left: auto;
+}
+.tokens svg {
+  display: block;
+  width: 100%;
+  max-height: 92px;
+}
+/* Teacher is frozen: outlined, per the architecture figure's grammar. Student trains: solid. */
+.teacherBar {
+  fill: none;
+  stroke: var(--ink-primary);
+  stroke-width: 1;
+}
+.studentBar {
+  fill: var(--series-1);
+  transition:
+    height var(--duration-slow) var(--easing-standard),
+    y var(--duration-slow) var(--easing-standard);
+}
+.modelKey {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-right: 3px;
+  vertical-align: -1px;
+}
+.modelKey[data-role="teacher"] {
+  border: 1px solid var(--ink-primary);
+}
+.modelKey[data-role="student"] {
+  background: var(--series-1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scoreTrack i,
+  .studentBar {
+    transition: none;
+  }
 }

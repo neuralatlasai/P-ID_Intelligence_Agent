@@ -5,17 +5,26 @@
  * run configuration describes would plausibly report: utilisation near saturation while
  * training and near idle while paused, memory at the planning estimate's per-GPU peak,
  * temperatures and board power that follow utilisation, and cluster throughput that wobbles a
- * few per cent around the planning estimate. An occasional straggler rank and thermal hot spot
- * appear the way they do on real fleets.
+ * few per cent around the planning estimate. A thermal hot spot appears now and then, the way
+ * it does on real fleets.
  *
- * Every value is a pure function of (profile, config, steps/s, running, now). Noise is keyed
- * by node, GPU and a 5-second time bucket, so two viewers at the same moment agree, a paused
- * run is frozen and a test can reproduce any sample exactly.
+ * A straggling rank is not invented here: it is read from the run's incident timeline
+ * (incidents.ts), the record the run console's step-time chart and log also read. A GPU is
+ * shown lagging exactly while a `straggler` incident is in effect at the current step, and it
+ * is the rank that incident names — so the heatmap, the chart marker and the log line
+ * "rank 13 (node-02) is a straggler" always point at the same device. Without a timeline no
+ * straggler is shown.
+ *
+ * Every value is a pure function of (profile, config, steps/s, running, now, timeline). Noise
+ * is keyed by node, GPU and a 5-second time bucket, so two viewers at the same moment agree, a
+ * paused run is frozen and a test can reproduce any sample exactly.
  */
 
 import { hashString } from "@/lib/canvas/engineering";
 
 import type { RunConfig, RunProfile } from "./config";
+import { activeIncidents, envelope, rankOf, type Incident } from "./incidents";
+import type { Stage } from "./stages";
 
 /** Board power limit (TDP) per accelerator, watts. */
 export const ACCELERATOR_TDP_W: Readonly<Record<string, number>> = {
@@ -29,15 +38,20 @@ export const ACCELERATOR_TDP_W: Readonly<Record<string, number>> = {
 /** Telemetry refreshes on this cadence, as a metrics exporter would scrape it. */
 export const TELEMETRY_BUCKET_MS = 5_000;
 
+/** A GPU above this board temperature is flagged hot. */
+export const HOT_TEMP_C = 79;
+
 export interface GpuSample {
   readonly node: number;
   readonly gpu: number;
+  /** Global rank: node × GPUs per node + local index. */
+  readonly rank: number;
   readonly utilPct: number;
   readonly memUsedGb: number;
   readonly memTotalGb: number;
   readonly tempC: number;
   readonly powerW: number;
-  /** A rank running noticeably below its peers this window. */
+  /** The rank a `straggler` incident on the run timeline names at the current step. */
   readonly straggler: boolean;
   /** A GPU running hotter than its peers this window. */
   readonly hot: boolean;
@@ -81,7 +95,15 @@ export interface ClusterTelemetry {
   readonly maxTempC: number;
   readonly interconnect: InterconnectTelemetry;
   readonly straggler?: GpuSample;
+  /** The timeline incident the straggler is read from. */
+  readonly stragglerIncident?: Incident;
   readonly hotSpot?: GpuSample;
+}
+
+/** Where the run is on its incident timeline: the effective stage and the current step. */
+export interface TelemetryTimeline {
+  readonly stage: Pick<Stage, "id" | "run">;
+  readonly step: number;
 }
 
 /** Deterministic noise in [-1, 1) for a key. */
@@ -99,49 +121,95 @@ const clamp = (value: number, low: number, high: number) =>
 
 const round1 = (value: number) => Math.round(value * 10) / 10;
 
-const FABRICS: Readonly<
-  Record<string, { intra: string; inter: string; gbps: number; nicsPerNode: number }>
-> = {
-  h100: { intra: "NVLink 4", inter: "InfiniBand NDR", gbps: 400, nicsPerNode: 8 },
-  h200: { intra: "NVLink 4", inter: "InfiniBand NDR", gbps: 400, nicsPerNode: 8 },
-  b200: { intra: "NVLink 5", inter: "InfiniBand XDR", gbps: 800, nicsPerNode: 8 },
-  a100: { intra: "NVLink 3", inter: "InfiniBand HDR", gbps: 200, nicsPerNode: 8 },
-  l40s: { intra: "PCIe Gen4", inter: "RoCE v2", gbps: 200, nicsPerNode: 2 },
+export interface FabricSpec {
+  readonly intra: string;
+  readonly inter: string;
+  /** Per-NIC inter-node bandwidth, Gbit/s. */
+  readonly gbps: number;
+  readonly nicsPerNode: number;
+  /** Per-GPU intra-node bandwidth, GB/s, one direction. */
+  readonly intraGBps: number;
+}
+
+export const FABRICS: Readonly<Record<string, FabricSpec>> = {
+  h100: {
+    intra: "NVLink 4",
+    inter: "InfiniBand NDR",
+    gbps: 400,
+    nicsPerNode: 8,
+    intraGBps: 450,
+  },
+  h200: {
+    intra: "NVLink 4",
+    inter: "InfiniBand NDR",
+    gbps: 400,
+    nicsPerNode: 8,
+    intraGBps: 450,
+  },
+  b200: {
+    intra: "NVLink 5",
+    inter: "InfiniBand XDR",
+    gbps: 800,
+    nicsPerNode: 8,
+    intraGBps: 900,
+  },
+  a100: {
+    intra: "NVLink 3",
+    inter: "InfiniBand HDR",
+    gbps: 200,
+    nicsPerNode: 8,
+    intraGBps: 300,
+  },
+  l40s: { intra: "PCIe Gen4", inter: "RoCE v2", gbps: 200, nicsPerNode: 2, intraGBps: 32 },
 };
 
+/** The fabric an accelerator ships with. */
+export function fabricOf(acceleratorId: string): FabricSpec {
+  return FABRICS[acceleratorId] ?? FABRICS.h100!;
+}
+
 /**
- * Where the straggler and hot spot sit: they persist for a few minutes, then move on or clear,
- * rather than flickering between scrapes.
+ * The straggler incident in effect at the timeline's step, with the rank it names resolved
+ * against the configured world size and its depth (the share of throughput the rank loses),
+ * or undefined when the timeline has none.
  */
-function incidents(
+export function stragglerAt(
+  timeline: TelemetryTimeline,
+  config: Pick<RunConfig, "nodes" | "gpusPerNode">,
+):
+  | { readonly incident: Incident; readonly rank: number; readonly depth: number }
+  | undefined {
+  const world = Math.max(1, Math.floor(config.nodes) * Math.floor(config.gpusPerNode));
+  const at = Math.floor(timeline.step);
+  const incident = activeIncidents(timeline.stage, at).find(
+    (item) => item.kind === "straggler",
+  );
+  if (!incident) return undefined;
+  // The magnitude is the step-time excess the console charts; the lagging rank's share of
+  // work done per second falls by the same proportion.
+  const excess = incident.magnitude * envelope(incident, at);
+  return { incident, rank: rankOf(incident, world), depth: excess / (1 + excess) };
+}
+
+/**
+ * Where a thermal hot spot sits: it persists for a few minutes, then moves on or clears,
+ * rather than flickering between scrapes. Thermal state is not a training incident, so it is
+ * not on the run timeline.
+ */
+function hotSpot(
   config: RunConfig,
   now: number,
-): {
-  straggler?: { node: number; gpu: number; depth: number };
-  hot?: { node: number; gpu: number; excess: number };
-} {
+): { node: number; gpu: number; excess: number } | undefined {
   const nodes = Math.max(1, config.nodes);
   const gpus = Math.max(1, config.gpusPerNode);
-  const window = Math.floor(now / 180_000);
-  const seed = `${config.accelerator}:${nodes}x${gpus}:${window}`;
-  const result: ReturnType<typeof incidents> = {};
-  if (unit(`straggler?:${seed}`) < 0.35) {
-    result.straggler = {
-      node: Math.floor(unit(`straggler-node:${seed}`) * nodes),
-      gpu: Math.floor(unit(`straggler-gpu:${seed}`) * gpus),
-      depth: 0.18 + 0.12 * unit(`straggler-depth:${seed}`),
-    };
-  }
   const hotWindow = Math.floor(now / 420_000);
   const hotSeed = `${config.accelerator}:${nodes}x${gpus}:${hotWindow}`;
-  if (unit(`hot?:${hotSeed}`) < 0.45) {
-    result.hot = {
-      node: Math.floor(unit(`hot-node:${hotSeed}`) * nodes),
-      gpu: Math.floor(unit(`hot-gpu:${hotSeed}`) * gpus),
-      excess: 5 + 3 * unit(`hot-excess:${hotSeed}`),
-    };
-  }
-  return result;
+  if (unit(`hot?:${hotSeed}`) >= 0.45) return undefined;
+  return {
+    node: Math.floor(unit(`hot-node:${hotSeed}`) * nodes),
+    gpu: Math.floor(unit(`hot-gpu:${hotSeed}`) * gpus),
+    excess: 5 + 3 * unit(`hot-excess:${hotSeed}`),
+  };
 }
 
 /**
@@ -149,6 +217,7 @@ function incidents(
  *
  * `stepsPerSecond` is the run's optimiser step rate (the effective stage's); `profile` supplies
  * the samples/s, tokens per sample and per-GPU memory the planning estimate predicts.
+ * `timeline` places the run on its incident timeline; a straggler comes from there only.
  */
 export function gpuTelemetry(
   profile: RunProfile,
@@ -156,6 +225,7 @@ export function gpuTelemetry(
   stepsPerSecond: number,
   running: boolean,
   now: number,
+  timeline?: TelemetryTimeline,
 ): ClusterTelemetry {
   const bucket = Math.floor(now / TELEMETRY_BUCKET_MS);
   const nodeCount = Math.max(1, Math.floor(config.nodes));
@@ -163,7 +233,8 @@ export function gpuTelemetry(
   const accelerator = profile.accelerator;
   const tdp = ACCELERATOR_TDP_W[accelerator.id] ?? 700;
   const memTotalGb = accelerator.memoryGb;
-  const { straggler, hot } = running ? incidents(config, now) : {};
+  const hot = running ? hotSpot(config, now) : undefined;
+  const lagging = running && timeline ? stragglerAt(timeline, config) : undefined;
 
   const nodes: NodeTelemetry[] = [];
   let allSamples: GpuSample[] = [];
@@ -171,12 +242,13 @@ export function gpuTelemetry(
     const gpus: GpuSample[] = [];
     for (let g = 0; g < gpusPerNode; g += 1) {
       const key = `${n}:${g}:${bucket}`;
-      const isStraggler = straggler?.node === n && straggler.gpu === g;
-      const isHot = hot?.node === n && hot.gpu === g;
+      const rank = n * gpusPerNode + g;
+      const isStraggler = lagging !== undefined && lagging.rank === rank;
+      const isHot = hot !== undefined && hot.node === n && hot.gpu === g;
 
       const utilPct = running
         ? clamp(
-            (isStraggler ? 94 * (1 - straggler.depth) : 94) + 3 * noise(`util:${key}`),
+            (isStraggler ? 94 * (1 - lagging.depth) : 94) + 3 * noise(`util:${key}`),
             0,
             100,
           )
@@ -192,7 +264,7 @@ export function gpuTelemetry(
       const seat = 2 * noise(`seat:${n}:${g}`);
       const tempC = running
         ? isHot
-          ? clamp(76 + hot.excess + noise(`temp:${key}`), 79, 86)
+          ? clamp(76 + hot.excess + noise(`temp:${key}`), HOT_TEMP_C, 86)
           : clamp(62 + ((utilPct - 60) / 40) * 12 + seat + noise(`temp:${key}`), 62, 78)
         : clamp(38 + seat + noise(`temp:${key}`), 33, 45);
 
@@ -206,13 +278,14 @@ export function gpuTelemetry(
       gpus.push({
         node: n,
         gpu: g,
+        rank,
         utilPct: round1(utilPct),
         memUsedGb: round1(memUsedGb),
         memTotalGb,
         tempC: Math.round(tempC),
         powerW: Math.round(powerW),
-        straggler: Boolean(isStraggler),
-        hot: Boolean(isHot),
+        straggler: isStraggler,
+        hot: isHot,
       });
     }
     nodes.push({
@@ -230,12 +303,12 @@ export function gpuTelemetry(
   // Synchronous data parallelism: every rank waits for the slowest, so a straggler costs the
   // whole cluster a little throughput.
   const wobble = running
-    ? 1 + 0.03 * noise(`cluster:${bucket}`) - (straggler ? 0.015 : 0)
+    ? 1 + 0.03 * noise(`cluster:${bucket}`) - (lagging ? 0.015 : 0)
     : 0;
   const samplesPerSecond = profile.samplesPerSecond * wobble;
   const liveSteps = stepsPerSecond * wobble;
 
-  const fabric = FABRICS[accelerator.id] ?? FABRICS.h100!;
+  const fabric = fabricOf(accelerator.id);
   const multiNode = nodeCount > 1;
   const linkGbps = multiNode ? fabric.gbps * fabric.nicsPerNode : 0;
   // Ring all-reduce of bf16 gradients for the trainable parameters, 2(n-1)/n of the payload.
@@ -274,6 +347,7 @@ export function gpuTelemetry(
       trafficGbps,
     },
     straggler: allSamples.find((gpu) => gpu.straggler),
+    stragglerIncident: lagging?.incident,
     hotSpot: allSamples.find((gpu) => gpu.hot),
   };
 }

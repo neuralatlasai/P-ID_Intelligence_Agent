@@ -317,3 +317,57 @@ describe("execution monitor and run console agree", () => {
     ).toBeLessThan(5);
   });
 });
+
+describe("section 04 figures read the console's telemetry", () => {
+  it("the HBM stack sums to the fits verdict and holds KV only while rollouts generate", async () => {
+    const { hbmPlan } = await import("@/lib/modellab/hbm");
+    const { phaseAt } = await import("@/lib/modellab/telemetry");
+    for (const id of ALL) {
+      const ctx = context(id);
+      const frame = frameAt(ctx, ctx.stage.run.openingStep);
+      for (let k = 0; k < 20; k += 1) {
+        const phase = frame.phases[phaseAt(frame, k / 20).index]!.id;
+        const plan = hbmPlan(id, ctx.config, ctx.profile, phase);
+        const fixed = plan.segments
+          .filter((segment) => segment.id !== "activations" && segment.id !== "kv")
+          .reduce((sum, segment) => sum + segment.gb, 0);
+        // The fixed owners plus the shared slot are exactly the planning peak.
+        expect(fixed + plan.slotGb).toBeCloseTo(ctx.profile.memoryPerGpuGb, 9);
+        expect(plan.fits).toBe(ctx.profile.fits);
+        const kv = plan.segments.find((segment) => segment.id === "kv")!.gb;
+        expect(kv > 0).toBe(id === "rl" && phase === "gen");
+        expect(kv).toBeLessThanOrEqual(plan.slotGb + 1e-9);
+      }
+      expect(hbmPlan(id, ctx.config, ctx.profile).kvDemandGb > 0).toBe(id === "rl");
+    }
+  });
+
+  it("the lagging GPU is the rank the log names, only while the straggler lasts", async () => {
+    const { gpuTelemetry } = await import("@/lib/modellab/hardware");
+    for (const id of ALL) {
+      const ctx = context(id);
+      const source = frameSource(ctx);
+      const world = ctx.profile.gpus;
+      for (const incident of incidentsBetween(ctx.stage, 1, ctx.stage.run.totalSteps)
+        .filter((item) => item.kind === "straggler")
+        .slice(0, 4)) {
+        const t = gpuTelemetry(ctx.profile, ctx.config, 1, true, NOW, {
+          stage: ctx.stage,
+          step: incident.step,
+        });
+        const line = historyLines(source, incident.step, "warnings", 20).find(
+          (item) => item.step === incident.step && item.text.includes("straggler"),
+        )!;
+        expect(t.straggler).toBeDefined();
+        expect(line.text).toContain(`rank ${t.straggler!.rank} `);
+        expect(t.straggler!.rank).toBeLessThan(world);
+        const after = gpuTelemetry(ctx.profile, ctx.config, 1, true, NOW, {
+          stage: ctx.stage,
+          step: incident.step + incident.duration + 400,
+        });
+        if (after.stragglerIncident)
+          expect(after.stragglerIncident.id).not.toBe(incident.id);
+      }
+    }
+  });
+});

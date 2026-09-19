@@ -57,6 +57,14 @@ for (const stage of ["pretraining", "sft", "rl", "distillation"]) {
     await console_.getByRole("button", { name: "All", exact: true }).click();
     await expect(log.locator("li[data-source='trainer']").first()).toBeVisible();
 
+    // A log line is tied to the run timeline: pointing at it draws its step on the track.
+    await log.locator("li").last().hover();
+    await expect(
+      console_
+        .getByRole("region", { name: "Run timeline and incidents" })
+        .locator("[data-cursor]"),
+    ).toHaveCount(1);
+
     // Restore the session for the next test: real time, running.
     await console_.getByRole("button", { name: "Real time", exact: true }).click();
     await page.getByRole("button", { name: /^(Resume|Run) training stage$/ }).click();

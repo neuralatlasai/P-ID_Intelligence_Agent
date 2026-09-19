@@ -1,101 +1,115 @@
-/* Live instruction mixture: last-batch composition under the donut. */
+/* Instruction mixture: a stacked stream of recent batches against the planned shares. */
 
-.batch {
-  padding: 0 14px 12px;
-  border-top: 1px solid var(--rule-subtle);
-  padding-top: var(--space-2);
-}
-
-.batchHead {
-  display: flex;
+.chips {
+  display: inline-flex;
   flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 2px var(--space-2);
-  margin-bottom: 5px;
+  gap: var(--space-1);
 }
 
-.batchHead strong {
-  font-size: var(--text-base);
-  font-weight: var(--weight-medium);
-  color: var(--text-primary);
-}
-
-.batchHead small {
+.chip {
+  padding: 0 var(--space-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xs);
+  color: var(--text-secondary);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
-  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.chip[data-kind="sim"] {
+  border-color: transparent;
+  background: var(--evidence-inferred-bg);
+  color: var(--evidence-inferred);
+}
+
+.body {
+  padding: var(--space-2) var(--space-4) var(--space-3);
+}
+
+.stream {
+  display: block;
+  width: 100%;
+  max-width: 680px;
+  height: auto;
+  overflow: visible;
+}
+
+.cell {
+  fill-opacity: 0.78;
+  transition:
+    fill-opacity var(--duration-fast) var(--easing-standard),
+    height var(--duration-slow) var(--easing-standard),
+    y var(--duration-slow) var(--easing-standard);
+}
+
+.cell[data-dim] {
+  fill-opacity: 0.16;
+}
+
+g[data-newest] .cell {
+  fill-opacity: 1;
+}
+
+g[data-newest] .cell[data-dim] {
+  fill-opacity: 0.2;
+}
+
+.newest {
+  fill: none;
+  stroke: var(--ink-primary);
+  stroke-width: 1;
+}
+
+.plan {
+  stroke: var(--bg-void);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.axis {
+  fill: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: 10px;
   font-variant-numeric: tabular-nums;
 }
 
-.stack {
-  display: flex;
-  height: var(--space-3);
-  border-radius: var(--radius-sm);
-  background: var(--bg-sunken);
-  overflow: hidden;
+.label {
+  transition: opacity var(--duration-fast) var(--easing-standard);
 }
 
-/*
- * Segments are separated by a hairline rule, not a white keyline: on a dark surface the
- * separator is the darker of the two, so it reads as a joint rather than a highlight.
- */
-.stack i {
-  display: block;
-  height: 100%;
-  box-shadow: inset -1px 0 0 var(--bg-void);
-  transition:
-    width var(--duration-slow) var(--easing-standard),
-    opacity var(--duration-fast) var(--easing-standard);
-}
-
-.stack i[data-dim] {
+.label[data-dim] {
   opacity: 0.35;
 }
 
-.counts {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: var(--space-1);
-  margin: 6px 0 0;
-  padding: 0;
-  list-style: none;
+.leader {
+  fill: none;
+  stroke: var(--ink-wire);
+  stroke-width: 1;
 }
 
-.counts li {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
+.family {
+  fill: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: var(--weight-medium);
+}
+
+.numbers {
+  fill: var(--text-tertiary);
   font-family: var(--font-mono);
-  font-size: var(--text-sm);
+  font-size: 11px;
   font-variant-numeric: tabular-nums;
 }
 
-.counts i {
-  flex: 0 0 8px;
-  width: var(--space-2);
-  height: var(--space-2);
-  border-radius: var(--radius-xs);
-}
-
-.counts b {
-  font-weight: var(--weight-medium);
-  color: var(--text-primary);
-}
-
-.counts small {
-  font-size: var(--text-xs);
-  color: var(--text-tertiary);
-}
-
-.note {
-  margin: 6px 0 0;
-  font-size: var(--text-xs);
-  color: var(--text-tertiary);
+.strong {
+  fill: var(--text-primary);
+  font-weight: var(--weight-semibold);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .stack i {
+  .cell,
+  .label {
     transition: none;
   }
 }

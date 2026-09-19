@@ -8,6 +8,9 @@ test("the architecture figure follows the run and can be paused, replayed and fr
   await figure.scrollIntoViewIfNeeded();
   await expect(figure).toHaveAttribute("data-motion", "true");
   await expect(page.getByTestId("reference-packet")).toHaveCount(1);
+  // The figure carries no prose: its description is its accessible description.
+  await expect(figure).toHaveAccessibleDescription(/.+/);
+  await expect(figure.getByRole("status")).toHaveText(/live|occupancy/);
 
   // Local pause holds the path without pausing training.
   await figure.getByRole("button", { name: "Pause", exact: true }).click();
@@ -17,7 +20,10 @@ test("the architecture figure follows the run and can be paused, replayed and fr
   await expect(figure).toHaveAttribute("data-motion", "true");
 
   // Pausing the training stage freezes the path and the signal charts with it.
-  const workbench = page.getByRole("region", { name: "Training signal workbench", exact: true });
+  const workbench = page.getByRole("region", {
+    name: "Training signal workbench",
+    exact: true,
+  });
   const charts = await workbench
     .locator("polyline")
     .evaluateAll((lines) => lines.map((line) => line.getAttribute("points")));
@@ -44,9 +50,19 @@ test("reduced motion keeps the figure static and readable", async ({ page }) => 
   await expect(figure).toHaveAttribute("data-motion", "false");
   await expect(page.getByTestId("reference-packet")).toHaveCount(0);
   await expect(figure.getByRole("button", { name: "Replay", exact: true })).toBeDisabled();
-  await expect(figure).toContainText("Reduced motion · static reference path");
-  const workbench = page.getByRole("region", { name: "Training signal workbench", exact: true });
-  await expect(workbench).toContainText("Loss weights are not configured");
+  await expect(figure.getByRole("status")).toHaveText("static");
+  await expect(figure.getByRole("status")).toHaveAccessibleName(/^Reduced motion/);
+  const workbench = page.getByRole("region", {
+    name: "Training signal workbench",
+    exact: true,
+  });
+  // Distillation's terms are weighted by its total objective: a stacked composition.
+  await expect(
+    workbench.getByRole("img", { name: /^Weighted contribution of each term/ }),
+  ).toBeVisible();
+  await expect(
+    workbench.getByRole("button", { name: /^Forward KL.*percent/ }),
+  ).toBeVisible();
   expect(
     await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
   ).toBe(true);

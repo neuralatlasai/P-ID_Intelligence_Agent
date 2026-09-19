@@ -8,6 +8,8 @@ test("lifecycle inspector keeps sample identity and applied architecture aligned
   const sections = page.getByRole("navigation", { name: "Stage analysis sections" });
   await expect(sections).toBeVisible();
   await sections.getByRole("link", { name: /Input conversion/ }).click();
+  // The raw JSON is collapsed behind a disclosure beneath the conversion diagram.
+  await page.getByText("Raw record", { exact: true }).click();
   const record = page.getByLabel("Selected source record", { exact: true });
   const before = JSON.parse((await record.textContent())!);
   await page.getByRole("button", { name: "Next sample", exact: true }).click();
@@ -42,9 +44,7 @@ test("lifecycle inspector keeps sample identity and applied architecture aligned
   expect(heading?.y).toBeGreaterThan(
     (page.viewportSize()?.width ?? 1600) <= 820 ? 100 : 46,
   );
-  await expect(
-    page.getByText("Model code · annotated training specification", { exact: true }),
-  ).toBeVisible();
+  await expect(page.getByRole("img", { name: /^Tensor-shape ribbon/ })).toBeVisible();
   // A narrow screen may scroll the data table internally; the document must stay bounded.
   expect(
     await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),

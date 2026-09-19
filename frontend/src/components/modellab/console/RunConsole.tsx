@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, type CSSProperties } from "react";
 
 import type { RunConfig, RunProfile } from "@/lib/modellab/config";
 import {
@@ -9,20 +9,13 @@ import {
   type Incident,
   type IncidentKind,
 } from "@/lib/modellab/incidents";
-import {
-  curveAt,
-  formatDuration,
-  REPLAY_SPEEDS,
-  stepAt,
-  type RunControl,
-} from "@/lib/modellab/run";
-import type { Stage, StageId } from "@/lib/modellab/stages";
+import { curveAt, REPLAY_SPEEDS, stepAt, type RunControl } from "@/lib/modellab/run";
+import type { Stage } from "@/lib/modellab/stages";
 import {
   frameSource,
   goodput,
   historyLines,
   logTail,
-  LOG_FORMAT,
   MAX_GRAD_NORM,
   median,
   PHASES,
@@ -36,6 +29,7 @@ import { LiveLog } from "./LiveLog";
 import css from "./RunConsole.module.css";
 import { SignalChart, formatStep, type ChartSeries } from "./SignalChart";
 import { PHASE_COLOUR, StepAnatomy } from "./StepAnatomy";
+import { accumulation } from "../flow/stepFlow";
 import { useFrameClock } from "./useFrameClock";
 
 type Window =
@@ -44,10 +38,10 @@ type Window =
   | { readonly kind: "live" }
   | { readonly kind: "inspect"; readonly incident: Incident };
 
-const DIALECT: Record<StageId, string> = {
+const DIALECT: Record<Stage["id"], string> = {
   pretraining: "torchtitan · FSDP2",
   sft: "TRL SFTTrainer · FSDP2",
-  rl: "verl · FSDP2 actor, vLLM rollout",
+  rl: "verl · FSDP2 actor · vLLM rollout",
   distillation: "torchtitan · FSDP2 · frozen teacher",
 };
 
@@ -60,6 +54,7 @@ interface Tile {
   readonly unit?: string;
   /** Values over recent steps, oldest first, for the sparkline. */
   readonly trend?: readonly number[];
+  /** A short numeric qualifier (median, threshold); never a sentence. */
   readonly note?: string;
   readonly alert?: boolean;
 }
@@ -67,13 +62,6 @@ interface Tile {
 const num = (value: number, digits: number) =>
   Number.isFinite(value) ? value.toFixed(digits) : "nan";
 const grouped = (value: number) => Math.round(value).toLocaleString("en-US");
-
-/** Micro-batches per rank per optimiser step: global batch over data-parallel ranks. */
-function accumulation(config: RunConfig, gpus: number): number {
-  const perRank = config.globalBatch / Math.max(1, gpus);
-  const micro = perRank > 8 ? 2 : 1;
-  return Math.max(1, Math.round(perRank / micro));
-}
 
 function Sparkline({ values }: { readonly values: readonly number[] }) {
   const finite = values.filter(Number.isFinite);
@@ -95,22 +83,19 @@ function Sparkline({ values }: { readonly values: readonly number[] }) {
   );
 }
 
+/**
+ * The console's signal tiles. Progress, ETA and epoch belong to the progress ring (04H) and
+ * per-GPU memory to the HBM figure (04D), so none of them is repeated here.
+ */
 function tilesFor(
   stage: Stage,
   frames: readonly StepFrame[],
   current: StepFrame,
-  remainingSeconds: number,
   goodputShare: number,
 ): Tile[] {
   const trend = (pick: (frame: StepFrame) => number) => frames.slice(-60).map(pick);
   const stepMedian =
     median(frames.map((frame) => frame.stepSeconds)) ?? current.stepSeconds;
-  const eta: Tile = {
-    id: "eta",
-    label: "Time remaining",
-    value: remainingSeconds > 0 ? formatDuration(remainingSeconds) : "complete",
-    note: "at planned throughput",
-  };
   const stepTime: Tile = {
     id: "step-time",
     label: stage.id === "rl" ? "timing_s/step" : "Step time",
@@ -145,7 +130,7 @@ function tilesFor(
     label: "Goodput",
     value: num(goodputShare * 100, 1),
     unit: "%",
-    note: `last ${frames.length} steps`,
+    note: `${frames.length} steps`,
     alert: goodputShare < 0.9,
   };
   const loss = (label: string): Tile => ({
@@ -153,7 +138,6 @@ function tilesFor(
     label,
     value: num(current.loss, 4),
     trend: trend((frame) => frame.loss),
-    note: "training batch",
   });
 
   switch (stage.id) {
@@ -165,19 +149,11 @@ function tilesFor(
           label: "mean_token_accuracy",
           value: num(current.meanTokenAccuracy ?? 0, 4),
           trend: trend((frame) => frame.meanTokenAccuracy ?? 0),
-          note: "supervised tokens",
-        },
-        {
-          id: "epoch",
-          label: "epoch",
-          value: num(current.epoch ?? 0, 2),
-          note: `of ${stage.run.epochs ?? 1}`,
         },
         gradNorm,
         stepTime,
         mfu,
         good,
-        eta,
       ];
     case "rl": {
       const rl = current.rl!;
@@ -187,14 +163,13 @@ function tilesFor(
           label: "critic/score/mean",
           value: num(rl.scoreMean, 3),
           trend: trend((frame) => frame.rl?.scoreMean ?? 0),
-          note: "verifier-weighted reward",
         },
         {
           id: "entropy",
           label: "actor/entropy",
           value: num(rl.entropy, 3),
           trend: trend((frame) => frame.rl?.entropy ?? 0),
-          note: rl.entropy < 0.2 ? "near collapse" : "token-level",
+          note: rl.entropy < 0.2 ? "< 0.20" : undefined,
           alert: rl.entropy < 0.2,
         },
         {
@@ -202,7 +177,7 @@ function tilesFor(
           label: "actor/kl_loss",
           value: num(rl.klLoss, 4),
           trend: trend((frame) => frame.rl?.klLoss ?? 0),
-          note: "k3 vs frozen reference",
+          note: "k3 · ref",
           alert: rl.klLoss > 0.035,
         },
         {
@@ -219,7 +194,6 @@ function tilesFor(
           value: num(rl.zeroVarianceGroups * 100, 0),
           unit: "%",
           trend: trend((frame) => frame.rl?.zeroVarianceGroups ?? 0),
-          note: "no within-group signal",
           alert: rl.zeroVarianceGroups > 0.45,
         },
         {
@@ -227,10 +201,9 @@ function tilesFor(
           label: "actor/pg_clipfrac",
           value: num(rl.pgClipfrac, 4),
           trend: trend((frame) => frame.rl?.pgClipfrac ?? 0),
-          note: "ratio outside [1−ε, 1+ε]",
+          note: "|r−1| > ε",
         },
         stepTime,
-        eta,
       ];
     }
     case "distillation":
@@ -241,20 +214,18 @@ function tilesFor(
           label: "Forward KL",
           value: num(current.klTerm ?? 0, 4),
           trend: trend((frame) => frame.klTerm ?? 0),
-          note: "KL(teacher ‖ student)",
+          note: "KL(p_T ‖ p_S)",
         },
         {
           id: "ce",
           label: "CE",
           value: num(current.ceTerm ?? 0, 4),
           trend: trend((frame) => frame.ceTerm ?? 0),
-          note: "on verified traces",
         },
         gradNorm,
         stepTime,
         mfu,
         good,
-        eta,
       ];
     default:
       return [
@@ -267,17 +238,9 @@ function tilesFor(
           label: "Tokens / s / GPU",
           value: grouped(current.tokensPerSecondPerGpu),
           trend: trend((frame) => frame.tokensPerSecondPerGpu),
-          note: `${grouped((current.tokensPerSecondPerGpu * 3600) / 1e6)}M tokens / GPU-hour`,
-        },
-        {
-          id: "memory",
-          label: "Memory",
-          value: num(current.memoryGiB, 1),
-          unit: "GiB",
-          note: `${num(current.memoryShare * 100, 1)}% of device`,
+          note: `${grouped((current.tokensPerSecondPerGpu * 3600) / 1e6)}M / GPU·h`,
         },
         good,
-        eta,
       ];
   }
 }
@@ -467,8 +430,7 @@ export function RunConsole({
     [source, current, filter],
   );
 
-  const remaining = (total - exact) / Math.max(1e-9, stage.run.stepsPerSecond);
-  const tiles = tilesFor(stage, recent, latest, remaining, goodput(context, recent));
+  const tiles = tilesFor(stage, recent, latest, goodput(context, recent));
   const status = blocked
     ? "Blocked"
     : exact >= total
@@ -490,19 +452,11 @@ export function RunConsole({
     >
       <header className={css.consoleHead}>
         <div className={css.consoleTitle}>
-          <span className="sectionLabel">Run console · live</span>
-          <h2>
-            {stage.number} · {stage.title}
-          </h2>
+          <span className={css.fig}>FIGURE 04A · RUN CONSOLE</span>
+          <h3>Run console</h3>
           <p>
             <code>{stage.experimentId}</code>
-            <span>
-              {profile.gpus} × {profile.accelerator.name} · {config.precision.toUpperCase()}{" "}
-              · {config.trainable === "full" ? "full parameter" : "LoRA"} · global batch{" "}
-              {config.globalBatch}
-              {stage.id === "rl" ? ` prompts × ${stage.run.rolloutsPerStep ?? 8}` : ""}
-            </span>
-            <span className={css.simulated}>Simulated telemetry</span>
+            <span className={css.simulated}>Simulated</span>
           </p>
         </div>
         <div className={css.consoleState}>
@@ -510,12 +464,8 @@ export function RunConsole({
             <i aria-hidden="true" />
             <strong>{status}</strong>
             <span>
-              step <b>{grouped(Math.min(total, current + (running ? 1 : 0)))}</b> /{" "}
-              {grouped(total)}
+              step <b>{grouped(Math.min(total, current + (running ? 1 : 0)))}</b>
             </span>
-          </div>
-          <div className={css.progress} aria-hidden="true">
-            <span style={{ width: `${(exact / total) * 100}%` }} />
           </div>
           <div className={css.speed}>
             <span id="replay-speed-label">Replay</span>
@@ -541,12 +491,19 @@ export function RunConsole({
 
       {blocked ? (
         <p className={css.blocked}>
-          This stage warm-starts from the previous stage&apos;s checkpoint, and none has
-          been written yet. Telemetry begins when it starts.
+          <span className={css.blockedChip}>blocked · no input checkpoint</span>
+          <span className="srOnly">
+            This stage warm-starts from the previous stage&apos;s checkpoint, and none has
+            been written yet. Telemetry begins when it starts.
+          </span>
         </p>
       ) : (
         <>
-          <ul className={css.tiles} aria-label="Current training signals">
+          <ul
+            className={css.tiles}
+            aria-label="Current training signals"
+            style={{ "--tiles": tiles.length } as CSSProperties}
+          >
             {tiles.map((tile) => (
               <li key={tile.id} data-alert={tile.alert || undefined}>
                 <span className={css.tileLabel}>{tile.label}</span>
@@ -595,8 +552,7 @@ export function RunConsole({
                   </span>
                 ) : (
                   <span className={css.windowNote}>
-                    {formatStep(domain[0])} – {formatStep(domain[1])} · raw per-step values
-                    under a debiased EMA (0.85)
+                    {formatStep(domain[0])} – {formatStep(domain[1])} · raw + EMA 0.85
                   </span>
                 )}
               </div>
@@ -665,6 +621,7 @@ export function RunConsole({
             incidents={runIncidents}
             checkpointEvery={stage.run.checkpointEvery}
             inspected={inspecting?.id}
+            hover={hover}
             onInspect={(incident) => {
               setView({ kind: "inspect", incident });
               setHover(incident.step);
@@ -675,8 +632,10 @@ export function RunConsole({
             lines={lines}
             filter={filter}
             onFilter={setFilter}
-            dialect={`${DIALECT[stage.id]} · ${LOG_FORMAT[stage.id]} format`}
+            dialect={DIALECT[stage.id]}
             running={running}
+            total={total}
+            onHoverStep={setHover}
           />
         </>
       )}

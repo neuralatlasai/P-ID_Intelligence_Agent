@@ -238,6 +238,72 @@ export interface RunProfile {
 const byId = <T extends { id: string }>(list: readonly T[], id: string): T =>
   list.find((item) => item.id === id) ?? list[0]!;
 
+/**
+ * Per-GPU memory, by owner. This is the one formula for training memory: `runProfile` takes
+ * its peak from `totalGb`, so the stacked bar and the fits/doesn't-fit verdict can never
+ * disagree.
+ *
+ * Trainable state is 16 bytes per parameter under mixed-precision AdamW — a BF16 weight
+ * (2 B), a BF16 gradient (2 B) and FP32 master weight, first and second moment (12 B) —
+ * sharded across every rank (FSDP2 full shard / ZeRO-3). Frozen weights are held once at
+ * the weight precision and sharded the same way. Activations are per rank, not sharded.
+ */
+export interface MemoryBreakdown {
+  /** Trainable parameters, billions. */
+  readonly trainableB: number;
+  /** Frozen weight shard, GB per GPU. */
+  readonly frozenGb: number;
+  /** Trainable BF16 weight shard, GB per GPU. */
+  readonly weightsGb: number;
+  /** BF16 gradient shard, GB per GPU. */
+  readonly gradientsGb: number;
+  /** FP32 master weights + AdamW moments, GB per GPU. */
+  readonly optimizerGb: number;
+  /** Checkpointed activations for one micro-batch sequence, GB per GPU. */
+  readonly activationGb: number;
+  readonly totalGb: number;
+}
+
+export function memoryBreakdown(stage: StageId, config: RunConfig): MemoryBreakdown {
+  const backbone = byId(BACKBONES, config.backbone);
+  const spatial = byId(SPATIAL_ENCODERS, config.spatial);
+  const graph = byId(GRAPH_ENCODERS, config.graph);
+  const gpus = Math.max(1, config.nodes * config.gpusPerNode);
+  const encodersB = (spatial.paramsM + graph.paramsM) / 1000;
+  // Trainable parameters: everything for a full fine-tune; otherwise LoRA adapters (≈1.5 %)
+  // plus the modality encoders — except in reinforcement learning, where the policy's
+  // encoders stay frozen and only the adapters take gradients.
+  const encodersTrained = stage === "rl" ? 0 : encodersB;
+  const trainableB =
+    config.trainable === "full"
+      ? backbone.params + encodersB
+      : backbone.params * 0.015 + encodersTrained;
+  const weightBytes = config.precision === "fp8" ? 1 : 2;
+  const frozenGb =
+    ((backbone.params +
+      encodersB -
+      (config.trainable === "full" ? backbone.params + encodersB : encodersTrained)) *
+      weightBytes) /
+    gpus;
+  const trainedGb = (trainableB * 16) / gpus;
+  const weightsGb = (trainableB * 2) / gpus;
+  const gradientsGb = (trainableB * 2) / gpus;
+  // Checkpointed activations for one micro-batch at the stage's sample length.
+  // Activations are per micro-batch sequence, not per sample group.
+  const sequenceTokens = stage === "rl" ? RL_SEQUENCE_TOKENS : TOKENS_PER_SAMPLE[stage];
+  const activationGb = 6 + (sequenceTokens / 4096) * (backbone.active / 33) * 14;
+  return {
+    trainableB,
+    frozenGb,
+    weightsGb,
+    gradientsGb,
+    // The remainder of the 16 bytes, so the three parts sum to the trained total exactly.
+    optimizerGb: trainedGb - weightsGb - gradientsGb,
+    activationGb,
+    totalGb: frozenGb + trainedGb + activationGb,
+  };
+}
+
 /** Planning estimate for a configuration. Pure; O(1). */
 export function runProfile(stage: StageId, config: RunConfig): RunProfile {
   const backbone = byId(BACKBONES, config.backbone);
@@ -281,24 +347,9 @@ export function runProfile(stage: StageId, config: RunConfig): RunProfile {
   const samplesPerSecond = config.globalBatch / stepSeconds;
   const tokensPerSecond = samplesPerSecond * tokensPerSample;
 
-  // Trainable parameters: everything for a full fine-tune; adapters (≈1.5 %) plus encoders otherwise.
-  const trainableB =
-    config.trainable === "full"
-      ? backbone.params + encodersB
-      : backbone.params * 0.015 + encodersB;
-  const weightBytes = config.precision === "fp8" ? 1 : 2;
-  const frozenGb =
-    ((backbone.params +
-      encodersB -
-      (config.trainable === "full" ? backbone.params + encodersB : encodersB)) *
-      weightBytes) /
-    gpus;
-  const trainedGb = (trainableB * 16) / gpus;
-  // Checkpointed activations for one micro-batch at the stage's sample length.
-  // Activations are per micro-batch sequence, not per sample group.
-  const sequenceTokens = stage === "rl" ? RL_SEQUENCE_TOKENS : tokensPerSample;
-  const activationGb = 6 + (sequenceTokens / 4096) * (backbone.active / 33) * 14;
-  const memoryPerGpuGb = frozenGb + trainedGb + activationGb;
+  const memory = memoryBreakdown(stage, config);
+  const { trainableB } = memory;
+  const memoryPerGpuGb = memory.totalGb;
 
   return {
     backbone,

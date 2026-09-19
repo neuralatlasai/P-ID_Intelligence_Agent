@@ -7,6 +7,7 @@ import { architectureSpec } from "@/lib/modellab/architecture";
 import { DEFAULT_CONFIG, runProfile } from "@/lib/modellab/config";
 import { availability, corpusFacts } from "@/lib/modellab/samples";
 import { STAGES } from "@/lib/modellab/stages";
+import { liveTerms } from "@/components/modellab/flow/stepFlow";
 
 /**
  * The architecture figure is read by engineers as a specification. These tests pin what would
@@ -58,6 +59,41 @@ describe("architecture spec", () => {
       }
     });
 
+    it(`${stage.id}: every connected source feeds a connected first-row module`, () => {
+      const firstRow = spec.model[0]!;
+      for (const source of spec.sources) {
+        if (!source.feeds) continue;
+        const into = firstRow.find((box) => box.id === source.feeds);
+        expect(into, `${source.id} → ${source.feeds}`).toBeDefined();
+        expect(into!.absent, source.feeds).toBeFalsy();
+      }
+      expect(spec.sources.some((source) => source.feeds && !source.absent)).toBe(true);
+    });
+
+    it(`${stage.id}: each weighted head names a live term, and no formula is printed`, () => {
+      const keys = new Set(liveTerms(stage, stage.run.openingStep).terms.map((t) => t.key));
+      for (const head of spec.heads) {
+        if (head.lossKey) expect(keys, head.id).toContain(head.lossKey);
+      }
+      const printed = [spec.aggregate, ...spec.heads].map((box) => box.detail).join(" ");
+      expect(printed).not.toMatch(/Σ λ|=\s*\(|‖|−100/);
+    });
+
+    it(`${stage.id}: trainable modules follow the applied configuration`, () => {
+      const model = spec.model.flat();
+      const backbone = model.find((box) =>
+        ["backbone", "policy", "student"].includes(box.id),
+      )!;
+      expect(backbone.params).toBe(config.trainable === "full" ? "trained" : "adapters");
+      // Something upstream of the loss is always updated.
+      expect(
+        model.some((box) => box.params === "trained" || box.params === "adapters"),
+      ).toBe(true);
+      for (const box of [...model, ...spec.chain]) {
+        if (box.frozen) expect(box.params, box.id).toBe("frozen");
+      }
+    });
+
     it(`${stage.id}: ends with a checkpoint and names the applied backbone`, () => {
       expect(spec.chain.at(-1)?.symbol).toBe("checkpoint");
       expect(
@@ -76,5 +112,46 @@ describe("architecture spec", () => {
     const graph = spec.model.flat().find((box) => box.id === "enc-graph")!;
     expect(graph.absent).toBe(true);
     expect(graph.detail).toMatch(/disabled/);
+    // Topology then enters as text through the chat template.
+    const topology = spec.sources.find((box) => box.symbol === "graph");
+    if (topology) expect(topology.feeds).toBe("tmpl");
+  });
+
+  it("freezes the backbone under LoRA and trains it in full fine-tuning", () => {
+    const stage = STAGES.find((item) => item.id === "pretraining")!;
+    const lora = architectureSpec(
+      stage,
+      DEFAULT_CONFIG.pretraining,
+      runProfile("pretraining", DEFAULT_CONFIG.pretraining),
+      facts,
+    );
+    const vision = lora.model.flat().find((box) => box.id === "enc-vision")!;
+    expect(vision.params).toBe("frozen");
+    const fullConfig = { ...DEFAULT_CONFIG.pretraining, trainable: "full" as const };
+    const full = architectureSpec(
+      stage,
+      fullConfig,
+      runProfile("pretraining", fullConfig),
+      facts,
+    );
+    expect(full.model.flat().find((box) => box.id === "enc-vision")!.params).toBe(
+      "trained",
+    );
+    expect(full.model.flat().find((box) => box.id === "backbone")!.params).toBe("trained");
+  });
+
+  it("keeps the distillation teacher out of the update", () => {
+    const stage = STAGES.find((item) => item.id === "distillation")!;
+    const config = DEFAULT_CONFIG.distillation;
+    const spec = architectureSpec(stage, config, runProfile("distillation", config), facts);
+    const teacher = spec.model.flat().find((box) => box.id === "teacher")!;
+    expect(teacher.params).toBe("frozen");
+    // The weights of the distillation heads are the total curve's own.
+    const weighted = spec.heads.filter((head) => head.lossKey);
+    expect(weighted.map((head) => head.lossKey).sort()).toEqual([
+      "hidden",
+      "kd-ce",
+      "kd-kl",
+    ]);
   });
 });

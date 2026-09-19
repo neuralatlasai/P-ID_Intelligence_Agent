@@ -49,12 +49,19 @@ const SOURCE_LABEL: Record<LogLine["source"], string> = {
   elastic: "elastic",
 };
 
+/**
+ * The framework's own log, kept compact. Each line is tied to the run timeline: pointing at
+ * a line puts its step under the charts' crosshair and on the timeline track, and a filtered
+ * view (history reaching back through the run) marks each line's position in the run.
+ */
 export function LiveLog({
   lines,
   filter,
   onFilter,
   dialect,
   running,
+  total,
+  onHoverStep,
 }: {
   readonly lines: readonly LogLine[];
   readonly filter: LogFilter;
@@ -62,6 +69,9 @@ export function LiveLog({
   /** The trainer and its log format, e.g. "torchtitan · FSDP2". */
   readonly dialect: string;
   readonly running: boolean;
+  /** The run's total steps: the scale of each line's position mark. */
+  readonly total: number;
+  readonly onHoverStep: (step: number | null) => void;
 }) {
   const scroller = useRef<HTMLDivElement>(null);
   const [follow, setFollow] = useState(true);
@@ -115,15 +125,30 @@ export function LiveLog({
         aria-label={`Run log, ${filter === "all" ? "all lines" : filter}`}
       >
         {lines.length === 0 ? (
-          <p className={css.logEmpty}>
-            {filter === "warnings"
-              ? "No warnings or errors yet in this run."
-              : "Nothing written yet."}
-          </p>
+          <p className={css.logEmpty}>{filter === "warnings" ? "0 warnings" : "empty"}</p>
         ) : (
-          <ol>
+          <ol
+            data-history={filter !== "all" || undefined}
+            onMouseLeave={() => onHoverStep(null)}
+          >
             {lines.map((line) => (
-              <li key={line.id} data-level={line.level} data-source={line.source}>
+              <li
+                key={line.id}
+                data-level={line.level}
+                data-source={line.source}
+                onMouseEnter={() => onHoverStep(line.step)}
+              >
+                <span
+                  className={css.logRun}
+                  aria-hidden="true"
+                  title={`step ${line.step.toLocaleString("en-US")}`}
+                >
+                  <i
+                    style={{
+                      left: `${(Math.min(total, line.step) / Math.max(1, total)) * 100}%`,
+                    }}
+                  />
+                </span>
                 <time>{formatRunTime(line.runSeconds)}</time>
                 <b>{line.level}</b>
                 <span className={css.logSource}>{SOURCE_LABEL[line.source]}</span>

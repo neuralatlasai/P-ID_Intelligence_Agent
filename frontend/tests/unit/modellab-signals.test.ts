@@ -39,16 +39,16 @@ describe("training signal projections", () => {
     );
   });
 
-  it("does not invent distillation weights or add unlike losses", () => {
+  it("takes distillation weights from its total objective and reconciles with it", () => {
     const stage = stageById("distillation")!;
+    const total = stage.curves[0]!.curves[0]!;
     const snapshot = trainingSignals(stage, 400);
-    expect(snapshot.kind).toBe("unweighted");
-    expect(snapshot.total).toBeUndefined();
-    for (const [index, signal] of snapshot.signals.entries()) {
-      expect(signal.weight).toBeUndefined();
-      expect(signal.contribution).toBeUndefined();
-      expect(signal.value).toBe(curveAt(stage.curves[0]!.curves[index]!, 400, stage));
-    }
+    expect(snapshot.kind).toBe("loss");
+    expect(snapshot.signals.map((signal) => signal.weight)).toEqual(
+      total.sumOf!.map((term) => term.weight),
+    );
+    // The panel's total is the plotted total objective, not a second estimate of it.
+    expect(snapshot.total).toBeCloseTo(curveAt(total, 400, stage), 12);
   });
 
   it("bounds histories to elapsed steps at zero, restart and completion", () => {

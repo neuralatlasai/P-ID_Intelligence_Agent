@@ -1,0 +1,504 @@
+/*
+ * Execution architecture figures. Ink on the void, mono captions, one grammar with the
+ * architecture figure: stroke width = bandwidth, dashed moving = gradient traffic, solid
+ * moving = forward traffic, hatched = frozen, dotted = not connected. Motion appears only
+ * while the live step is in a phase that moves shards.
+ */
+
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  grid-template-areas:
+    "topology memory"
+    "topology data"
+    "serving serving";
+  gap: 1px;
+  margin: 0 var(--space-6);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--border-subtle);
+}
+
+.card {
+  display: grid;
+  align-content: start;
+  gap: var(--space-3);
+  min-width: 0;
+  margin: 0;
+  padding: var(--space-4);
+  background: var(--bg-void);
+}
+.card[data-area="topology"] {
+  grid-area: topology;
+  display: flex;
+  flex-direction: column;
+}
+.card[data-area="memory"] {
+  grid-area: memory;
+}
+.card[data-area="data"] {
+  grid-area: data;
+  align-content: space-between;
+}
+.card[data-area="serving"] {
+  grid-area: serving;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  align-items: center;
+  column-gap: var(--space-8);
+}
+.card[data-area="serving"] .caption {
+  justify-content: flex-start;
+}
+
+.caption {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-3);
+}
+.caption span {
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--tracking-label);
+}
+.caption code {
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── device mesh ───────────────────────────────────────────────────────────────────────── */
+
+.scroll {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow-x: auto;
+  min-width: 0;
+}
+.topology {
+  display: block;
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 300px;
+  height: auto;
+}
+.shardGroup {
+  fill: none;
+  stroke: var(--accent-action);
+  stroke-width: 1.2;
+  stroke-dasharray: 6 4;
+}
+.tpGroup {
+  fill: none;
+  stroke: var(--ink-muted);
+  stroke-width: 1;
+  stroke-dasharray: 1.5 2.5;
+}
+.topology[data-generating="true"] .tpGroup {
+  stroke: var(--ink-primary);
+}
+.spine {
+  fill: var(--bg-surface-high);
+  stroke: var(--ink-secondary);
+  stroke-width: 1;
+}
+.node {
+  fill: var(--ink-fill);
+  stroke: var(--ink-secondary);
+  stroke-width: 1;
+}
+.nvswitch {
+  fill: var(--ink-secondary);
+}
+.gpu {
+  fill: var(--bg-surface-high);
+  stroke: var(--ink-primary);
+  stroke-width: 1;
+}
+.rank {
+  fill: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-variant-numeric: tabular-nums;
+}
+.nvlink,
+.ib {
+  fill: none;
+  stroke: var(--ink-wire);
+}
+.svgLabel {
+  fill: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+/* Traffic in flight: forward all-gather solid, gradient reduce-scatter dashed. */
+.topology[data-traffic] .nvlink,
+.topology[data-traffic] .ib {
+  stroke: var(--ink-primary);
+}
+.topology[data-traffic] .spine {
+  stroke: var(--ink-primary);
+}
+.topology[data-traffic="forward"] .nvlink,
+.topology[data-traffic="forward"] .ib {
+  stroke-dasharray: 10 2;
+  animation: flow 0.8s linear infinite;
+}
+.topology[data-traffic="gradient"] .nvlink,
+.topology[data-traffic="gradient"] .ib {
+  stroke-dasharray: 4 3;
+  animation: flow 0.6s linear infinite reverse;
+}
+@keyframes flow {
+  to {
+    stroke-dashoffset: -24;
+  }
+}
+
+.key {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-4);
+  margin: 0;
+  padding: 0;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+}
+.key li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.key svg {
+  width: 24px;
+  height: 8px;
+}
+.keyLink {
+  stroke: var(--ink-secondary);
+}
+.keyShard,
+.keyTp {
+  display: inline-block;
+  width: 18px;
+  height: 10px;
+}
+.keyShard {
+  border: 1.5px dashed var(--accent-action);
+}
+.keyTp {
+  border: 1px dotted var(--ink-secondary);
+}
+.phase {
+  margin-left: auto;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xs);
+  color: var(--text-tertiary);
+}
+.phase[data-traffic] {
+  border-color: var(--ink-primary);
+  color: var(--text-active);
+}
+
+/* ── HBM ───────────────────────────────────────────────────────────────────────────────── */
+
+.verdict {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.verdict i {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--radius-pill);
+  background: var(--status-ready-mark);
+}
+.verdict[data-fits="false"] i {
+  background: var(--status-down-mark);
+}
+.verdict[data-fits="false"] {
+  color: var(--status-down);
+}
+
+.memory {
+  position: relative;
+  display: grid;
+  gap: var(--space-2);
+}
+.patterns {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+.hatchLine {
+  stroke: var(--ink-muted);
+  stroke-width: 1.4;
+}
+.bar {
+  position: relative;
+  display: flex;
+  height: 30px;
+  gap: 1px;
+  margin-top: var(--space-1);
+}
+.segment,
+.slot {
+  position: relative;
+  min-width: 1px;
+  overflow: hidden;
+  transition: width var(--duration-panel) var(--easing-spatial);
+}
+.segment svg,
+.memoryKey li > span svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.segment[data-owner="frozen"] {
+  outline: 1px solid var(--ink-muted);
+  outline-offset: -1px;
+}
+.segment[data-owner="grads"] {
+  outline: 1px dashed var(--ink-primary);
+  outline-offset: -2px;
+}
+/* The time-shared activation / KV slot: an outlined reservation, filled by its owner. */
+.slot {
+  outline: 1px solid var(--ink-wire);
+  outline-offset: -1px;
+  background: var(--bg-sunken);
+}
+.slot i {
+  display: block;
+  height: 100%;
+  transition:
+    width var(--duration-panel) var(--easing-spatial),
+    background var(--duration-panel) var(--easing-standard);
+}
+.headroom,
+.headroomSwatch {
+  background: var(--bg-sunken);
+  outline: 1px dotted var(--rule-strong);
+  outline-offset: -1px;
+}
+.capacity,
+.limit {
+  position: absolute;
+  top: -5px;
+  bottom: -5px;
+  width: 0;
+  transition: left var(--duration-panel) var(--easing-spatial);
+}
+.capacity {
+  border-left: 2px solid var(--ink-primary);
+}
+.limit {
+  border-left: 1px dashed var(--ink-secondary);
+}
+.axis {
+  position: relative;
+  height: 14px;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+}
+.axis span {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+}
+.axis span:first-child {
+  transform: none;
+}
+.axis span:last-child {
+  transform: translateX(-100%);
+}
+.memoryKey {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+  padding: 0;
+}
+.memoryKey li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+.memoryKey li > span {
+  position: relative;
+  flex: none;
+  width: 10px;
+  height: 10px;
+  overflow: hidden;
+}
+.memoryKey li[data-owner="frozen"] > span {
+  outline: 1px solid var(--ink-muted);
+  outline-offset: -1px;
+}
+.memoryKey li[data-empty="true"] {
+  color: var(--text-tertiary);
+}
+.memoryKey li[data-empty="true"] > span {
+  background: none !important;
+  outline: 1px dotted var(--ink-muted);
+  outline-offset: -1px;
+}
+.memoryKey li[data-active="true"] {
+  color: var(--text-active);
+}
+.memoryKey b {
+  margin-left: auto;
+  color: var(--text-primary);
+  font-weight: var(--weight-medium);
+  font-variant-numeric: tabular-nums;
+}
+.slotState {
+  justify-self: start;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xs);
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+.slotState[data-kv="true"] {
+  border-color: var(--ink-primary);
+  color: var(--text-active);
+}
+
+/* ── pipelines ─────────────────────────────────────────────────────────────────────────── */
+
+.pipeline {
+  display: flex;
+  align-items: flex-start;
+  min-width: 0;
+}
+.stage {
+  position: relative;
+  flex: 1 1 0;
+  display: grid;
+  justify-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.stage + .stage::before {
+  content: "";
+  position: absolute;
+  top: 13px;
+  right: calc(50% + 18px);
+  left: calc(-50% + 18px);
+  z-index: 0;
+  border-top: 1px solid var(--ink-wire);
+}
+.stageBody {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  height: 28px;
+}
+.stageLabel {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.box {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 24px;
+  border: 1px solid var(--ink-secondary);
+  border-radius: var(--radius-xs);
+  background: var(--ink-fill);
+  color: var(--icon-muted);
+}
+.box[data-running="true"] {
+  border-color: var(--ink-primary);
+  color: var(--ink-primary);
+}
+.queue {
+  display: grid;
+  grid-template-columns: repeat(8, 5px);
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--ink-secondary);
+  border-radius: var(--radius-xs);
+}
+.queue i {
+  height: 14px;
+  background: var(--bg-sunken);
+  outline: 1px solid var(--rule-subtle);
+  transition: background var(--duration-panel) var(--easing-standard);
+}
+.queue i[data-full="true"] {
+  background: var(--scale-4);
+}
+.pipeline[data-stalled="true"] .queue {
+  border-color: var(--status-degraded-mark);
+}
+.pipeline[data-detached="true"] .box {
+  border-style: dotted;
+  background: none;
+}
+.pipeline[data-detached="true"] .stage + .stage::before {
+  border-top-style: dotted;
+}
+.detached {
+  padding: 0 var(--space-1);
+  border: 1px dotted var(--border-strong);
+  border-radius: var(--radius-xs);
+}
+.card .detached {
+  color: var(--text-tertiary);
+}
+
+@media (max-width: 900px) {
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "topology" "memory" "data" "serving";
+  }
+  .card[data-area="serving"] {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: var(--space-3);
+  }
+}
+@media (max-width: 640px) {
+  .grid {
+    margin-inline: var(--space-5);
+  }
+  .card {
+    padding: var(--space-3);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .topology[data-traffic] .nvlink,
+  .topology[data-traffic] .ib {
+    animation: none;
+  }
+}

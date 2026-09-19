@@ -29,9 +29,13 @@ import {
 import {
   hashString,
   seededRandom,
+  type AssetCategory,
   type FailureCode,
   type PlantRegister,
 } from "@/lib/canvas/engineering";
+import { fieldReferencesFor } from "@/lib/investigation/model";
+
+import type { ProcessSpec } from "./process";
 
 // ────────────────────────────────────────────────────────────────────────────────────────────
 // Scene definition
@@ -45,7 +49,18 @@ export type DetectionClass =
   | "gauge"
   | "transmitter"
   | "support"
-  | "line";
+  | "line"
+  | "flange"
+  | "bonnet"
+  | "actuator"
+  | "yoke"
+  | "positioner"
+  | "handwheel"
+  | "flow-tube"
+  | "housing"
+  | "antenna"
+  | "cable"
+  | "vessel";
 
 /** Which role a detection plays, and so how it is mapped onto the drawing. */
 export type DetectionRole =
@@ -53,8 +68,11 @@ export type DetectionRole =
   | "inlet-side"
   | "outlet-side"
   | "valve"
+  | "relief-valve"
   | "local-indicator"
-  | "transmitter";
+  | "level-indicator"
+  | "transmitter"
+  | "host-vessel";
 
 export interface FieldDetection {
   readonly id: string;
@@ -64,16 +82,50 @@ export interface FieldDetection {
   /** Pixel box in the source photograph: x0, y0, x1, y1. */
   readonly box: readonly [number, number, number, number];
   readonly description: string;
+  /**
+   * For a pipe-side detection, which of the anchor's runs it takes, zero-based. Defaults to
+   * 0 for the inlet side and 1 for the outlet side.
+   */
+  readonly run?: number;
 }
+
+/**
+ * How a scene finds its symbol.
+ *
+ * `preferred-or-hub` — a preferred symbol when the sheet has it, otherwise the best-joined
+ * vessel as a stated hypothesis. `registered` — only the symbol the field-reference set
+ * registers this exact photograph against, by node id and drawn class; a sheet without that
+ * registration has no anchor, because a photograph of one valve says nothing about another.
+ */
+export type AnchorRule = "preferred-or-hub" | "registered";
 
 export interface FieldScene {
   readonly id: string;
   readonly title: string;
+  /** What the photographed equipment is, in the register's words. */
+  readonly equipment: string;
+  /** What it does in the process — one sentence. */
+  readonly duty: string;
   readonly image: string;
   readonly imageWidth: number;
   readonly imageHeight: number;
+  /** Every photograph in the product is generated; the label is carried with the scene. */
+  readonly provenance: "generated";
+  readonly anchorRule: AnchorRule;
   /** Symbols to anchor on, in preference order. The first present on the sheet wins. */
   readonly preferredAnchors: readonly string[];
+  /**
+   * Register categories consistent with the photograph. When the anchor's register
+   * identity is not one of them, the body of the equipment is still the anchor — that is
+   * what the registration says — but the mapping is held at low confidence and says why.
+   */
+  readonly expectedCategories: readonly AssetCategory[];
+  /** Which process view applies. Heat-exchanger physics is shown for exchangers only. */
+  readonly process: ProcessSpec;
+  /** What a failure of a component would act on, for the agent question. */
+  readonly impact: string;
+  /** Anything a reviewer must know before trusting the scene, shown with it. */
+  readonly caveat?: string;
   readonly detections: readonly FieldDetection[];
 }
 
@@ -86,10 +138,17 @@ export interface FieldScene {
 export const HEAT_EXCHANGER_SCENE: FieldScene = {
   id: "SCN-EXCHANGER",
   title: "Shell-and-tube heat exchanger — field inspection",
+  equipment: "Shell-and-tube heat exchanger",
+  duty: "Transfers heat from the shell-side process stream to tube-side cooling water.",
   image: "/demo/heat-exchanger-inspection.png",
   imageWidth: 1448,
   imageHeight: 1086,
+  provenance: "generated",
+  anchorRule: "preferred-or-hub",
   preferredAnchors: ["tank67"],
+  expectedCategories: ["exchanger"],
+  process: { kind: "exchanger" },
+  impact: "duty and outlet temperature",
   detections: [
     {
       id: "D1",
@@ -248,6 +307,14 @@ export function resolveAnchor(
   drawing: CanvasDrawing,
   adjacency: ReadonlyMap<string, readonly string[]>,
 ): string | undefined {
+  if (scene.anchorRule === "registered") {
+    const registered = fieldReferencesFor(drawing).filter(
+      (reference) => reference.generatedImagePath === scene.image,
+    );
+    return scene.preferredAnchors.find((id) =>
+      registered.some((reference) => reference.nodeId === id),
+    );
+  }
   const ids = new Set(drawing.nodes.map((node) => node.id));
   const preferred = scene.preferredAnchors.find((id) => ids.has(id));
   if (preferred) return preferred;
@@ -269,14 +336,23 @@ export function resolveAnchor(
 /**
  * What each field role looks for on the drawing: the symbol class, the stricter match that
  * makes it a like-for-like identification, and the words the basis uses for both.
+ *
+ * A `strict` role takes a like-for-like symbol or nothing: a relief valve mapped onto the
+ * nearest control valve would be a wrong answer stated with confidence, so it is unmapped
+ * instead. A `shared` role does not consume its symbol, because several parts of one vessel
+ * — its roof and the nozzle welded into it — are all that one vessel.
  */
+type FieldRole = Exclude<DetectionRole, "anchor-body" | "inlet-side" | "outlet-side">;
+
 const FIELD_RULES: Record<
-  "valve" | "local-indicator" | "transmitter",
+  FieldRole,
   {
     readonly kind: string;
     readonly noun: string;
     readonly match: string;
     readonly exact: (register: PlantRegister, id: string) => boolean;
+    readonly strict?: boolean;
+    readonly shared?: boolean;
   }
 > = {
   // A handwheel in the photo is a manually operated valve; an actuated one is a different item.
@@ -286,6 +362,13 @@ const FIELD_RULES: Record<
     match: "manual valve",
     exact: (register, id) => register.assets.get(id)?.category === "hand-valve",
   },
+  "relief-valve": {
+    kind: "valve",
+    noun: "valve",
+    match: "pressure safety valve",
+    exact: (register, id) => register.assets.get(id)?.category === "safety-valve",
+    strict: true,
+  },
   // A dial gauge measures pressure locally and transmits nothing.
   "local-indicator": {
     kind: "instrumentation",
@@ -294,11 +377,29 @@ const FIELD_RULES: Record<
     exact: (register, id) =>
       /Pressure (Gauge|Indicator)$/.test(register.assets.get(id)?.name ?? ""),
   },
+  // A gauge glass on its bridle is a local level indication.
+  "level-indicator": {
+    kind: "instrumentation",
+    noun: "instrument",
+    match: "level indicator",
+    exact: (register, id) =>
+      /^Level (Gauge|Indicator)$/.test(register.assets.get(id)?.name ?? ""),
+  },
   transmitter: {
     kind: "instrumentation",
     noun: "instrument",
     match: "transmitter",
     exact: (register, id) => /Transmitter$/.test(register.assets.get(id)?.name ?? ""),
+  },
+  // The vessel an instrument stands on is whichever vessel symbol its lines reach first.
+  "host-vessel": {
+    kind: "tank",
+    noun: "vessel",
+    match: "vessel",
+    exact: (register, id) =>
+      ["vessel", "exchanger"].includes(register.assets.get(id)?.category ?? ""),
+    strict: true,
+    shared: true,
   },
 };
 
@@ -340,12 +441,16 @@ export function mapScene(
     .sort((a, b) => a.hops - b.hops || a.id.localeCompare(b.id));
 
   const used = new Set<string>();
-  const take = (predicate: (id: string) => boolean) => {
+  const take = (predicate: (id: string) => boolean, consume = true) => {
     const found = joined.find(({ id }) => !used.has(id) && predicate(id));
-    if (found) used.add(found.id);
+    if (found && consume) used.add(found.id);
     return found;
   };
   const anchorLines = register.linesByNode.get(anchorId) ?? [];
+  // An anchor with no connections at all is an isolated symbol: nothing about its
+  // surroundings can be read from the drawing, and every relational mapping says so.
+  const isolated = (adjacency.get(anchorId) ?? []).length === 0;
+  const identityHolds = !anchor || scene.expectedCategories.includes(anchor.category);
 
   return scene.detections.map((detection): MappedComponent => {
     if (!anchor) {
@@ -362,15 +467,17 @@ export function mapScene(
         return {
           detection,
           target: { kind: "part", nodeId: anchorId, tag: anchor.tag, name: anchor.name },
-          confidence: "high",
-          basis: `Part of ${anchor.tag}, the symbol this scene depicts`,
+          confidence: identityHolds ? "high" : "low",
+          basis: identityHolds
+            ? `Part of ${anchor.tag}, the symbol this scene depicts`
+            : `Part of ${anchor.tag} by registration, but the register identifies ${anchor.tag} as ${anchor.name}, not a ${scene.equipment.toLowerCase()}; identity unresolved`,
         };
 
       case "inlet-side":
       case "outlet-side": {
         // Two runs touch the anchor, but an undirected graph cannot say which one feeds it.
         // The assignment is by run size, and the basis says so.
-        const index = detection.role === "inlet-side" ? 0 : 1;
+        const index = detection.run ?? (detection.role === "inlet-side" ? 0 : 1);
         const lineId = anchorLines[index] ?? anchorLines[0];
         const line = lineId ? register.lines.get(lineId) : undefined;
         if (!line) {
@@ -387,25 +494,43 @@ export function mapScene(
           confidence: "medium",
           basis:
             anchorLines.length > 1
-              ? `Run ${index + 1} of ${anchorLines.length} on ${anchor.tag}; flow side not established by the undirected graph`
+              ? `Run ${anchorLines[index] ? index + 1 : 1} of ${anchorLines.length} on ${anchor.tag}; flow side not established by the undirected graph`
               : `Only run on ${anchor.tag}`,
         };
       }
 
       case "valve":
+      case "relief-valve":
       case "local-indicator":
-      case "transmitter": {
+      case "level-indicator":
+      case "transmitter":
+      case "host-vessel": {
         const rule = FIELD_RULES[detection.role];
+        if (isolated) {
+          return {
+            detection,
+            target: {
+              kind: "unmapped",
+              reason: `${anchor.tag} has no connection on the drawing, so the ${rule.match} it belongs with cannot be established from topology.`,
+            },
+            confidence: "low",
+            basis: "Anchor is an isolated symbol",
+          };
+        }
         const exact = take(
           (id) => kindOf.get(id) === rule.kind && rule.exact(register, id),
+          !rule.shared,
         );
-        const found = exact ?? take((id) => kindOf.get(id) === rule.kind);
+        const found =
+          exact ?? (rule.strict ? undefined : take((id) => kindOf.get(id) === rule.kind));
         if (!found) {
           return {
             detection,
             target: {
               kind: "unmapped",
-              reason: `No further ${rule.noun} within ${MAX_FIELD_HOPS} hops of ${anchor.tag}.`,
+              reason: rule.strict
+                ? `No ${rule.match} within ${MAX_FIELD_HOPS} hops of ${anchor.tag}; a symbol of another class is not substituted.`
+                : `No further ${rule.noun} within ${MAX_FIELD_HOPS} hops of ${anchor.tag}.`,
             },
             confidence: "low",
             basis: "No candidate in topology",

@@ -10,6 +10,9 @@ import {
   gpuTelemetry,
   TELEMETRY_BUCKET_MS,
 } from "@/lib/modellab/hardware";
+import { activeIncidents, incidentsBetween, rankOf } from "@/lib/modellab/incidents";
+import { STAGES } from "@/lib/modellab/stages";
+import { frameSource, historyLines } from "@/lib/modellab/telemetry";
 
 /**
  * Simulated cluster telemetry must be a pure function of the configuration and the clock, stay
@@ -119,8 +122,7 @@ describe("gpuTelemetry", () => {
     }
   });
 
-  it("produces a straggler and a hot spot some of the time, deterministically", () => {
-    let stragglers = 0;
+  it("produces a hot spot some of the time, deterministically", () => {
     let hot = 0;
     for (let k = 0; k < 120; k += 1) {
       const t = gpuTelemetry(
@@ -130,15 +132,76 @@ describe("gpuTelemetry", () => {
         true,
         NOW + k * 180_000,
       );
-      if (t.straggler) {
-        stragglers += 1;
-        expect(t.straggler.utilPct).toBeLessThan(80);
-      }
+      // No timeline: no straggler is ever invented.
+      expect(t.straggler).toBeUndefined();
       if (t.hotSpot) hot += 1;
     }
-    expect(stragglers).toBeGreaterThan(0);
-    expect(stragglers).toBeLessThan(120);
     expect(hot).toBeGreaterThan(0);
+    expect(hot).toBeLessThan(120);
+  });
+
+  it("shows a GPU lagging exactly while the incident timeline has a straggler", () => {
+    const stage = STAGES.find((item) => item.id === "pretraining")!;
+    const world = config.nodes * config.gpusPerNode;
+    const incidents = incidentsBetween(stage, 1, 60_000).filter(
+      (item) => item.kind === "straggler",
+    );
+    expect(incidents.length).toBeGreaterThan(3);
+    for (const incident of incidents.slice(0, 12)) {
+      const during = incident.step + Math.floor(incident.duration / 2);
+      const t = gpuTelemetry(profile, config, profile.stepsPerSecond, true, NOW, {
+        stage,
+        step: during,
+      });
+      // The lagging rank is the one the incident — and so the console log — names.
+      expect(t.straggler?.rank).toBe(rankOf(incident, world));
+      expect(t.stragglerIncident?.id).toBe(incident.id);
+      expect(t.straggler!.utilPct).toBeLessThan(
+        Math.min(
+          ...t.nodes.flatMap((node) =>
+            node.gpus.filter((gpu) => !gpu.straggler).map((gpu) => gpu.utilPct),
+          ),
+        ),
+      );
+      const node = t.nodes[Math.floor(rankOf(incident, world) / config.gpusPerNode)]!;
+      expect(node.gpus.some((gpu) => gpu.straggler)).toBe(true);
+      // Paused: nothing lags.
+      expect(
+        gpuTelemetry(profile, config, profile.stepsPerSecond, false, NOW, {
+          stage,
+          step: during,
+        }).straggler,
+      ).toBeUndefined();
+    }
+    // A step with no straggler incident in effect shows none.
+    const quiet = Array.from({ length: 400 }, (_, k) => 1 + k * 97).find((at) =>
+      activeIncidents(stage, at).every((item) => item.kind !== "straggler"),
+    )!;
+    expect(
+      gpuTelemetry(profile, config, profile.stepsPerSecond, true, NOW, {
+        stage,
+        step: quiet,
+      }).straggler,
+    ).toBeUndefined();
+  });
+
+  it("agrees with the console log line for the same straggler", () => {
+    const stage = STAGES.find((item) => item.id === "pretraining")!;
+    const incident = incidentsBetween(stage, 1, 60_000).find(
+      (item) => item.kind === "straggler",
+    )!;
+    const context = { stage, profile, config };
+    const log = historyLines(frameSource(context), incident.step, "warnings", 5);
+    const t = gpuTelemetry(profile, config, profile.stepsPerSecond, true, NOW, {
+      stage,
+      step: incident.step,
+    });
+    const line = log.find(
+      (item) => item.step === incident.step && item.text.includes("straggler"),
+    )!;
+    expect(line.text).toContain(
+      `rank ${t.straggler!.rank} (node-${String(t.straggler!.node + 1).padStart(2, "0")})`,
+    );
   });
 });
 

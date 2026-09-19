@@ -1,16 +1,12 @@
 "use client";
 
-import type { ReactNode } from "react";
-
-import { hashString } from "@/lib/canvas/engineering";
-import { lastEvalStep, metricAtEval } from "@/lib/modellab/evaluation";
-import { checkpointLifecycle } from "@/lib/modellab/events";
+import { evalEvery } from "@/lib/modellab/evaluation";
 import { epochPosition } from "@/lib/modellab/ingestion";
-import { curveAt, formatDuration, formatSteps, learningRateAt } from "@/lib/modellab/run";
+import { formatDuration, learningRateAt } from "@/lib/modellab/run";
+import type { Stage } from "@/lib/modellab/stages";
 
 import { Card } from "./Cards";
 import type { LiveCardProps } from "./live";
-import styles from "./ModelLab.module.css";
 import local from "./ProgressLiveCard.module.css";
 
 const number = (value: number) => Math.floor(value).toLocaleString("en-US");
@@ -33,58 +29,48 @@ export function compact(value: number): string {
   return value.toFixed(value >= 100 || value === 0 ? 0 : 1);
 }
 
-function clockTime(epoch: number): string {
-  const date = new Date(epoch);
-  return [date.getHours(), date.getMinutes(), date.getSeconds()]
-    .map((part) => String(part).padStart(2, "0"))
-    .join(":");
+/** Distillation's schedule: logit-matching warm-up, transfer, quantisation-aware tuning, eval. */
+const DISTILL_PHASES: readonly (readonly [number, number, string])[] = [
+  [0, 0.15, "warm-up"],
+  [0.15, 0.7, "KD"],
+  [0.7, 0.9, "QAT"],
+  [0.9, 1, "eval"],
+];
+
+/** Every `every` steps up to `total`, thinned to at most `limit` marks. */
+function marks(total: number, every: number, limit: number): number[] {
+  const stride =
+    Math.max(1, every) * Math.max(1, Math.ceil(total / Math.max(1, every) / limit));
+  const out: number[] = [];
+  for (let at = stride; at <= total; at += stride) out.push(at);
+  return out;
 }
 
-function phaseOf(progress: number): string {
-  if (progress < 0.15) return "Logit matching warm-up";
-  if (progress < 0.7) return "Knowledge transfer training";
-  if (progress < 0.9) return "Quantization-aware fine-tuning";
-  if (progress < 1) return "Edge evaluation";
-  return "Complete";
+const R = 58;
+const C = 72;
+
+/** A point on the ring at `share` of a full turn, from 12 o'clock clockwise. */
+function polar(share: number, radius: number): [number, number] {
+  const angle = share * Math.PI * 2 - Math.PI / 2;
+  return [C + radius * Math.cos(angle), C + radius * Math.sin(angle)];
 }
 
-const THROUGHPUT_POINTS = 60;
-const THROUGHPUT_BUCKET_MS = 10_000;
+function arc(from: number, to: number, radius: number): string {
+  const span = Math.max(0, Math.min(0.9999, to - from));
+  const [x0, y0] = polar(from, radius);
+  const [x1, y1] = polar(from + span, radius);
+  return `M${x0.toFixed(2)} ${y0.toFixed(2)}A${radius} ${radius} 0 ${span > 0.5 ? 1 : 0} 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`;
+}
 
-function Sparkline({
-  values,
-  label,
-  tone,
-}: {
-  readonly values: readonly number[];
-  readonly label: string;
-  readonly tone: "blue" | "green";
-}) {
-  const width = 120;
-  const height = 30;
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const span = max - min || Math.max(Math.abs(max), 1);
-  const points = values.map((value, index) => {
-    const x = values.length > 1 ? (index / (values.length - 1)) * width : 0;
-    const y = height - 2 - ((value - min) / span) * (height - 4);
-    return `${x.toFixed(1)},${y.toFixed(1)}`;
-  });
-  const last = points.at(-1)?.split(",") ?? ["0", "0"];
-  return (
-    <svg
-      className={local.spark}
-      data-tone={tone}
-      viewBox={`0 0 ${width} ${height}`}
-      preserveAspectRatio="none"
-      role="img"
-      aria-label={label}
-    >
-      <polyline points={`0,${height} ${points.join(" ")} ${width},${height}`} data-fill />
-      <polyline points={points.join(" ")} data-line />
-      <circle cx={last[0]} cy={last[1]} r={2.2} />
-    </svg>
-  );
+function epochBoundaries(stage: Stage, globalBatch: number): number[] {
+  const { datasetSize } = epochPosition(stage, 0, globalBatch);
+  if (datasetSize <= 0) return [];
+  const perEpoch = datasetSize / Math.max(1, globalBatch);
+  const epochs = stage.run.totalSteps / perEpoch;
+  if (epochs < 1.2 || epochs > 24) return [];
+  const out: number[] = [];
+  for (let k = 1; k * perEpoch < stage.run.totalSteps; k += 1) out.push(k * perEpoch);
+  return out;
 }
 
 export function ProgressLiveCard({
@@ -95,296 +81,240 @@ export function ProgressLiveCard({
   running,
   config,
   profile,
-  livePass,
-}: LiveCardProps & {
-  /** Rollouts of the sample carousel that passed the verifier just now. */
-  readonly livePass: { readonly passed: number; readonly total: number };
-}) {
+}: LiveCardProps) {
   const { run } = stage;
+  const total = run.totalSteps;
   const rate = Math.max(1e-9, run.stepsPerSecond);
-  const complete = step >= run.totalSteps;
-  const percent = Math.floor(Math.min(1, progress) * 100);
-  const remainingSeconds = (run.totalSteps - step) / rate;
-  const remaining = complete
-    ? "—"
-    : running
-      ? formatDuration(remainingSeconds)
-      : `${formatDuration(remainingSeconds)} (paused)`;
+  const share = Math.min(1, Math.max(0, progress));
+  const complete = step >= total;
+  const remainingSeconds = Math.max(0, (total - step) / rate);
   const elapsedSeconds = step / rate;
-  const primary = stage.curves[0]!.curves[0]!;
+  const percent = Math.floor(share * 100);
 
-  const rows: [string, ReactNode][] = [];
-  let headline: ReactNode = `Step ${number(step)} / ${number(run.totalSteps)}`;
-  // Every figure below is read from the same source as the card that owns it: checkpoint
-  // values from the checkpoint table, scores from the last published evaluation, epochs
-  // from the data contract and the applied global batch.
-  const lifecycle = checkpointLifecycle(stage, step, rate, now);
-  const latest = lifecycle.records[0];
-  const best = lifecycle.best;
-  const evalStep = lastEvalStep(stage, step);
-  const evalNote = <span className={local.muted}> · eval @ {number(evalStep)}</span>;
+  // Checkpoints and evaluations, on the ring and the timeline alike.
+  const checkpointMarks = marks(total, run.checkpointEvery, 48);
+  const evalMarks =
+    evalEvery(stage) === run.checkpointEvery ? [] : marks(total, evalEvery(stage), 96);
+  const sinceCheckpoint = step % run.checkpointEvery;
+  const nextCheckpoint = Math.min(total, step - sinceCheckpoint + run.checkpointEvery);
+  const checkpointShare = complete ? 1 : sinceCheckpoint / run.checkpointEvery;
+  const checkpointEta = (nextCheckpoint - step) / rate;
+  const epochs = epochBoundaries(stage, config.globalBatch);
   const position = epochPosition(stage, step, config.globalBatch);
-  const plannedEpochs = position.datasetSize
-    ? (run.totalSteps * config.globalBatch) / position.datasetSize
-    : (run.epochs ?? 1);
-  const epochValue = position.epoch - 1 + position.share;
-  const epochText = `${Math.min(epochValue, plannedEpochs).toFixed(2)} / ${plannedEpochs.toFixed(Math.abs(plannedEpochs - Math.round(plannedEpochs)) < 0.05 ? 0 : 1)}`;
 
-  if (stage.id === "pretraining") {
-    rows.push(
-      ["Elapsed", formatDuration(elapsedSeconds)],
-      ["Remaining", remaining],
-      ["Train loss", curveAt(primary, step).toFixed(3)],
-      [
-        "Best checkpoint",
-        best ? `val ${best.valLoss.toFixed(3)} @ ${formatSteps(best.step)}` : "—",
-      ],
-      ["Learning rate", learningRateAt(run, step).toExponential(1)],
-    );
-  } else if (stage.id === "sft") {
-    const score = stage.metrics[0]!;
-    rows.push(
-      ["Epoch", epochText],
-      [
-        "Grounding mAP",
-        <>
-          {metricAtEval(score, stage, step).toFixed(3)}
-          {evalNote}
-        </>,
-      ],
-      [
-        "Val loss",
-        latest ? `${latest.valLoss.toFixed(3)} @ ${formatSteps(latest.step)}` : "—",
-      ],
-      ["ETA", remaining],
-    );
-  } else if (stage.id === "rl") {
-    const reward = primary;
-    const kl = stage.curves
-      .flatMap((tab) => tab.curves)
-      .find((curve) => curve.key === "kl" && !curve.dashed);
-    const mean = curveAt(reward, step);
-    const passMetric = stage.metrics[0]!;
-    const perStep = run.rolloutsPerStep ?? 1;
-    headline = null;
-    rows.push(
-      [
-        "Rollouts",
-        `${number(Math.floor(step) * perStep)} / ${number(run.rolloutsTotal ?? run.totalSteps * perStep)}`,
-      ],
-      [
-        "Mean reward",
-        <>
-          {mean.toFixed(3)}{" "}
-          <span className={styles.up}>↑ +{(mean - reward.start).toFixed(2)}</span>
-        </>,
-      ],
-      [
-        "KL vs init",
-        kl ? (
-          <>
-            {curveAt(kl, step).toFixed(4)}{" "}
-            <span className={local.muted}>(target 0.020)</span>
-          </>
-        ) : (
-          "—"
-        ),
-      ],
-      [
-        "pass@1 (verifier-graded)",
-        <>
-          {metricAtEval(passMetric, stage, step).toFixed(2)}
-          {evalNote}
-          {livePass.total > 0 && (
-            <span className={local.muted}>
-              {" "}
-              · live {livePass.passed}/{livePass.total}
-            </span>
-          )}
-        </>,
-      ],
-      ["ETA", remaining],
-    );
-  } else {
-    headline = `Epoch ${epochText}`;
-    rows.push(
-      [
-        "Retention",
-        <>
-          {metricAtEval(stage.metrics[0]!, stage, step).toFixed(3)}
-          {evalNote}
-        </>,
-      ],
-      [
-        "Best checkpoint",
-        best
-          ? `KL ${best.valLoss.toFixed(3)} @ ${formatSteps(best.step)}${best.evalScore === undefined ? "" : ` · retention ${best.evalScore.toFixed(3)}`}`
-          : "—",
-      ],
-      ["ETA", remaining],
-      ["Phase", phaseOf(progress)],
-    );
-  }
-
-  // Volume and cost of what the run has consumed so far.
+  // Consumption so far.
   const samplesSeen = step * config.globalBatch;
   const tokensSeen = samplesSeen * profile.tokensPerSample;
   const gpuHours = (elapsedSeconds / 3600) * profile.gpus;
+  const rollouts = stage.id === "rl" ? Math.floor(step) * (run.rolloutsPerStep ?? 1) : 0;
 
-  // Next checkpoint countdown.
-  const sinceCheckpoint = step % run.checkpointEvery;
-  const nextCheckpoint = Math.min(
-    run.totalSteps,
-    step - sinceCheckpoint + run.checkpointEvery,
-  );
-  const checkpointShare = complete ? 1 : sinceCheckpoint / run.checkpointEvery;
-  const checkpointEta = (nextCheckpoint - step) / rate;
+  // Learning-rate schedule across the whole run, for the timeline.
+  const LR_POINTS = 120;
+  const peak = Math.max(1e-12, run.learningRate);
+  const lrPath = Array.from({ length: LR_POINTS + 1 }, (_, index) => {
+    const at = (total * index) / LR_POINTS;
+    const x = (index / LR_POINTS) * 100;
+    const y = 30 - (learningRateAt(run, at) / peak) * 26;
+    return `${index ? "L" : "M"}${x.toFixed(2)} ${y.toFixed(2)}`;
+  }).join("");
+  const lrNow = learningRateAt(run, step);
 
-  // Throughput over the last ten minutes, one reading per ten seconds.
-  const samplesPerSecond = rate * config.globalBatch;
-  const bucketNow = Math.floor(now / THROUGHPUT_BUCKET_MS);
-  const throughput = Array.from({ length: THROUGHPUT_POINTS }, (_, offset) => {
-    const bucket = bucketNow - (THROUGHPUT_POINTS - 1 - offset);
-    if (!running) return 0;
-    const noise = hashString(`${stage.experimentId}:throughput:${bucket}`) / 4294967296;
-    return samplesPerSecond * (1 + (noise * 2 - 1) * 0.03);
+  const finish = new Date(now + remainingSeconds * 1000);
+  const finishLabel = finish.toLocaleString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
   });
-  const currentThroughput = throughput.at(-1) ?? 0;
+  const eta = complete ? "done" : formatDuration(remainingSeconds);
 
-  // Primary curve over the last two checkpoint intervals.
-  const lossWindow = Math.min(step, run.checkpointEvery * 2);
-  const lossSeries = Array.from({ length: 40 }, (_, index) =>
-    curveAt(primary, Math.max(0, step - lossWindow + (lossWindow * index) / 39)),
-  );
-  const lossNow = lossSeries.at(-1) ?? 0;
-  const lossDigits = lossNow < 0.1 ? 4 : 3;
+  const ringLabel = `${stage.progressTitle}: ${percent} percent, step ${number(step)} of ${number(total)}; ${complete ? "complete" : `${eta} remaining${running ? "" : " while paused"}, next checkpoint at step ${number(nextCheckpoint)} in ${formatDuration(checkpointEta)}`}.`;
+  const timelineLabel = `Run timeline: learning rate ${lrNow.toExponential(1)} now, peak ${peak.toExponential(1)}, warm-up ${number(run.warmupSteps)} steps; ${checkpointMarks.length} checkpoint marks${epochs.length ? `, ${epochs.length + 1} epochs` : ""}${stage.id === "distillation" ? "; schedule warm-up, KD, QAT, eval" : ""}.`;
+  const at = (value: number) => `${(Math.min(total, Math.max(0, value)) / total) * 100}%`;
 
   return (
     <Card
       title={stage.progressTitle}
       icon="pulse"
-      className={`${styles.progressCard} ${local.card}`}
-      aside={
-        <span
-          className={local.simChip}
-          title="No accelerator is attached; the run is simulated"
-        >
-          Simulated run
-        </span>
-      }
+      className={local.card}
+      aside={<span className={local.simChip}>Simulated run</span>}
     >
-      <div className={local.body}>
-        <div>
-          <div className={styles.progressHead}>
-            {headline ? <strong>{headline}</strong> : <span />}
-            <span>{percent}%</span>
-          </div>
-          <div
-            className={styles.progressBar}
+      <div className={local.body} data-running={running || undefined}>
+        <span className={local.fig}>FIGURE 04H · PROGRESS</span>
+        <div className={local.top}>
+          <svg
+            className={local.ring}
+            viewBox="0 0 144 144"
             role="progressbar"
             aria-valuemin={0}
             aria-valuemax={100}
             aria-valuenow={percent}
-            aria-label={`${stage.progressTitle}: ${percent} percent`}
-            data-running={running || undefined}
+            aria-label={ringLabel}
           >
-            <i style={{ width: `${(Math.min(1, progress) * 100).toFixed(2)}%` }} />
-          </div>
-          <dl className={styles.kv} data-compact>
-            {rows.map(([key, value]) => (
-              <div key={key}>
-                <dt>{key}</dt>
-                <dd>{value}</dd>
+            <circle className={local.track} cx={C} cy={C} r={R} />
+            <path className={local.done} d={arc(0, share, R)} />
+            {/* Checkpoint writes: bright once written. */}
+            {checkpointMarks.map((mark) => {
+              const [x0, y0] = polar(mark / total, R - 6);
+              const [x1, y1] = polar(mark / total, R + 6);
+              return (
+                <line
+                  key={`c${mark}`}
+                  className={local.checkpoint}
+                  data-written={mark <= step || undefined}
+                  x1={x0}
+                  y1={y0}
+                  x2={x1}
+                  y2={y1}
+                />
+              );
+            })}
+            {epochs.map((mark) => {
+              const [x0, y0] = polar(mark / total, R - 10);
+              const [x1, y1] = polar(mark / total, R + 10);
+              return (
+                <line
+                  key={`e${mark}`}
+                  className={local.epoch}
+                  x1={x0}
+                  y1={y0}
+                  x2={x1}
+                  y2={y1}
+                />
+              );
+            })}
+            {/* Inner ring: the interval to the next checkpoint. */}
+            <circle className={local.track} cx={C} cy={C} r={R - 12} data-inner />
+            <path className={local.interval} d={arc(0, checkpointShare, R - 12)} />
+            {(() => {
+              const [x, y] = polar(share, R);
+              return <circle className={local.head} cx={x} cy={y} r={3.2} />;
+            })()}
+            <text className={local.percent} x={C} y={C - 2} textAnchor="middle">
+              {percent}
+              <tspan className={local.percentUnit}>%</tspan>
+            </text>
+            <text className={local.etaText} x={C} y={C + 16} textAnchor="middle">
+              {complete ? "complete" : `ETA ${eta}`}
+            </text>
+          </svg>
+
+          <dl className={local.readout}>
+            <div>
+              <dt>step</dt>
+              <dd>
+                {number(step)}
+                <small> / {number(total)}</small>
+              </dd>
+            </div>
+            <div>
+              <dt>ckpt</dt>
+              <dd>
+                {complete ? "—" : number(nextCheckpoint)}
+                <small>{complete ? "" : ` · ${formatDuration(checkpointEta)}`}</small>
+              </dd>
+            </div>
+            <div>
+              <dt>finish</dt>
+              <dd>
+                {complete ? "—" : finishLabel}
+                {!running && !complete ? <small> · paused</small> : null}
+              </dd>
+            </div>
+            {epochs.length > 0 ? (
+              <div>
+                <dt>epoch</dt>
+                <dd>
+                  {Math.min(epochs.length + 1, position.epoch - 1 + position.share).toFixed(
+                    2,
+                  )}
+                  <small> / {epochs.length + 1}</small>
+                </dd>
               </div>
-            ))}
+            ) : null}
+            {stage.id === "rl" ? (
+              <div>
+                <dt>rollouts</dt>
+                <dd>
+                  {compact(rollouts)}
+                  <small>
+                    {" "}
+                    / {compact(run.rolloutsTotal ?? total * (run.rolloutsPerStep ?? 1))}
+                  </small>
+                </dd>
+              </div>
+            ) : null}
+            <div>
+              <dt>samples</dt>
+              <dd>{compact(samplesSeen)}</dd>
+            </div>
+            <div>
+              <dt>tokens</dt>
+              <dd>{compact(tokensSeen)}</dd>
+            </div>
+            <div>
+              <dt>GPU·h</dt>
+              <dd>
+                {compact(gpuHours)}
+                <small> · {profile.gpus} GPU</small>
+              </dd>
+            </div>
           </dl>
         </div>
 
-        <dl className={local.stats}>
-          <div>
-            <dt>Samples seen</dt>
-            <dd>{compact(samplesSeen)}</dd>
-          </div>
-          <div>
-            <dt>Tokens seen</dt>
-            <dd>{compact(tokensSeen)}</dd>
-          </div>
-          <div>
-            <dt>GPU-hours</dt>
-            <dd>
-              {compact(gpuHours)}
-              <small> · {profile.gpus} GPUs</small>
-            </dd>
-          </div>
-        </dl>
-
-        <div className={local.countdown}>
-          <div className={local.countdownHead}>
-            <span>Next checkpoint</span>
-            <strong>
-              {complete
-                ? "Run complete"
-                : `${formatSteps(nextCheckpoint)} in ${formatDuration(checkpointEta)}${running ? "" : " (paused)"}`}
-            </strong>
-          </div>
-          <div
-            className={local.countdownBar}
-            role="progressbar"
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={Math.round(checkpointShare * 100)}
-            aria-label={`Progress to next checkpoint: ${Math.round(checkpointShare * 100)} percent`}
-          >
-            <i style={{ width: `${(checkpointShare * 100).toFixed(1)}%` }} />
-          </div>
-        </div>
-
-        <div className={local.sparks}>
-          <figure>
-            <figcaption>
-              <span>Throughput · 10 min</span>
-              <strong>
-                {currentThroughput >= 10
-                  ? currentThroughput.toFixed(0)
-                  : currentThroughput.toFixed(1)}{" "}
-                samples/s
-              </strong>
-            </figcaption>
-            <Sparkline
-              values={throughput}
-              tone="blue"
-              label={
-                running
-                  ? `Throughput over the last 10 minutes, about ${samplesPerSecond.toFixed(1)} samples per second`
-                  : "Throughput over the last 10 minutes: paused, no samples processed"
-              }
-            />
-          </figure>
-          <figure>
-            <figcaption>
-              <span>
-                {primary.label} · {formatSteps(lossWindow)} steps
+        <div className={local.timeline} role="img" aria-label={timelineLabel}>
+          <svg viewBox="0 0 100 32" preserveAspectRatio="none" aria-hidden="true">
+            <path className={local.lrArea} d={`${lrPath}L100 32L0 32Z`} />
+            <path className={local.lrLine} d={lrPath} vectorEffect="non-scaling-stroke" />
+          </svg>
+          <span className={local.past} style={{ width: at(step) }} aria-hidden="true" />
+          {stage.id === "distillation" &&
+            DISTILL_PHASES.map(([from, to, label]) => (
+              <span
+                key={label}
+                className={local.band}
+                data-current={(share >= from && share < to) || undefined}
+                style={{ left: `${from * 100}%`, width: `${(to - from) * 100}%` }}
+                aria-hidden="true"
+              >
+                {label}
               </span>
-              <strong>{lossNow.toFixed(lossDigits)}</strong>
-            </figcaption>
-            <Sparkline
-              values={lossSeries}
-              tone="green"
-              label={`${primary.label} over the last ${number(lossWindow)} steps, now ${lossNow.toFixed(lossDigits)}`}
+            ))}
+          {evalMarks.map((mark) => (
+            <i
+              key={`v${mark}`}
+              className={local.evalMark}
+              data-done={mark <= step || undefined}
+              style={{ left: at(mark) }}
+              aria-hidden="true"
             />
-          </figure>
+          ))}
+          {checkpointMarks.map((mark) => (
+            <i
+              key={`k${mark}`}
+              className={local.ckptMark}
+              data-done={mark <= step || undefined}
+              style={{ left: at(mark) }}
+              aria-hidden="true"
+            />
+          ))}
+          {epochs.map((mark) => (
+            <i
+              key={`p${mark}`}
+              className={local.epochMark}
+              style={{ left: at(mark) }}
+              aria-hidden="true"
+            />
+          ))}
+          <i className={local.headMark} style={{ left: at(step) }} aria-hidden="true" />
         </div>
-
-        <p className={local.footer}>
-          <span className={local.fresh} data-running={running || undefined}>
-            <i aria-hidden="true" />
-            Updated <time dateTime={new Date(now).toISOString()}>{clockTime(now)}</time>
-          </span>
+        <div className={local.axis} aria-hidden="true">
+          <span>0</span>
           <span>
-            {compact(running ? samplesPerSecond * profile.tokensPerSample : 0)} tok/s ·{" "}
-            {profile.accelerator.name.split(" ")[0]}
+            LR {lrNow.toExponential(1)} <small>peak {peak.toExponential(1)}</small>
           </span>
-        </p>
+          <span>{compact(total)}</span>
+        </div>
       </div>
     </Card>
   );

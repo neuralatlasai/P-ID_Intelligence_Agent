@@ -1,11 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { BACKBONES, ACCELERATORS } from "@/lib/modellab/config";
 import { checkpoints, formatAgo, formatDuration } from "@/lib/modellab/run";
-import type { Lineage, RunRecord } from "@/lib/modellab/session";
+import type { RunRecord } from "@/lib/modellab/session";
 import type { Stage } from "@/lib/modellab/stages";
 
 import { Icon } from "./icons";
@@ -120,12 +119,7 @@ export function RunControls({
                 );
               })}
             </ol>
-            {stageHistory.length === 0 && (
-              <p className={styles.quiet}>
-                No earlier runs. Reconfiguring, stopping or rolling back archives the
-                current run here.
-              </p>
-            )}
+            {stageHistory.length === 0 && <p className={styles.quiet}>No earlier runs</p>}
           </div>
         )}
       </div>
@@ -198,54 +192,6 @@ export function RunControls({
         )}
       </div>
     </div>
-  );
-}
-
-/** Where this stage's starting weights come from, and whether that source is final. */
-export function LineageBanner({
-  lineage,
-  stage,
-}: {
-  readonly lineage: Lineage;
-  readonly stage: Stage;
-}) {
-  if (lineage.source === "backbone") {
-    return (
-      <p className={styles.lineage} data-state="ok">
-        <Icon name="model" size={14} />
-        <span>Initialised from the public backbone checkpoint · no upstream stage.</span>
-      </p>
-    );
-  }
-  const parent = lineage.parent!;
-  if (lineage.source === "blocked") {
-    return (
-      <p className={styles.lineage} data-state="blocked">
-        <Icon name="info" size={14} />
-        <span>
-          Blocked: {parent.stage.number} {parent.stage.title} has not written a checkpoint
-          yet.{" "}
-          <Link href={`/model-lab/${parent.stage.id}`}>
-            Open stage {parent.stage.number}
-          </Link>
-        </span>
-      </p>
-    );
-  }
-  return (
-    <p className={styles.lineage} data-state={parent.interim ? "interim" : "ok"}>
-      <Icon name="checkpoint" size={14} />
-      <span>
-        Warm-started from{" "}
-        <Link href={`/model-lab/${parent.stage.id}`}>
-          {parent.stage.number} {parent.stage.title}
-        </Link>{" "}
-        · {parent.experimentId} @ step {parent.step.toLocaleString("en-US")}
-        {parent.interim
-          ? ` — interim snapshot; ${stage.number} will re-base when stage ${parent.stage.number} completes.`
-          : " — final checkpoint."}
-      </span>
-    </p>
   );
 }
 

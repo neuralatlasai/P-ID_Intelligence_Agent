@@ -1,6 +1,6 @@
 /*
- * The training signal workbench. Channel identity is carried by the ordered chart series
- * (--signal, set per card from --series-*); everything else is surface, border and mono type.
+ * Figure 04, the signal composition. Channel identity is carried by the ordered chart series
+ * (--signal, set per element from --series-*); everything else is surface, rule and mono type.
  */
 
 .root {
@@ -15,49 +15,6 @@
   font: 10px/1.6 var(--font-mono);
   letter-spacing: 0.085em;
 }
-.tokenFlow {
-  display: grid;
-  grid-template-columns: 220px minmax(0, 1fr);
-  align-items: center;
-  gap: 22px;
-  padding: 22px 28px;
-  border-bottom: 1px solid var(--border-subtle);
-}
-.tokenFlow p {
-  color: var(--text-secondary);
-  font-size: 11px;
-  margin: 6px 0 0;
-}
-.tokenFlow ol {
-  display: flex;
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  gap: 3px;
-}
-.tokenFlow li {
-  flex: 1;
-  padding: 10px 12px;
-  background: var(--bg-surface-high);
-  border-top: 2px solid var(--border-strong);
-  min-width: 0;
-}
-/* The span the loss is taken on is the active one: selected surface, accent indicator. */
-.tokenFlow li[data-target="true"] {
-  background: var(--bg-selected);
-  border-color: var(--accent-action);
-}
-.tokenFlow strong {
-  font: 9px/1.5 var(--font-mono);
-  color: var(--text-primary);
-  letter-spacing: 0.04em;
-}
-.tokenFlow small {
-  display: block;
-  margin-top: 5px;
-  font-size: 10px;
-  color: var(--text-secondary);
-}
 .composition {
   padding: 24px 28px 0;
 }
@@ -66,7 +23,7 @@
   justify-content: space-between;
   gap: 18px;
   align-items: center;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
 }
 .compositionHeading h4 {
   font-size: 20px;
@@ -80,7 +37,7 @@
   text-align: right;
 }
 .total > span {
-  font-size: 10px;
+  font: 10px/1.4 var(--font-mono);
   color: var(--text-secondary);
 }
 .total strong {
@@ -88,53 +45,126 @@
   letter-spacing: -0.04em;
   font-variant-numeric: tabular-nums;
 }
-.stackHeader {
-  display: flex;
+
+/* The stacked composition beside the loss–gradient-norm trajectory. */
+.plots {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 1fr);
   gap: 16px;
-  justify-content: space-between;
-  font-size: 10px;
-  color: var(--text-secondary);
-  margin-bottom: 9px;
+  align-items: stretch;
 }
-/* Each segment is a control: 24 px is the smallest target, so a 3 % share still gets one. */
-.stack {
-  display: flex;
-  height: 24px;
-  gap: 2px;
-}
-.stack button {
+.stackChart,
+.descent {
   display: block;
-  flex-basis: 0;
-  min-width: 24px;
-  border: 0;
-  padding: 0;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+.axis {
+  fill: none;
+  stroke: var(--chart-axis);
+  stroke-width: 1;
+}
+.zero {
+  fill: none;
+  stroke: var(--chart-axis);
+  stroke-dasharray: 2 3;
+}
+.band {
+  fill-opacity: 0.62;
+  stroke-width: 0.8;
+  stroke-opacity: 0.9;
+  transition: fill-opacity var(--duration-fast) var(--easing-standard);
+}
+.band[data-penalty] {
+  fill-opacity: 0.2;
+  stroke-dasharray: 3 2;
+}
+.band[data-dim] {
+  fill-opacity: 0.14;
+  stroke-opacity: 0.35;
+}
+.netLine {
+  fill: none;
+  stroke: var(--ink-primary);
+  stroke-width: 1.4;
+}
+.netDot {
+  fill: var(--ink-primary);
+  stroke: var(--bg-surface);
+  stroke-width: 1.5;
+}
+.tick {
+  font: 10px var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  fill: var(--text-tertiary);
+}
+.axisLabel {
+  font: 10px var(--font-mono);
+  fill: var(--text-secondary);
+}
+.clip {
+  fill: none;
+  stroke: var(--status-degraded-mark);
+  stroke-dasharray: 3 3;
+}
+.trajectory {
+  fill: none;
+  stroke: var(--ink-wire);
+  stroke-width: 1;
+}
+
+/* Legend: each term a control; the swatch is its band, the number its share now. */
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+.legend button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xs);
+  background: var(--bg-surface-high);
+  color: var(--text-secondary);
+  font: 11px var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.legend button:hover {
+  background: var(--bg-hover);
+}
+.legend button[aria-pressed="true"] {
+  border-color: var(--signal);
+  color: var(--text-primary);
+  background: var(--bg-selected);
+}
+.legend i {
+  width: 10px;
+  height: 10px;
+  flex: none;
+  background: var(--signal);
   opacity: 0.8;
 }
-.stack button[aria-pressed="true"],
-.stack button:hover {
-  opacity: 1;
+.legend i[data-penalty] {
+  background: none;
+  border: 1px dashed var(--signal);
 }
-.penalty,
-.unweighted {
-  font-size: 11px;
-  color: var(--text-secondary);
-  line-height: 1.7;
-  margin: 12px 0;
+.legend b {
+  font-weight: var(--weight-medium);
+  color: var(--text-primary);
 }
-.penalty span {
-  padding: 0 5px;
-  color: var(--text-tertiary);
-}
-.unweighted {
-  padding: 12px 14px;
-  background: var(--bg-sunken);
-  border-left: 2px solid var(--border-strong);
-}
+
+/* Small multiples: one term each, on its own scale. */
 .signals {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(136px, 1fr));
   gap: 10px;
-  margin-top: 18px;
+  margin-top: 16px;
 }
 .signal {
   min-width: 0;
@@ -142,9 +172,11 @@
   flex-direction: column;
   background: var(--bg-surface-high);
   border: 1px solid var(--border-subtle);
-  padding: 13px 14px 11px;
+  padding: 12px 14px 10px;
   text-align: left;
   border-radius: var(--radius-xs);
+  color: var(--text-primary);
+  cursor: pointer;
 }
 .signal[aria-pressed="true"] {
   border-color: var(--signal);
@@ -154,30 +186,31 @@
 .signalHeading {
   display: flex;
   gap: 7px;
-  align-items: baseline;
-  min-height: 37px;
+  align-items: center;
 }
 .signalHeading > i {
-  width: 5px;
-  height: 5px;
+  width: 6px;
+  height: 6px;
   flex: none;
   background: var(--signal);
 }
-.signalHeading > span {
-  color: var(--text-tertiary);
-  font: 9px/1.5 var(--font-mono);
-}
 .signalHeading strong {
-  font-weight: 500;
-  font-size: 11px;
-  line-height: 1.5;
+  font: 500 11px/1.4 var(--font-mono);
+}
+.signalHeading small {
+  margin-left: auto;
+  padding: 0 4px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xs);
+  font: 9px/1.5 var(--font-mono);
+  color: var(--text-tertiary);
 }
 .signalValue {
   display: flex;
   align-items: baseline;
   gap: 7px;
-  margin: 10px 0 4px;
-  font: 24px/1.4 var(--font-mono);
+  margin: 8px 0 2px;
+  font: 22px/1.4 var(--font-mono);
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.045em;
 }
@@ -192,9 +225,9 @@
 }
 .microChart {
   width: 100%;
-  height: 54px;
+  height: 48px;
   display: block;
-  margin: 5px 0 10px;
+  margin: 4px 0 8px;
 }
 .gridLine {
   fill: none;
@@ -207,76 +240,60 @@
   flex-wrap: wrap;
   gap: 4px;
   border-top: 1px solid var(--rule-subtle);
-  padding-top: 10px;
-  font-size: 9px;
+  padding-top: 8px;
+  font: 10px var(--font-mono);
+  font-variant-numeric: tabular-nums;
   color: var(--text-tertiary);
 }
-.inspection {
-  display: grid;
-  grid-template-columns: 5px minmax(140px, 0.6fr) minmax(0, 2fr);
-  gap: 12px;
-  align-items: center;
-  background: var(--bg-sunken);
-  padding: 14px 16px;
-  margin: 16px 0 0;
-}
-.inspection > span {
-  height: 20px;
-  width: 3px;
-}
-.inspection strong {
-  font-size: 11px;
-  font-weight: 550;
-}
-.inspection p {
-  font-size: 11px;
-  color: var(--text-secondary);
-  line-height: 1.7;
-  margin: 0;
-}
+
 .chartNote {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: space-between;
   gap: 8px 16px;
-  padding: 16px 0;
+  padding: 14px 0;
   color: var(--text-tertiary);
-  font-size: 10px;
-}
-.chartNote > span {
-  font: 9px/1.5 var(--font-mono);
-  letter-spacing: 0.04em;
 }
 .chartNote code {
   font-family: var(--font-mono);
   font-size: 10px;
+  font-variant-numeric: tabular-nums;
 }
-.chartNote p {
-  margin: 0 0 0 auto;
+.chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  padding: 0 8px;
+  border: 1px dashed var(--border-default);
+  border-radius: var(--radius-xs);
+  font: 11px var(--font-mono);
+  color: var(--text-secondary);
+}
+.chipLine {
+  display: flex;
+  align-items: center;
 }
 .root :focus-visible {
   outline: 2px solid var(--accent-action);
   outline-offset: 3px;
 }
 @media (max-width: 1100px) {
-  .tokenFlow {
-    grid-template-columns: 1fr;
-    gap: 12px;
-  }
   .signals {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
+  }
+}
+@media (max-width: 760px) {
+  .plots {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .descent {
+    max-width: 320px;
   }
 }
 @media (max-width: 640px) {
-  .tokenFlow {
-    padding: 20px 18px;
-  }
-  .tokenFlow ol {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
   .composition {
-    padding: 20px 18px 0;
+    padding: 20px 16px 0;
   }
   .compositionHeading {
     align-items: start;
@@ -288,26 +305,12 @@
     font-size: 20px;
   }
   .signals {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .signalHeading {
-    min-height: 0;
-  }
-  .microChart {
-    height: 70px;
-  }
-  .inspection {
-    grid-template-columns: 5px minmax(0, 1fr);
-  }
-  .inspection p {
-    grid-column: 2;
-  }
-  .stackHeader {
-    flex-direction: column;
-    gap: 4px;
-  }
-  .chartNote p {
-    margin-left: 0;
+  /* The stack's viewBox shrinks to about half size on a phone; its labels must not. */
+  .stackChart .tick,
+  .stackChart .axisLabel {
+    font-size: 18px;
   }
 }
 /* Last in the file, so it outranks the rules above on order alone. */

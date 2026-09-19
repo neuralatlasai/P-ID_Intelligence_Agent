@@ -30,6 +30,7 @@ export function IncidentStrip({
   incidents,
   checkpointEvery,
   inspected,
+  hover,
   onInspect,
 }: {
   readonly total: number;
@@ -38,6 +39,8 @@ export function IncidentStrip({
   readonly incidents: readonly Incident[];
   readonly checkpointEvery: number;
   readonly inspected?: string;
+  /** The step under the pointer in a chart or the log, drawn as a cursor on the track. */
+  readonly hover?: number | null;
   readonly onInspect: (incident: Incident) => void;
 }) {
   const at = (value: number) => `${(Math.min(total, Math.max(0, value)) / total) * 100}%`;
@@ -56,7 +59,7 @@ export function IncidentStrip({
         <span className={css.panelLabel}>Run timeline</span>
         <span className={css.panelMeta}>
           {incidents.length === 0
-            ? "no incidents so far"
+            ? "0 incidents"
             : [...counts.entries()]
                 .map(([kind, count]) => `${INCIDENT_LABEL[kind]} ${count}`)
                 .join(" · ")}
@@ -79,6 +82,9 @@ export function IncidentStrip({
           />
         ))}
         <span className={css.trackHead} style={{ left: at(step) }} />
+        {hover !== undefined && hover !== null ? (
+          <span className={css.trackCursor} data-cursor style={{ left: at(hover) }} />
+        ) : null}
       </div>
       <div className={css.trackScale} aria-hidden="true">
         <span>0</span>

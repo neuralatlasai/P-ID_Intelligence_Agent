@@ -144,15 +144,15 @@ export function StepAnatomy({
 
   const status =
     current.phase === "gen"
-      ? `${completionsDone(within, completions).toLocaleString("en-US")} of ${completions.toLocaleString("en-US")} completions finished`
+      ? `${completionsDone(within, completions).toLocaleString("en-US")} / ${completions.toLocaleString("en-US")} completions`
       : current.part && current.parts
-        ? `${stageId === "rl" ? "PPO mini-batch" : "micro-batch"} ${current.part} of ${current.parts}`
+        ? `${stageId === "rl" ? "PPO mini-batch" : "micro-batch"} ${current.part} / ${current.parts}`
         : current.phase === "comm"
-          ? "reduce-scatter tail not hidden behind compute"
+          ? "exposed reduce-scatter"
           : current.phase === "optimizer"
-            ? "AdamW update on sharded parameters"
+            ? "AdamW · sharded"
             : current.phase === "data"
-              ? "waiting on the next packed batch"
+              ? "awaiting batch"
               : "";
 
   const rows = useMemo(
@@ -259,7 +259,7 @@ export function StepAnatomy({
       <figure className={css.activity}>
         <figcaption>
           <span>SM activity · rank 0</span>
-          <small>last {Math.round(trace.window)} s · simulated DCGM profile</small>
+          <small>{Math.round(trace.window)} s · simulated</small>
         </figcaption>
         <svg
           viewBox="0 0 600 56"

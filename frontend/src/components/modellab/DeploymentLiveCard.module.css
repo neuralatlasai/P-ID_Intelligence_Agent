@@ -1,36 +1,340 @@
-/* Live deployment targets. Target names and their latency/throughput figures are read
-   character by character, so both run mono. */
+/*
+ * Deployment targets. Latency is a distribution per serving target on one log axis with the
+ * local p95 target as a rule; quantisation is BF16 → INT8 as dumbbells and a stacked memory
+ * bar against the plant GPU budgets.
+ */
 
-.table th[scope="row"],
-.table td {
-  vertical-align: top;
+.aside {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
 }
 
+.figureTitle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-1) var(--space-4) var(--space-1);
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+.figureTitle::after {
+  content: "";
+  flex: 1;
+  border-top: 1px solid var(--rule-subtle);
+}
+
+.nums {
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+.nums b {
+  color: var(--text-primary);
+  font-weight: var(--weight-medium);
+}
+
+/* ── latency distributions ─────────────────────────────────────────────────────────── */
+
+.latency {
+  display: grid;
+  padding: 0 var(--space-4) var(--space-2);
+}
+.latencyRow {
+  display: grid;
+  grid-template-columns: minmax(120px, 28%) minmax(0, 1fr) 64px 58px;
+  gap: var(--space-2);
+  align-items: center;
+}
 .name {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.name code {
+  overflow: hidden;
   color: var(--text-primary);
   font-family: var(--font-mono);
-  font-weight: var(--weight-medium);
+  font-size: var(--text-sm);
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
-
-.detail {
+.plot {
   display: block;
-  color: var(--text-tertiary);
-  font-size: var(--text-xs);
-  font-weight: var(--weight-regular);
-  white-space: normal;
+  min-width: 0;
 }
-
-.numeric {
+.plot svg {
+  display: block;
+  overflow: visible;
+}
+.axisLine {
+  stroke: var(--chart-axis);
+}
+.density {
+  fill-opacity: 0.22;
+  stroke: none;
+}
+.densityLine {
+  fill: none;
+  stroke-width: 1.3;
+}
+.tail {
+  fill: var(--status-degraded-mark);
+  fill-opacity: 0.55;
+}
+.p50 {
+  stroke: var(--text-primary);
+  stroke-width: 1.5;
+}
+.p95 {
+  stroke: var(--text-secondary);
+  stroke-width: 1;
+  stroke-dasharray: 2 2;
+}
+.slo {
+  stroke: var(--status-degraded-mark);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 2;
+}
+.axis {
+  position: relative;
+  display: block;
+  height: 16px;
+  color: var(--text-tertiary);
   font-family: var(--font-mono);
+  font-size: var(--text-xs);
   font-variant-numeric: tabular-nums;
+}
+.axis span {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
   white-space: nowrap;
 }
-
-.note {
-  margin: 0;
-  padding: 0 14px 12px;
-  font-size: var(--text-xs);
+.axis .sloLabel {
+  top: -2px;
+  padding: 0 3px;
+  background: var(--bg-surface);
+  color: var(--status-degraded);
+}
+.unit {
   color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+/* ── BF16 → INT8 ───────────────────────────────────────────────────────────────────── */
+
+.dumbbells {
+  display: grid;
+  gap: 4px;
+  padding: 0 var(--space-4) var(--space-2);
+}
+.dumbRow,
+.stackRow {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr) 76px 18px;
+  gap: var(--space-2);
+  align-items: center;
+  min-height: 22px;
+}
+.dumbLabel {
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+.dumb {
+  position: relative;
+  display: block;
+  height: 18px;
+}
+.dumbTrack {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 8px;
+  height: 2px;
+  background: var(--chart-grid);
+}
+.dumb i {
+  position: absolute;
+  top: 8px;
+  height: 2px;
+  background: var(--series-1);
+  transition:
+    left var(--duration-slow) var(--easing-standard),
+    width var(--duration-slow) var(--easing-standard);
+}
+.dumb b {
+  position: absolute;
+  display: block;
+  transition: left var(--duration-slow) var(--easing-standard);
+}
+.dumbBefore {
+  top: 4px;
+  width: 10px;
+  height: 10px;
+  margin-left: -5px;
+  border: 1.5px solid var(--series-1);
+  border-radius: var(--radius-pill);
+  background: var(--bg-surface);
+}
+.dumbNow {
+  top: 4px;
+  width: 10px;
+  height: 10px;
+  margin-left: -5px;
+  border-radius: var(--radius-pill);
+  background: var(--series-1);
+}
+.dumbNow[data-pass="true"] {
+  background: var(--status-ready-mark);
+}
+.dumbNow[data-pass="false"] {
+  background: var(--status-degraded-mark);
+}
+.dumbTarget {
+  top: 0;
+  width: 2px;
+  height: 18px;
+  margin-left: -1px;
+  background: var(--text-primary);
+}
+.dumbTeacher {
+  top: 5px;
+  width: 8px;
+  height: 8px;
+  margin-left: -4px;
+  border: 1px solid var(--ink-primary);
+  background: var(--ink-fill);
+  transform: rotate(45deg);
+}
+
+.stackRow {
+  grid-template-columns: 72px minmax(0, 1fr) 76px 18px;
+}
+.stack {
+  position: relative;
+  display: flex;
+  height: 12px;
+  background: var(--bg-sunken);
+}
+.stack i {
+  display: block;
+  height: 100%;
+  transition: width var(--duration-slow) var(--easing-standard);
+}
+.stack i[data-part="weights"] {
+  background: var(--series-1);
+}
+.stack i[data-part="kv"] {
+  background: var(--series-2);
+}
+.stack b {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 1px;
+  background: var(--text-secondary);
+}
+
+.key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+  padding: var(--space-1) var(--space-4) var(--space-3);
+  list-style: none;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+.key li {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.key i {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+}
+.key i[data-kind="before"] {
+  border: 1.5px solid var(--series-1);
+  border-radius: var(--radius-pill);
+}
+.key i[data-kind="now"] {
+  border-radius: var(--radius-pill);
+  background: var(--series-1);
+}
+.key i[data-kind="target"] {
+  width: 2px;
+  height: 12px;
+  background: var(--text-primary);
+}
+.key i[data-kind="teacher"] {
+  width: 7px;
+  height: 7px;
+  border: 1px solid var(--ink-primary);
+  background: var(--ink-fill);
+  transform: rotate(45deg);
+}
+.key i[data-kind="weights"] {
+  width: 12px;
+  background: var(--series-1);
+}
+.key i[data-kind="kv"] {
+  width: 12px;
+  background: var(--series-2);
+}
+.key i[data-kind="budget"] {
+  width: 1px;
+  height: 12px;
+  background: var(--text-secondary);
+}
+
+@media (max-width: 640px) {
+  .latencyRow {
+    grid-template-columns: minmax(0, 1fr) 58px 52px;
+    grid-template-areas:
+      "name tok mem"
+      "plot plot plot";
+    row-gap: 0;
+    padding-bottom: 4px;
+  }
+  .latencyRow > :nth-child(1) {
+    grid-area: name;
+  }
+  .latencyRow > :nth-child(2) {
+    grid-area: plot;
+  }
+  .latencyRow > :nth-child(3) {
+    grid-area: tok;
+  }
+  .latencyRow > :nth-child(4) {
+    grid-area: mem;
+  }
+  .dumbRow,
+  .stackRow {
+    grid-template-columns: 56px minmax(0, 1fr) 64px 18px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dumb i,
+  .dumb b,
+  .stack i {
+    transition: none;
+  }
 }

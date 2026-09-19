@@ -4,57 +4,151 @@ import { useMemo, useState, type ReactNode } from "react";
 
 import type { CanvasDrawing } from "@/lib/canvas/model";
 import { architectureSpec } from "@/lib/modellab/architecture";
-import { LIFECYCLE } from "@/lib/modellab/lifecycle";
+import { LIFECYCLE, type ComputationBlock } from "@/lib/modellab/lifecycle";
 import type { CorpusFacts, GroundedAnswer, LabSample } from "@/lib/modellab/samples";
 import type { Stage } from "@/lib/modellab/stages";
 
 import { ArchitectureFigure } from "./ArchitectureFigure";
 import type { LiveCardProps } from "./live";
 import { TrainingDynamics } from "./TrainingDynamics";
+import { ConversionDiagram } from "./visual/ConversionDiagram";
+import { ExecutionDiagrams } from "./visual/ExecutionDiagrams";
 import css from "./LifecycleWorkbench.module.css";
 
-const SECTIONS = [
-  ["sources", "Source contract", "Evidence & provenance"],
-  ["conversion", "Input conversion", "Record → model batch"],
-  ["computation", "Model computation", "Forward → loss → update"],
-  ["execution", "Execution architecture", "Workers & memory"],
-  ["evaluation", "Evaluation", "Metrics & release gates"],
-  ["artifacts", "Output artifacts", "Checkpoint → next stage"],
-] as const;
+type SectionGlyph = "data" | "input" | "model" | "execution" | "evaluation" | "handoff";
 
-export function LifecycleOverview({ stage }: { readonly stage: Stage }) {
+/**
+ * The page's six sections in training order: id (anchor), short title, glyph, and the
+ * sentence a screen reader hears in place of the removed section description.
+ */
+const SECTIONS: readonly (readonly [string, string, SectionGlyph, string])[] = [
+  [
+    "sources",
+    "Data contract",
+    "data",
+    "Source availability, modality joins and the evidence this stage requires.",
+  ],
+  [
+    "conversion",
+    "Input conversion",
+    "input",
+    "One selected example followed from source geometry to the model-side input contract.",
+  ],
+  [
+    "computation",
+    "Model computation",
+    "model",
+    "Forward path, supervision and parameter update in execution order.",
+  ],
+  [
+    "execution",
+    "Execution",
+    "execution",
+    "The live run, runtime configuration, memory plan, hardware and run log.",
+  ],
+  [
+    "evaluation",
+    "Evaluation",
+    "evaluation",
+    "Held-out metrics, objective curves and checkpoint evidence before promotion.",
+  ],
+  [
+    "artifacts",
+    "Handoff",
+    "handoff",
+    "Generated configuration files and the checkpoint handed to the next stage.",
+  ],
+];
+
+/** One small drawn mark per section, in the figure grammar's ink. */
+function Glyph({ kind }: { readonly kind: SectionGlyph }) {
+  const paths: Record<SectionGlyph, ReactNode> = {
+    // stacked records
+    data: (
+      <>
+        <rect x="3" y="3" width="14" height="4" rx="1" />
+        <rect x="3" y="8" width="14" height="4" rx="1" />
+        <rect x="3" y="13" width="14" height="4" rx="1" />
+      </>
+    ),
+    // record → token grid
+    input: (
+      <>
+        <rect x="2" y="6" width="5" height="8" rx="1" />
+        <path d="M8 10h3m-1.5-1.5L11 10l-1.5 1.5" />
+        <path d="M12 5h6v10h-6zM12 8.3h6M12 11.6h6M15 5v10" />
+      </>
+    ),
+    // layer stack
+    model: (
+      <>
+        <path d="M10 3 17 6.5 10 10 3 6.5Z" />
+        <path d="M3 10 10 13.5 17 10" />
+        <path d="M3 13.5 10 17 17 13.5" />
+      </>
+    ),
+    // device grid
+    execution: (
+      <>
+        <rect x="3" y="3" width="6" height="6" rx="1" />
+        <rect x="11" y="3" width="6" height="6" rx="1" />
+        <rect x="3" y="11" width="6" height="6" rx="1" />
+        <rect x="11" y="11" width="6" height="6" rx="1" />
+      </>
+    ),
+    // descending objective
+    evaluation: <path d="M3 3v14h14M5 6c3 0 4 7 7 7 2 0 3-2 5-2" />,
+    // checkpoint diamond → arrow
+    handoff: (
+      <>
+        <path d="M7 5 11 10 7 15 3 10Z" />
+        <path d="M12 10h5m-2-2 2 2-2 2" />
+      </>
+    ),
+  };
+  return (
+    <svg
+      className={css.glyph}
+      viewBox="0 0 20 20"
+      width="20"
+      height="20"
+      aria-hidden="true"
+      focusable="false"
+    >
+      {paths[kind]}
+    </svg>
+  );
+}
+
+/**
+ * The stage's section map drawn as a flow: data → input → model → execution → evaluation →
+ * handoff, one node per section. The stage's purpose and its inputs and outputs are read to
+ * assistive technology; on screen the flow carries them.
+ */
+export function LifecycleOverview({
+  stage,
+  running = false,
+}: {
+  readonly stage: Stage;
+  readonly running?: boolean;
+}) {
   const spec = LIFECYCLE[stage.id];
   return (
     <section className={css.overview} aria-label="Stage execution overview">
-      <div className={css.overviewHeading}>
-        <div>
-          <span className={css.eyebrow}>MODEL LIFECYCLE / STAGE {stage.number}</span>
-          <h2>{spec.purpose}</h2>
-        </div>
-        <span className={css.badge}>Architecture specification</span>
-      </div>
-      <dl className={css.summary}>
-        <div>
-          <dt>CONSUMES</dt>
-          <dd>{spec.input}</dd>
-        </div>
-        <div>
-          <dt>SUPERVISION</dt>
-          <dd>{spec.supervision}</dd>
-        </div>
-        <div>
-          <dt>PRODUCES</dt>
-          <dd>{spec.output}</dd>
-        </div>
-      </dl>
+      <p className={css.srOnly}>
+        {spec.purpose} Consumes: {spec.input}. Supervision: {spec.supervision}. Produces:{" "}
+        {spec.output}.
+      </p>
       <nav aria-label="Stage analysis sections">
         <ol className={css.sequence}>
-          {SECTIONS.map(([id, label, detail], index) => (
-            <li key={id}>
+          {SECTIONS.map(([id, label, glyph], index) => (
+            <li key={id} data-live={(glyph === "execution" && running) || undefined}>
               <a href={`#lifecycle-${id}`}>
-                <span>{String(index + 1).padStart(2, "0")}</span>
+                <Glyph kind={glyph} />
+                <span className={css.sequenceNumber}>
+                  {String(index + 1).padStart(2, "0")}
+                </span>
                 <strong>{label}</strong>
-                <small>{detail}</small>
               </a>
             </li>
           ))}
@@ -66,43 +160,36 @@ export function LifecycleOverview({ stage }: { readonly stage: Stage }) {
 
 export function LifecycleSection({
   index,
-  description,
   children,
 }: {
   readonly index: number;
-  readonly description: string;
   readonly children: ReactNode;
 }) {
   const section = SECTIONS[index];
   if (!section) return undefined;
+  const [id, title, glyph, description] = section;
   return (
     <section
-      id={`lifecycle-${section[0]}`}
+      id={`lifecycle-${id}`}
       className={css.section}
-      aria-labelledby={`heading-${section[0]}`}
+      aria-labelledby={`heading-${id}`}
+      aria-describedby={`description-${id}`}
     >
       <header className={css.sectionHeading}>
         <span className={css.sectionNumber}>{String(index + 1).padStart(2, "0")}</span>
-        <div>
-          <h2 id={`heading-${section[0]}`}>{section[1]}</h2>
-          <p>{description}</p>
-        </div>
+        <Glyph kind={glyph} />
+        <h2 id={`heading-${id}`}>{title}</h2>
         <span className={css.sectionRule} aria-hidden="true" />
+        <p id={`description-${id}`} className={css.srOnly}>
+          {description}
+        </p>
       </header>
       {children}
     </section>
   );
 }
 
-interface MappingRow {
-  readonly field: string;
-  readonly source: string;
-  readonly transform: string;
-  readonly tensor: string;
-  readonly state: string;
-}
-
-/** All record fields come from the selected sample; all tensors are explicitly proposed. */
+/** All record fields come from the selected sample; tensors and counts are stated estimates. */
 export function InputConversion({
   stage,
   config,
@@ -110,107 +197,30 @@ export function InputConversion({
   sample,
   drawing,
   answer,
+  imageUrl,
 }: Pick<LiveCardProps, "stage" | "config" | "profile"> & {
   readonly sample: LabSample | undefined;
   readonly drawing: CanvasDrawing;
   readonly answer: GroundedAnswer | undefined;
+  /** The sheet raster URL, when the host resolves it; the crop falls back to sheet geometry. */
+  readonly imageUrl?: string;
 }) {
   const [view, setView] = useState<"record" | "batch">("record");
   if (!sample)
     return (
       <div className={css.panel}>
-        <p>
-          No registered sample is available. Load a drawing with linked field references to
-          inspect its input mapping.
+        <p className={css.note}>
+          <span aria-hidden="true">no sample</span>
+          <span className="srOnly">
+            No registered sample is available. Load a drawing with linked field references
+            to inspect its input mapping.
+          </span>
         </p>
       </div>
     );
 
   const graphEnabled = config.graph !== "none";
   const spatialEnabled = config.spatial !== "none";
-  const rows: readonly MappingRow[] = [
-    {
-      field: "01 / vision",
-      source: `${sample.image} · ${sample.annotationId}`,
-      transform:
-        "Decode RGB → crop using the source box → model-specific resize / normalize / patchify",
-      tensor: "pixel_values; image_grid metadata",
-      state: "Image reference available; processor not run",
-    },
-    {
-      field: "02 / drawing",
-      source: `${drawing.imagePath} · node ${sample.nodeId}`,
-      transform: "Center-based sheet box → crop → retain sheet-to-crop coordinate mapping",
-      tensor: "pixel_values; source_bbox",
-      state:
-        sample.node.positioned === false
-          ? "Unpositioned node; crop unavailable"
-          : "Sheet geometry available",
-    },
-    {
-      field: "03 / topology",
-      source: `${sample.joinedCount} equipment neighbors; ${sample.neighbours.length} shown`,
-      transform: graphEnabled
-        ? "Extract bounded subgraph → remap local node indices → encode nodes and actual edges"
-        : "Serialize verified topology as text; no graph encoder",
-      tensor: graphEnabled
-        ? "node_features [N, F]; edge_index [2, E]"
-        : "topology text → input_ids",
-      state: "Displayed neighbors are reachability results, not direct edges",
-    },
-    {
-      field: "04 / spatial",
-      source: "Procedural twin preview",
-      transform: spatialEnabled
-        ? "Measured CAD / point-cloud ingestion required → units and frame alignment → encoder"
-        : "Omit spatial encoder and corresponding loss terms",
-      tensor: spatialEnabled
-        ? "points [B, Np, 3]; validity mask"
-        : "Excluded by applied configuration",
-      state: spatialEnabled ? "No measured point-cloud tensor attached" : "Disabled",
-    },
-    {
-      field: "05 / text",
-      source: `${sample.tag} · register identity + evidence-linked instruction`,
-      transform:
-        "Apply the selected processor's chat template → tokenize → preserve role and source boundaries",
-      tensor: "input_ids [B, L]; attention_mask [B, L]",
-      state: "Token IDs and token count are not measured",
-    },
-    {
-      field: "06 / telemetry",
-      source: `${sample.evidence.timeSeries} linked telemetry references`,
-      transform:
-        "Align timestamps and engineering units → select a bounded window → encode values with missing-data masks",
-      tensor: "values [B, W, C]; observed_mask [B, W, C]",
-      state: "Dashboard readings are simulated; no historian tensor attached",
-    },
-    {
-      field: "07 / documents",
-      source: `${sample.evidence.manuals} non-P&ID document references`,
-      transform:
-        "Retrieve versioned passages → preserve document and page IDs → tokenize cited spans",
-      tensor: "passage input_ids; source_id per span",
-      state: "Document references do not establish extracted passage availability",
-    },
-    {
-      field: "08 / target",
-      source: LIFECYCLE[stage.id].supervision,
-      transform:
-        stage.id === "rl"
-          ? "Freeze evidence → score generated responses → normalize per-prompt rewards"
-          : stage.id === "distillation"
-            ? "Verify teacher response → align target tokens; soft targets require teacher logits"
-            : stage.id === "sft"
-              ? "Mask prompt / padding with −100 → supervise reviewed response positions"
-              : "Construct paired, masked and graph targets only for available modalities",
-      tensor:
-        stage.id === "rl"
-          ? "rewards [B, G]; response mask"
-          : "labels / objective-specific target masks",
-      state: "Illustrative target; no training batch materialized",
-    },
-  ];
   // buildSamples bounds the neighbor preview at five; serialization remains O(k) in the
   // selected record, independent of corpus size. No all-pairs graph or tokenizer work here.
   const record = {
@@ -237,148 +247,76 @@ export function InputConversion({
       tag,
       hops,
     })),
-    instruction: answer?.question ?? "No instruction available",
-    illustrative_target: answer?.text ?? "No target available",
-    target_origin:
-      "Deterministic register-based example; not a human-reviewed label or model inference",
+    instruction: answer?.question ?? null,
+    illustrative_target: answer?.text ?? null,
+    target_origin: "register_composed · unreviewed",
   };
   const batch = {
-    status: "Specification only; processor and training worker are not connected",
+    status: "spec_only · worker_not_connected",
     backbone: profile.backbone.name,
     global_batch: config.globalBatch,
-    local_micro_batch: "Unspecified; B below denotes a local batch, not the global batch",
+    local_micro_batch: null,
     context_limit_tokens: profile.backbone.contextK * 1024,
-    input_ids: "int64[B, L] — model tokenizer required",
-    attention_mask: "bool[B, L] — valid token positions",
-    pixel_values: "model-specific floating-point layout — image processor required",
+    input_ids: "int64[B, L]",
+    attention_mask: "bool[B, L]",
+    pixel_values: "processor-specific",
     graph: graphEnabled
-      ? `${profile.graph.name}; node_features[N, F], edge_index[2, E]`
-      : "Topology serialized as text",
-    spatial: spatialEnabled
-      ? `${profile.spatial.name}; unavailable until measured geometry is attached`
-      : "Disabled",
+      ? `${profile.graph.name} · node_features[N, F] · edge_index[2, E]`
+      : "serialised_text",
+    spatial: spatialEnabled ? `${profile.spatial.name} · unmeasured` : "disabled",
     supervision: LIFECYCLE[stage.id].supervision,
-    precision_policy:
-      config.precision === "fp8"
-        ? "FP8 eligible operations with higher-precision state; backend validation required"
-        : "BF16 mixed precision; integer token IDs preserved",
+    precision_policy: config.precision === "fp8" ? "fp8 · fp32_master" : "bf16_mixed",
   };
   return (
     <div className={css.panel}>
       <header className={css.panelHeading}>
         <div>
           <span className={css.eyebrow}>SELECTED RECORD / {sample.tag}</span>
-          <h3>From source evidence to model inputs</h3>
+          <h3>Evidence → tensors → packed sequence</h3>
         </div>
-        <span className={css.badge}>Symbolic tensor contract</span>
+        <span className={css.badge}>Estimate</span>
       </header>
-      <p className={css.note}>
-        The source columns follow the selected example. Conversion describes the proposed
-        training interface; no tokenizer, encoder or tensor conversion executes in this
-        dashboard.
-      </p>
-      <div className={css.inputOrder}>
-        <span className={css.eyebrow}>
-          PROPOSED INPUT ORDER / PROCESSOR RESOLVES TOKEN BOUNDARIES
-        </span>
-        <ol aria-label="Input packing order">
-          {(stage.id === "pretraining"
-            ? [
-                ["Source identity", "drawing ID + asset ID + split"],
-                ["Available modalities", "vision / graph / spatial / text"],
-                ["Packed representations", "position + modality + validity masks"],
-                ["Objective targets", "paired / masked / grounding targets"],
-              ]
-            : [
-                ["System", "task policy · excluded from response loss"],
-                ["User", "evidence + instruction · conditioning"],
-                [
-                  "Assistant",
-                  stage.id === "rl"
-                    ? "sampled response · reward-scored"
-                    : stage.id === "distillation"
-                      ? "verified teacher target · student supervision"
-                      : "reviewed target · supervised response tokens",
-                ],
-                ["Padding", "attention mask = 0 · loss ignored"],
-              ]
-          ).map(([role, detail], index) => (
-            <li key={role}>
-              <code>{String(index + 1).padStart(2, "0")}</code>
-              <strong>{role}</strong>
-              <span>{detail}</span>
-            </li>
-          ))}
-        </ol>
-      </div>
-      <div
-        className={css.tableScroll}
-        tabIndex={0}
-        role="region"
-        aria-label="Input conversion mapping"
-      >
-        <table className={css.mapping}>
-          <thead>
-            <tr>
-              <th scope="col">Input / source</th>
-              <th scope="col">Ordered conversion</th>
-              <th scope="col">Model-side representation</th>
-              <th scope="col">Evidence boundary</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr key={row.field}>
-                <th scope="row">
-                  <strong>{row.field}</strong>
-                  <span>{row.source}</span>
-                </th>
-                <td>{row.transform}</td>
-                <td>
-                  <code>{row.tensor}</code>
-                </td>
-                <td>{row.state}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <div className={css.inspector}>
-        <div className={css.inspectorBar}>
-          <div className={css.viewButtons} role="group" aria-label="Input inspector view">
-            <button
-              type="button"
-              aria-pressed={view === "record"}
-              onClick={() => setView("record")}
-            >
-              Source record
-            </button>
-            <button
-              type="button"
-              aria-pressed={view === "batch"}
-              onClick={() => setView("batch")}
-            >
-              Batch specification
-            </button>
+      <ConversionDiagram
+        stage={stage.id}
+        config={config}
+        profile={profile}
+        sample={sample}
+        drawing={drawing}
+        answer={answer}
+        imageUrl={imageUrl}
+      />
+      <details className={css.raw}>
+        <summary>Raw record</summary>
+        <div className={css.inspector}>
+          <div className={css.inspectorBar}>
+            <div className={css.viewButtons} role="group" aria-label="Input inspector view">
+              <button
+                type="button"
+                aria-pressed={view === "record"}
+                onClick={() => setView("record")}
+              >
+                Source record
+              </button>
+              <button
+                type="button"
+                aria-pressed={view === "batch"}
+                onClick={() => setView("batch")}
+              >
+                Batch specification
+              </button>
+            </div>
+            <span>JSON</span>
           </div>
-          <span>
-            JSON / {view === "record" ? "selected example" : "applied configuration"}
-          </span>
+          <pre
+            tabIndex={0}
+            aria-label={
+              view === "record" ? "Selected source record" : "Model batch specification"
+            }
+          >
+            <code>{JSON.stringify(view === "record" ? record : batch, undefined, 2)}</code>
+          </pre>
         </div>
-        <pre
-          tabIndex={0}
-          aria-label={
-            view === "record" ? "Selected source record" : "Model batch specification"
-          }
-        >
-          <code>{JSON.stringify(view === "record" ? record : batch, undefined, 2)}</code>
-        </pre>
-      </div>
-      <p className={css.notation}>
-        <strong>Notation</strong> B = local batch size · L = sequence length · N / E = graph
-        nodes / edges · F = node features · Np = point count · W = time window · C =
-        channels. Processor-specific dimensions remain unresolved until execution.
-      </p>
+      </details>
     </div>
   );
 }
@@ -403,35 +341,65 @@ export function ModelComputation(
         sampleTag={sample?.tag}
         stepSeconds={1 / Math.max(1e-9, stage.run.stepsPerSecond)}
       />
+      <TensorRibbon
+        blocks={spec.blocks}
+        running={running}
+        label={`Tensor-shape ribbon, ${stage.title}: ${spec.blocks
+          .map(
+            (block) =>
+              `${block.title} (${block.symbol}) — ${block.detail} Output ${block.output}.`,
+          )
+          .join(
+            " ",
+          )} Symbolic shapes: B batch, L sequence length, d hidden width, V vocabulary, G group size, θ trainable parameters. Applied encoders: ${profile.spatial.name}; ${profile.graph.name}. A specification, not an installed training implementation.`}
+      />
       <TrainingDynamics {...props} />
-      <details className={css.computationDetails}>
-        <summary>Computation contract · module responsibilities</summary>
-        <ol className={css.blocks} aria-label="Ordered model computation">
-          {spec.blocks.map((block, i) => (
-            <li key={block.title}>
-              <div className={css.blockLabel}>
-                <span>{String(i + 1).padStart(2, "0")}</span>
-                <code>{block.symbol}</code>
-              </div>
-              <h4>{block.title}</h4>
-              <p>{block.detail}</p>
-              <code className={css.blockOutput}>{block.output}</code>
-            </li>
-          ))}
-        </ol>
-      </details>
-      <details className={css.computationDetails}>
-        <summary>Model code · annotated training specification</summary>
-        <pre tabIndex={0}>
-          <code>{spec.code}</code>
-        </pre>
-      </details>
-      <p className={css.note}>
-        Pseudocode expresses the intended computation, not an installed training
-        implementation. d = hidden width; V = vocabulary size; θ = trainable parameters.
-        Applied architecture: {profile.spatial.name}; {profile.graph.name}.
-      </p>
     </div>
+  );
+}
+
+/**
+ * The computation's module responsibilities as one ribbon of tensor glyphs: each module's
+ * operator symbol above the tensor it hands on, joined by solid forward connectors in
+ * execution order (the figure grammar's forward activations), with the update written back
+ * along a dashed return (backward gradient). While the run is live the forward connectors
+ * carry the flow mark.
+ */
+function TensorRibbon({
+  blocks,
+  running,
+  label,
+}: {
+  readonly blocks: readonly ComputationBlock[];
+  readonly running: boolean;
+  readonly label: string;
+}) {
+  return (
+    <figure
+      className={`${css.ribbon} engineeringField`}
+      role="img"
+      aria-label={label}
+      data-running={running || undefined}
+    >
+      <figcaption className={css.ribbonCaption} aria-hidden="true">
+        FIGURE 03B · TENSOR CONTRACT
+      </figcaption>
+      <ol className={css.ribbonTrack} aria-hidden="true">
+        {blocks.map((block, i) => (
+          <li key={block.title} className={css.ribbonNode}>
+            <span className={css.ribbonIndex}>{String(i + 1).padStart(2, "0")}</span>
+            <code className={css.ribbonSymbol}>{block.symbol}</code>
+            <span className={css.ribbonTitle}>{block.title}</span>
+            <code className={css.ribbonTensor}>{block.output}</code>
+            {i < blocks.length - 1 && <i className={css.ribbonPulse} />}
+          </li>
+        ))}
+      </ol>
+      <span className={css.ribbonReturn} aria-hidden="true">
+        <i />
+        <code>∇θ</code>
+      </span>
+    </figure>
   );
 }
 
@@ -439,60 +407,32 @@ export function ExecutionArchitecture({
   config,
   profile,
   stage,
-}: Pick<LiveCardProps, "config" | "profile" | "stage">) {
+  step,
+  running,
+}: Pick<LiveCardProps, "config" | "profile" | "stage" | "step" | "running">) {
+  // The acceptance gate is drawn against its targets in §05; here it stays only as the
+  // figure's accessible description.
+  const gate = LIFECYCLE[stage.id].gate;
   return (
-    <div className={css.panel}>
+    <div className={css.panel} role="group" aria-labelledby="execution-architecture-title">
       <header className={css.panelHeading}>
         <div>
-          <span className={css.eyebrow}>TRAINING / SERVING BOUNDARY</span>
-          <h3>Execution topology & memory ownership</h3>
+          <span className={css.eyebrow}>FIGURE 04C–F</span>
+          <h3 id="execution-architecture-title">Mesh · HBM · data · serving</h3>
         </div>
-        <span className={css.badge}>Planning model</span>
+        <span className={css.badge}>Estimate</span>
       </header>
-      <div className={css.executionGrid}>
-        <div>
-          <h4>Data plane</h4>
-          <code>source → loader → processor → workers</code>
-          <p>
-            Split by drawing before augmentation. Bound decoding, preserve evidence IDs and
-            checkpoint sampler state for reproducible restarts.
-          </p>
-        </div>
-        <div>
-          <h4>Training workers</h4>
-          <code>
-            {config.nodes} nodes × {config.gpusPerNode} GPUs = {profile.gpus} ranks
-          </code>
-          <p>
-            {profile.accelerator.name} · {config.precision.toUpperCase()} planned precision.
-            The existing memory estimate assumes ZeRO-3 sharding; actual placement and
-            collectives require a connected cluster.
-          </p>
-        </div>
-        <div>
-          <h4>Memory domains</h4>
-          <code>weights / gradients / optimizer / activations</code>
-          <p>
-            ZeRO partitions training state. Activation memory and communication buffers
-            still need a measured budget. The inference KV cache is a separate serving
-            concern.
-          </p>
-        </div>
-        <div>
-          <h4>Serving qualification</h4>
-          <code>processor → prefill → KV cache → decode</code>
-          <p>
-            Compare vLLM, SGLang or TensorRT-LLM only after validating the exported model
-            and multimodal adapters. No inference engine is connected here.
-          </p>
-        </div>
-      </div>
-      <div className={css.gate}>
-        <strong>
-          {stage.id === "distillation" ? "Deployment acceptance" : "Checkpoint acceptance"}
-        </strong>
-        <p>{LIFECYCLE[stage.id].gate}</p>
-      </div>
+      <ExecutionDiagrams
+        stage={stage}
+        step={step}
+        running={running}
+        config={config}
+        profile={profile}
+      />
+      <p className="srOnly">
+        {stage.id === "distillation" ? "Deployment acceptance: " : "Checkpoint acceptance: "}
+        {gate}
+      </p>
     </div>
   );
 }

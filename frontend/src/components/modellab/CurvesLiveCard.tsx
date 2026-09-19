@@ -10,17 +10,25 @@ import {
   type PointerEvent,
 } from "react";
 
-import { checkpointMarkers, emaSmooth, evalMarkers } from "@/lib/modellab/evaluation";
+import {
+  checkpointMarkers,
+  emaSmooth,
+  evalMarkers,
+  lastEvalStep,
+} from "@/lib/modellab/evaluation";
+import { checkpointLifecycle } from "@/lib/modellab/events";
 import { curveAt, formatSteps, learningRateAt } from "@/lib/modellab/run";
-import type { CurveSpec, CurveTab, RunSpec } from "@/lib/modellab/stages";
+import type { CurveSpec, CurveTab, Stage } from "@/lib/modellab/stages";
+import { SERIES_COUNT, seriesColour } from "@/lib/series";
 
-import { Card } from "./Cards";
+import { Card, Chip } from "./Cards";
 import type { LiveCardProps } from "./live";
 import base from "./ModelLab.module.css";
 import styles from "./CurvesLiveCard.module.css";
-import { SERIES_COUNT, seriesColour } from "@/lib/series";
 
 const HEIGHT = 216;
+/** Height of the KL-to-reference strip under the RL reward chart. */
+const STRIP = 58;
 /** Roughly how many samples each series carries up to the current step. */
 const TARGET_POINTS = 200;
 /** Minimum horizontal spacing, in CSS pixels, between drawn markers. */
@@ -28,6 +36,8 @@ const MARKER_GAP = 8;
 /** How close, in CSS pixels, the pointer must be for the crosshair to snap to a marker. */
 const SNAP = 6;
 const LR_COLOUR = seriesColour(SERIES_COUNT - 1);
+/** Legend key of the held-out overlay derived for a training objective. */
+const HELDOUT_KEY = "__heldout";
 
 const number = (value: number) => value.toLocaleString("en-US");
 
@@ -45,13 +55,13 @@ function formatRate(value: number): string {
 /** Wall-clock distance behind the head, in training time at the configured throughput. */
 function approxAgo(seconds: number): string {
   const s = Math.max(0, Math.round(seconds));
-  if (s < 60) return "≈ <1m ago";
+  if (s < 60) return "−<1m";
   const days = Math.floor(s / 86400);
   const hours = Math.floor((s % 86400) / 3600);
   const minutes = Math.floor((s % 3600) / 60);
-  if (days > 0) return `≈ ${days}d ${hours}h ago`;
-  if (hours > 0) return `≈ ${hours}h ${minutes}m ago`;
-  return `≈ ${minutes}m ago`;
+  if (days > 0) return `−${days}d ${hours}h`;
+  if (hours > 0) return `−${hours}h ${minutes}m`;
+  return `−${minutes}m`;
 }
 
 /** The smallest 1-2-5 stride that keeps the grid at or under the target point count. */
@@ -71,23 +81,32 @@ interface Built {
   readonly lr: readonly number[];
 }
 
+/** A signal measured only when the harness evaluates: one point per published evaluation. */
+interface EvalSeries {
+  readonly steps: readonly number[];
+  readonly values: readonly number[];
+}
+
 /**
  * Samples on a fixed stride so points already drawn keep their positions and values as the
- * run advances; only the head sample moves.
+ * run advances; only the head sample moves. Values are read with the stage as context, the
+ * same reading the run console and the telemetry use, so totals are their weighted terms
+ * and multi-epoch losses step at each epoch boundary.
  */
-function buildSeries(tab: CurveTab, run: RunSpec, head: number): Built {
+function buildSeries(tab: CurveTab, stage: Stage, head: number): Built {
   const stride = strideFor(head);
   const steps: number[] = [];
   for (let s = 0; s < head; s += stride) steps.push(s);
   steps.push(head);
   const raw = new Map<string, number[]>();
   for (const curve of tab.curves) {
+    if (curve.evaluation) continue;
     raw.set(
       curve.key,
-      steps.map((s) => curveAt(curve, s)),
+      steps.map((s) => curveAt(curve, s, stage)),
     );
   }
-  return { steps, stride, raw, lr: steps.map((s) => learningRateAt(run, s)) };
+  return { steps, stride, raw, lr: steps.map((s) => learningRateAt(stage.run, s)) };
 }
 
 function niceTicks(lo: number, hi: number, count: number): number[] {
@@ -112,6 +131,15 @@ function nearestIndex(steps: readonly number[], target: number): number {
   return best;
 }
 
+/** The last evaluation at or before `target`, as an index into an eval series. */
+function evalIndexAt(steps: readonly number[], target: number): number {
+  let found = 0;
+  for (let index = 0; index < steps.length; index += 1) {
+    if (steps[index]! <= target + 1e-9) found = index;
+  }
+  return found;
+}
+
 interface Marker {
   readonly step: number;
   readonly evaluation: boolean;
@@ -123,7 +151,11 @@ export function CurvesLiveCard({ stage, step, running }: LiveCardProps) {
   const { run } = stage;
   const total = run.totalSteps;
   const [tabId, setTabId] = useState(stage.curves[0]!.id);
-  const tab = stage.curves.find((item) => item.id === tabId) ?? stage.curves[0]!;
+  const tabIndex = Math.max(
+    0,
+    stage.curves.findIndex((item) => item.id === tabId),
+  );
+  const tab = stage.curves[tabIndex]!;
   const [logScale, setLogScale] = useState(true);
   const [showLr, setShowLr] = useState(false);
   const [smoothing, setSmoothing] = useState(0.6);
@@ -144,15 +176,47 @@ export function CurvesLiveCard({ stage, step, running }: LiveCardProps) {
   }, []);
 
   const head = Math.min(total, Math.max(0, Math.floor(step)));
-  const built = useMemo(() => buildSeries(tab, run, head), [tab, run, head]);
+  const published = lastEvalStep(stage, head);
+  const built = useMemo(() => buildSeries(tab, stage, head), [tab, stage, head]);
   const smoothed = useMemo(() => {
     const out = new Map<string, readonly number[]>();
     for (const curve of tab.curves) {
-      const values = built.raw.get(curve.key) ?? [];
+      const values = built.raw.get(curve.key);
+      if (!values) continue;
       out.set(curve.key, curve.dashed ? values : emaSmooth(values, smoothing));
     }
     return out;
   }, [built, tab, smoothing]);
+
+  // Held-out signals exist only at published evaluations: the line stops at the last one,
+  // and the stretch from there to the head is the evaluation lag.
+  const evalSteps = useMemo(() => [0, ...evalMarkers(stage, head)], [stage, head]);
+  const primary = tab.curves[0]!;
+  const explicitHeldout = tab.curves.find((curve) => curve.evaluation && curve.dashed);
+  const derivesHeldout =
+    tabIndex === 0 &&
+    !primary.evaluation &&
+    !explicitHeldout &&
+    (primary.response === "loss" || primary.response === "reward");
+  const evalSeries = useMemo(() => {
+    const out = new Map<string, EvalSeries>();
+    for (const curve of tab.curves) {
+      if (!curve.evaluation) continue;
+      out.set(curve.key, {
+        steps: evalSteps,
+        values: evalSteps.map((s) => curveAt(curve, s, stage)),
+      });
+    }
+    if (derivesHeldout) {
+      out.set(HELDOUT_KEY, {
+        steps: evalSteps,
+        values: evalSteps.map((s) => curveAt(primary, s, stage, "heldout")),
+      });
+    }
+    return out;
+  }, [tab, evalSteps, stage, derivesHeldout, primary]);
+  const heldoutKey = explicitHeldout?.key ?? (derivesHeldout ? HELDOUT_KEY : undefined);
+
   const markers = useMemo<readonly Marker[]>(() => {
     const byStep = new Map<number, { evaluation: boolean; checkpoint: boolean }>();
     for (const at of evalMarkers(stage, head)) {
@@ -173,25 +237,61 @@ export function CurvesLiveCard({ stage, step, running }: LiveCardProps) {
       }),
     [run, head, total],
   );
+  // The checkpoint the stage would promote: best held-out value among completed writes.
+  const best = useMemo(
+    () =>
+      tabIndex === 0
+        ? checkpointLifecycle(stage, head, run.stepsPerSecond, 0).best
+        : undefined,
+    [tabIndex, stage, head, run.stepsPerSecond],
+  );
 
-  const visible = tab.curves.filter((curve) => !hidden.has(curve.key));
+  // RL: the KL to the frozen reference, drawn under the reward it constrains.
+  const klCurve =
+    stage.id === "rl" && tab.id === "reward"
+      ? stage.curves.flatMap((item) => item.curves).find((curve) => curve.key === "kl")
+      : undefined;
+  const klAlert = stage.curves
+    .flatMap((item) => item.curves)
+    .find((curve) => curve.key === "kl-alert");
+  const klValues = useMemo(
+    () =>
+      klCurve
+        ? emaSmooth(
+            built.steps.map((s) => curveAt(klCurve, s, stage)),
+            smoothing,
+          )
+        : [],
+    [klCurve, built, stage, smoothing],
+  );
+
+  const isHidden = (key: string) => hidden.has(key);
+  const visible = tab.curves.filter((curve) => !isHidden(curve.key));
   /** A curve keeps its series slot whether or not it is currently drawn. */
   const colourOf = (curve: CurveSpec) =>
     seriesColour(tab.curves.findIndex((item) => item.key === curve.key));
+  const heldoutColour = seriesColour(tab.curves.length);
+  const showDerived = derivesHeldout && !isHidden(HELDOUT_KEY) && !isHidden(primary.key);
 
   // ── geometry ──────────────────────────────────────────────────────────────────────────────
-  const pad = { left: 46, right: showLr ? 54 : 14, top: 12, bottom: 36 };
+  const strip = klCurve ? STRIP : 0;
+  const pad = { left: 46, right: showLr ? 54 : 14, top: 18, bottom: 36 };
   const plotW = Math.max(40, width - pad.left - pad.right);
   const plotH = HEIGHT - pad.top - pad.bottom;
+  const stripTop = pad.top + plotH + 10;
+  const bottom = pad.top + plotH + (strip ? strip + 10 : 0);
+  const svgHeight = bottom + pad.bottom;
   const x = (s: number) => pad.left + (s / total) * plotW;
 
   const domainCurves = visible.length ? visible : tab.curves;
-  const domainValues = domainCurves
-    .flatMap((curve) => [
+  const domainValues = [
+    ...domainCurves.flatMap((curve) => [
       ...(built.raw.get(curve.key) ?? []),
       ...(smoothed.get(curve.key) ?? []),
-    ])
-    .filter((v) => Number.isFinite(v) && (!log || v > 0));
+      ...(evalSeries.get(curve.key)?.values ?? []),
+    ]),
+    ...(showDerived ? (evalSeries.get(HELDOUT_KEY)?.values ?? []) : []),
+  ].filter((v) => Number.isFinite(v) && (!log || v > 0));
   const lo = domainValues.length ? Math.min(...domainValues) : 0;
   const hi = domainValues.length ? Math.max(...domainValues) : 1;
   let yMin: number;
@@ -214,6 +314,8 @@ export function CurvesLiveCard({ stage, step, running }: LiveCardProps) {
   };
   const lrMax = run.learningRate || 1;
   const yLr = (v: number) => pad.top + (1 - v / lrMax) * plotH;
+  const klMax = Math.max(klAlert?.end ?? 0, ...klValues, 1e-6) * 1.15;
+  const yKl = (v: number) => stripTop + (1 - Math.min(1, v / klMax)) * strip;
 
   const yTicks = log
     ? Array.from(
@@ -227,6 +329,10 @@ export function CurvesLiveCard({ stage, step, running }: LiveCardProps) {
     values
       .map((v, i) => `${i ? "L" : "M"}${x(built.steps[i]!).toFixed(1)},${y(v).toFixed(1)}`)
       .join("");
+  const evalPath = (series: EvalSeries) =>
+    series.values
+      .map((v, i) => `${i ? "L" : "M"}${x(series.steps[i]!).toFixed(1)},${y(v).toFixed(1)}`)
+      .join("");
 
   // Thin markers so they never crowd closer than MARKER_GAP pixels; checkpoints win.
   const drawnMarkers: Marker[] = [];
@@ -238,6 +344,39 @@ export function CurvesLiveCard({ stage, step, running }: LiveCardProps) {
       drawnMarkers[drawnMarkers.length - 1] = marker;
     }
   }
+
+  // Generalisation gap: the training objective against its held-out reading, per evaluation.
+  const heldout = heldoutKey ? evalSeries.get(heldoutKey) : undefined;
+  const trainSmooth = smoothed.get(primary.key);
+  const gapVisible =
+    tabIndex === 0 &&
+    heldout !== undefined &&
+    trainSmooth !== undefined &&
+    !isHidden(primary.key) &&
+    !isHidden(heldoutKey!) &&
+    heldout.steps.length > 1;
+  const trainAt = (s: number) => trainSmooth?.[nearestIndex(built.steps, s)] ?? Number.NaN;
+  const gapPolygon = gapVisible
+    ? [
+        ...heldout.steps.map((s) => `${x(s).toFixed(1)},${y(trainAt(s)).toFixed(1)}`),
+        ...heldout.steps
+          .map((s, i) => `${x(s).toFixed(1)},${y(heldout.values[i]!).toFixed(1)}`)
+          .reverse(),
+      ].join(" ")
+    : undefined;
+  const gapNow =
+    gapVisible && heldout.values.length
+      ? heldout.values.at(-1)! - trainAt(heldout.steps.at(-1)!)
+      : undefined;
+
+  const epochs = run.epochs ?? 1;
+  const epochRules =
+    epochs > 1
+      ? Array.from({ length: epochs - 1 }, (_, i) => ({
+          step: (total * (i + 1)) / epochs,
+          label: `E${i + 2}`,
+        }))
+      : [];
 
   // ── hover ─────────────────────────────────────────────────────────────────────────────────
   const hovered = hover === undefined ? undefined : Math.min(head, Math.max(0, hover));
@@ -275,13 +414,31 @@ export function CurvesLiveCard({ stage, step, running }: LiveCardProps) {
     setHover(next);
   };
 
-  const headValue = (curve: CurveSpec) =>
-    smoothed.get(curve.key)?.at(-1) ?? curveAt(curve, head);
-  const summary = `${tab.label} up to step ${number(head)} of ${number(total)}: ${visible
-    .map((curve) => `${curve.label} ${formatValue(headValue(curve))}`)
-    .join(", ")}`;
+  const headValue = (curve: CurveSpec) => {
+    const series = evalSeries.get(curve.key);
+    if (series) return series.values.at(-1) ?? Number.NaN;
+    return smoothed.get(curve.key)?.at(-1) ?? curveAt(curve, head, stage);
+  };
+  const valueAt = (key: string, index: number, at: number) => {
+    const series = evalSeries.get(key);
+    if (series) return series.values[evalIndexAt(series.steps, at)];
+    return smoothed.get(key)?.[index];
+  };
+  const summary =
+    `${tab.label} up to step ${number(head)} of ${number(total)}: ${visible
+      .map((curve) => `${curve.label} ${formatValue(headValue(curve))}`)
+      .join(", ")}` +
+    (heldout ? `; held-out published at step ${number(published)}` : "") +
+    (gapNow !== undefined ? `, generalisation gap ${formatValue(gapNow)}` : "") +
+    (best
+      ? `; best checkpoint step ${number(best.step)} (${formatValue(best.valLoss)})`
+      : "") +
+    (epochRules.length ? `; ${epochs} epochs` : "") +
+    (klCurve && klValues.length
+      ? `; KL to reference ${formatValue(klValues.at(-1)!)}${klAlert ? ` against alert ${formatValue(klAlert.end)}` : ""}`
+      : "");
 
-  const tipWidth = 200;
+  const tipWidth = 190;
   const tipLeft =
     hovered === undefined
       ? 0
@@ -294,6 +451,14 @@ export function CurvesLiveCard({ stage, step, running }: LiveCardProps) {
     setHidden(new Set());
     setHover(undefined);
   };
+  const toggle = (key: string) =>
+    setHidden((current) => {
+      const next = new Set(current);
+      if (!next.delete(key)) next.add(key);
+      return next;
+    });
+
+  const lagWidth = x(head) - x(published);
 
   return (
     <Card
@@ -301,7 +466,7 @@ export function CurvesLiveCard({ stage, step, running }: LiveCardProps) {
       icon="pulse"
       aside={
         <span className={styles.aside}>
-          <span className={styles.simulated}>Simulated run</span>
+          <Chip tone="sim">simulated</Chip>
           <span className={styles.stepNote}>step {number(head)}</span>
         </span>
       }
@@ -355,7 +520,7 @@ export function CurvesLiveCard({ stage, step, running }: LiveCardProps) {
                 checked={logScale}
                 onChange={(event) => setLogScale(event.target.checked)}
               />
-              Log scale
+              log
             </label>
           ) : null}
           <label className={styles.control}>
@@ -364,10 +529,10 @@ export function CurvesLiveCard({ stage, step, running }: LiveCardProps) {
               checked={showLr}
               onChange={(event) => setShowLr(event.target.checked)}
             />
-            LR schedule
+            LR
           </label>
           <label className={styles.control} htmlFor={`${ids}-smoothing`}>
-            Smoothing
+            EMA
           </label>
           <input
             id={`${ids}-smoothing`}
@@ -377,6 +542,7 @@ export function CurvesLiveCard({ stage, step, running }: LiveCardProps) {
             max={0.99}
             step={0.01}
             value={smoothing}
+            aria-label="Smoothing"
             aria-valuetext={`${smoothing.toFixed(2)} exponential moving average weight`}
             onChange={(event) => setSmoothing(Number(event.target.value))}
           />
@@ -397,12 +563,24 @@ export function CurvesLiveCard({ stage, step, running }: LiveCardProps) {
           >
             <svg
               width={width}
-              height={HEIGHT}
+              height={svgHeight}
               role="img"
               aria-label={summary}
               onPointerMove={onPointerMove}
               onPointerLeave={() => setHover(undefined)}
             >
+              <defs>
+                <pattern
+                  id={`${ids}-lag`}
+                  width="5"
+                  height="5"
+                  patternUnits="userSpaceOnUse"
+                  patternTransform="rotate(45)"
+                >
+                  <line x1="0" y1="0" x2="0" y2="5" className={styles.lagHatch} />
+                </pattern>
+              </defs>
+
               {yTicks.map((v) => (
                 <g key={v}>
                   <line
@@ -435,7 +613,7 @@ export function CurvesLiveCard({ stage, step, running }: LiveCardProps) {
                 <text
                   key={s}
                   x={x(s)}
-                  y={HEIGHT - 20}
+                  y={bottom + 16}
                   textAnchor="middle"
                   className={base.axisText}
                 >
@@ -444,12 +622,52 @@ export function CurvesLiveCard({ stage, step, running }: LiveCardProps) {
               ))}
               <text
                 x={pad.left + plotW / 2}
-                y={HEIGHT - 4}
+                y={bottom + 32}
                 textAnchor="middle"
                 className={base.axisText}
               >
-                Training steps
+                step
               </text>
+
+              {/* Epoch boundaries: where a multi-epoch run starts revisiting its data. */}
+              {epochRules.map((rule) => (
+                <g key={rule.label}>
+                  <line
+                    x1={x(rule.step)}
+                    x2={x(rule.step)}
+                    y1={pad.top - 6}
+                    y2={bottom}
+                    className={styles.epochRule}
+                  />
+                  <text x={x(rule.step) + 3} y={pad.top - 8} className={styles.ruleText}>
+                    {rule.label}
+                  </text>
+                </g>
+              ))}
+
+              {/* Evaluation lag: trained, not yet measured on the held-out split. */}
+              {lagWidth > 1 ? (
+                <g>
+                  <rect
+                    x={x(published)}
+                    y={pad.top}
+                    width={lagWidth}
+                    height={plotH}
+                    fill={`url(#${ids}-lag)`}
+                    className={styles.lagBand}
+                  />
+                  {lagWidth > 30 ? (
+                    <text
+                      x={x(published) + lagWidth / 2}
+                      y={pad.top + 10}
+                      textAnchor="middle"
+                      className={styles.ruleText}
+                    >
+                      lag
+                    </text>
+                  ) : null}
+                </g>
+              ) : null}
 
               {drawnMarkers.map((marker) => (
                 <line
@@ -483,7 +701,7 @@ export function CurvesLiveCard({ stage, step, running }: LiveCardProps) {
                     transform={`translate(${width - 4} ${pad.top + plotH / 2}) rotate(90)`}
                     textAnchor="middle"
                   >
-                    Learning rate
+                    LR
                   </text>
                   <path
                     d={built.lr
@@ -512,7 +730,35 @@ export function CurvesLiveCard({ stage, step, running }: LiveCardProps) {
                 </g>
               ) : null}
 
+              {gapPolygon ? <polygon points={gapPolygon} className={styles.gap} /> : null}
+
               {visible.map((curve) => {
+                const series = evalSeries.get(curve.key);
+                if (series) {
+                  return (
+                    <g key={curve.key}>
+                      <path
+                        d={evalPath(series)}
+                        fill="none"
+                        stroke={colourOf(curve)}
+                        strokeWidth={1.6}
+                        strokeDasharray={curve.dashed ? "5 3" : undefined}
+                        strokeLinejoin="round"
+                      />
+                      {series.steps.length <= 60
+                        ? series.steps.map((s, i) => (
+                            <circle
+                              key={s}
+                              cx={x(s)}
+                              cy={y(series.values[i]!)}
+                              r={1.8}
+                              fill={colourOf(curve)}
+                            />
+                          ))
+                        : null}
+                    </g>
+                  );
+                }
                 const raw = built.raw.get(curve.key) ?? [];
                 const smooth = smoothed.get(curve.key) ?? [];
                 if (curve.dashed) {
@@ -550,15 +796,127 @@ export function CurvesLiveCard({ stage, step, running }: LiveCardProps) {
                 );
               })}
 
+              {showDerived && evalSeries.get(HELDOUT_KEY) ? (
+                <g>
+                  <path
+                    d={evalPath(evalSeries.get(HELDOUT_KEY)!)}
+                    fill="none"
+                    stroke={heldoutColour}
+                    strokeWidth={1.6}
+                    strokeDasharray="5 3"
+                    strokeLinejoin="round"
+                  />
+                  {evalSeries.get(HELDOUT_KEY)!.steps.length <= 60
+                    ? evalSeries
+                        .get(HELDOUT_KEY)!
+                        .steps.map((s, i) => (
+                          <circle
+                            key={s}
+                            cx={x(s)}
+                            cy={y(evalSeries.get(HELDOUT_KEY)!.values[i]!)}
+                            r={1.8}
+                            fill={heldoutColour}
+                          />
+                        ))
+                    : null}
+                </g>
+              ) : null}
+
+              {gapVisible && gapNow !== undefined && heldout ? (
+                <text
+                  x={x(heldout.steps.at(-1)!) - 4}
+                  y={
+                    (y(heldout.values.at(-1)!) + y(trainAt(heldout.steps.at(-1)!))) / 2 +
+                    3.5
+                  }
+                  textAnchor="end"
+                  className={styles.gapText}
+                >
+                  Δ {gapNow >= 0 ? "+" : "−"}
+                  {formatValue(Math.abs(gapNow))}
+                </text>
+              ) : null}
+
+              {best && !isHidden(primary.key) ? (
+                <g className={styles.best}>
+                  <rect
+                    x={x(best.step) - 4.5}
+                    y={y(best.valLoss) - 4.5}
+                    width={9}
+                    height={9}
+                    transform={`rotate(45 ${x(best.step)} ${y(best.valLoss)})`}
+                  />
+                  <text
+                    x={x(best.step)}
+                    y={y(best.valLoss) + (stage.id === "rl" ? 16 : -9)}
+                    textAnchor="middle"
+                    className={styles.bestText}
+                  >
+                    best {formatSteps(best.step)}
+                  </text>
+                </g>
+              ) : null}
+
+              {klCurve ? (
+                <g>
+                  <line
+                    x1={pad.left}
+                    x2={pad.left + plotW}
+                    y1={stripTop + strip}
+                    y2={stripTop + strip}
+                    className={base.gridLine}
+                  />
+                  {klAlert ? (
+                    <g>
+                      <line
+                        x1={pad.left}
+                        x2={pad.left + plotW}
+                        y1={yKl(klAlert.end)}
+                        y2={yKl(klAlert.end)}
+                        className={styles.alertLine}
+                      />
+                      <text
+                        x={pad.left + plotW}
+                        y={yKl(klAlert.end) - 3}
+                        textAnchor="end"
+                        className={styles.ruleText}
+                      >
+                        alert {formatValue(klAlert.end)}
+                      </text>
+                    </g>
+                  ) : null}
+                  <path
+                    d={klValues
+                      .map(
+                        (v, i) =>
+                          `${i ? "L" : "M"}${x(built.steps[i]!).toFixed(1)},${yKl(v).toFixed(1)}`,
+                      )
+                      .join("")}
+                    fill="none"
+                    stroke={seriesColour(3)}
+                    strokeWidth={1.5}
+                    strokeLinejoin="round"
+                  />
+                  <text
+                    x={pad.left - 6}
+                    y={stripTop + strip / 2 + 3.5}
+                    textAnchor="end"
+                    className={base.axisText}
+                  >
+                    KL
+                  </text>
+                </g>
+              ) : null}
+
               <line
                 x1={x(head)}
                 x2={x(head)}
                 y1={pad.top}
-                y2={pad.top + plotH}
+                y2={bottom}
                 className={base.stepLine}
               />
               {visible
-                .filter((curve) => !curve.dashed)
+                .filter((curve) => !curve.dashed && !curve.evaluation)
                 .map((curve) => {
                   const cx = x(head);
                   const cy = y(headValue(curve));
@@ -591,12 +949,12 @@ export function CurvesLiveCard({ stage, step, running }: LiveCardProps) {
                     x1={x(hovered)}
                     x2={x(hovered)}
                     y1={pad.top}
-                    y2={pad.top + plotH}
+                    y2={bottom}
                     className={base.hoverLine}
                   />
                   {hoverIndex !== undefined
                     ? visible
-                        .filter((curve) => !curve.dashed)
+                        .filter((curve) => !curve.dashed && !curve.evaluation)
                         .map((curve) => (
                           <circle
                             key={curve.key}
@@ -619,45 +977,55 @@ export function CurvesLiveCard({ stage, step, running }: LiveCardProps) {
                 style={{ left: tipLeft, width: tipWidth }}
                 role="status"
               >
-                <strong>Step {number(Math.round(hovered))}</strong>
-                <span className={styles.tipMuted}>
-                  {head - hovered < 0.5
-                    ? "current step"
-                    : approxAgo((head - hovered) / (run.stepsPerSecond || 1))}
-                </span>
+                <strong>
+                  {number(Math.round(hovered))}
+                  <span className={styles.tipMuted}>
+                    {" "}
+                    {head - hovered < 0.5
+                      ? "head"
+                      : approxAgo((head - hovered) / (run.stepsPerSecond || 1))}
+                  </span>
+                </strong>
                 {visible.map((curve) => {
-                  const raw = built.raw.get(curve.key)?.[hoverIndex];
-                  const smooth = smoothed.get(curve.key)?.[hoverIndex];
+                  const value = valueAt(curve.key, hoverIndex, hovered);
                   return (
                     <span key={curve.key} className={styles.tipRow}>
                       <i style={{ background: colourOf(curve) }} aria-hidden="true" />
                       <span className={styles.tipLabel}>{curve.label}</span>
-                      <b>{formatValue(smooth ?? Number.NaN)}</b>
-                      {!curve.dashed && smoothing > 0 && raw !== undefined ? (
-                        <span className={styles.tipMuted}>({formatValue(raw)})</span>
-                      ) : null}
+                      <b>{formatValue(value ?? Number.NaN)}</b>
                     </span>
                   );
                 })}
+                {showDerived ? (
+                  <span className={styles.tipRow}>
+                    <i style={{ background: heldoutColour }} aria-hidden="true" />
+                    <span className={styles.tipLabel}>held-out</span>
+                    <b>
+                      {formatValue(valueAt(HELDOUT_KEY, hoverIndex, hovered) ?? Number.NaN)}
+                    </b>
+                  </span>
+                ) : null}
+                {klCurve ? (
+                  <span className={styles.tipRow}>
+                    <i style={{ background: seriesColour(3) }} aria-hidden="true" />
+                    <span className={styles.tipLabel}>KL (k3)</span>
+                    <b>{formatValue(klValues[hoverIndex] ?? Number.NaN)}</b>
+                  </span>
+                ) : null}
                 {showLr ? (
                   <span className={styles.tipRow}>
                     <i style={{ background: LR_COLOUR }} aria-hidden="true" />
-                    <span className={styles.tipLabel}>Learning rate</span>
+                    <span className={styles.tipLabel}>LR</span>
                     <b>{formatRate(learningRateAt(run, hovered))}</b>
                   </span>
                 ) : null}
                 {hoverMarkers.map((marker) => (
                   <span key={marker.step} className={styles.tipMarker}>
-                    {marker.evaluation && marker.checkpoint
-                      ? "Evaluation completed · checkpoint written"
-                      : marker.evaluation
-                        ? "Evaluation completed"
-                        : "Checkpoint written"}
+                    {[marker.evaluation ? "eval" : "", marker.checkpoint ? "ckpt" : ""]
+                      .filter(Boolean)
+                      .join(" · ")}
                   </span>
                 ))}
-                {smoothing > 0 ? (
-                  <span className={styles.tipMuted}>smoothed (raw)</span>
-                ) : null}
               </div>
             ) : null}
           </div>
@@ -667,14 +1035,8 @@ export function CurvesLiveCard({ stage, step, running }: LiveCardProps) {
               <li key={curve.key}>
                 <button
                   type="button"
-                  aria-pressed={!hidden.has(curve.key)}
-                  onClick={() =>
-                    setHidden((current) => {
-                      const next = new Set(current);
-                      if (!next.delete(curve.key)) next.add(curve.key);
-                      return next;
-                    })
-                  }
+                  aria-pressed={!isHidden(curve.key)}
+                  onClick={() => toggle(curve.key)}
                 >
                   <i
                     style={{
@@ -689,12 +1051,44 @@ export function CurvesLiveCard({ stage, step, running }: LiveCardProps) {
                 </button>
               </li>
             ))}
+            {derivesHeldout ? (
+              <li>
+                <button
+                  type="button"
+                  aria-pressed={!isHidden(HELDOUT_KEY)}
+                  onClick={() => toggle(HELDOUT_KEY)}
+                >
+                  <i
+                    style={{ background: "transparent", borderColor: heldoutColour }}
+                    data-dashed
+                    aria-hidden="true"
+                  />
+                  <span>held-out</span>
+                  <span className={styles.readout}>
+                    {formatValue(evalSeries.get(HELDOUT_KEY)?.values.at(-1) ?? Number.NaN)}
+                  </span>
+                </button>
+              </li>
+            ) : null}
             <li className={styles.markerKey} aria-hidden="true">
               <span>
-                <i data-kind="eval" /> Eval
+                <i data-kind="eval" /> eval
               </span>
               <span>
-                <i data-kind="checkpoint" /> Checkpoint
+                <i data-kind="checkpoint" /> ckpt
+              </span>
+              {gapVisible ? (
+                <span>
+                  <i data-kind="gap" /> gap
+                </span>
+              ) : null}
+              {best ? (
+                <span>
+                  <i data-kind="best" /> best
+                </span>
+              ) : null}
+              <span>
+                <i data-kind="lag" /> lag
               </span>
             </li>
           </ul>
